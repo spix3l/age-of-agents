@@ -24,7 +24,7 @@ export function createUnitEntity(id: string, kind: UnitEntity['kind'], team: Exc
     activity: 'Idle', cargo: { type: null, amount: 0 }, gatherOrder: null, buildOrder: null, automation: null,
     combat: {
       damage: config.attackDamage, range: config.attackRange, cooldownTime: config.attackCooldown, vision: config.vision,
-      autoAcquires: config.autoAcquires, targetId: null, ordered: false,
+      autoAcquires: config.autoAcquires, targetId: null, lastAttackerId: null, ordered: false,
       cooldown: 0, acquireCooldown: 0, repathCooldown: 0,
     },
   };

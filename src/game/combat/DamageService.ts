@@ -1,5 +1,5 @@
 import type { EntityId } from '../types/ids';
-import type { CombatTarget, Team } from '../types/simulation';
+import type { CombatTarget, SimEntity, Team } from '../types/simulation';
 import { isHostile } from './hostility';
 import type { MatchStats } from './MatchStats';
 
@@ -23,12 +23,14 @@ export class DamageService {
 
   constructor(private readonly stats?: MatchStats) {}
 
-  apply(attacker: { team: Team }, target: CombatTarget, amount: number): DamageResult {
+  apply(attacker: Pick<SimEntity, 'team'> & { readonly id?: EntityId }, target: CombatTarget, amount: number): DamageResult {
     if (!Number.isFinite(amount) || amount <= 0) return { ok: false, reason: 'INVALID_AMOUNT' };
     if (!target.alive || target.hp <= 0) return { ok: false, reason: 'DEAD_TARGET' };
     if (!isHostile(attacker, target)) return { ok: false, reason: 'FRIENDLY_FIRE' };
     const applied = Math.min(amount, target.hp);
     target.hp = Math.max(0, target.hp - amount);
+    // Remembering the attacker is what lets Workers and idle Agents defend themselves.
+    if ('combat' in target && attacker.id) target.combat.lastAttackerId = attacker.id;
     this.stats?.recordDamage(attacker.team, applied);
     if (target.hp > 0) return { ok: true, applied, lethal: false };
     this.enqueueDeath(target, attacker.team);

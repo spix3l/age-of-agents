@@ -6,7 +6,13 @@ import { findPath } from '../navigation/AStar';
 import type { NavigationGrid } from '../navigation/NavigationGrid';
 import type { BuildingEntity, UnitEntity, Vec2 } from '../types/simulation';
 
+function distance(a: Vec2, b: Vec2): number { return Math.hypot(a.x - b.x, a.z - b.z); }
+
 export const WORKER_CARGO_CAPACITY = 10;
+/** How close a Worker must actually be before a travel leg counts as finished. */
+export const ARRIVAL_RADIUS = 2.4;
+/** Deposits are drawn as a cluster roughly this wide. */
+const NODE_RADIUS = 1.6;
 
 export class GatheringSystem {
   constructor(
@@ -27,15 +33,21 @@ export class GatheringSystem {
 
     if (order.state === 'moving-to-node') {
       if (!node?.alive && worker.cargo.amount === 0) return this.idle(worker);
-      if (worker.destination === null) {
+      if (worker.destination !== null || !node) return;
+      // Arriving is a distance test, not just "the path ended": combat or a blocked path can
+      // clear a destination early, and the Worker must resume the trip instead of mining air.
+      if (distance(worker.position, node.position) <= ARRIVAL_RADIUS + NODE_RADIUS) {
         order.state = 'extracting';
         order.workSeconds = 0;
+        return;
       }
+      this.moveToNode(worker, node);
       return;
     }
 
     if (order.state === 'extracting') {
       if (!node?.alive) return worker.cargo.amount > 0 ? this.returnToCore(worker) : this.idle(worker);
+      if (distance(worker.position, node.position) > ARRIVAL_RADIUS + NODE_RADIUS + 1) return this.moveToNode(worker, node);
       order.workSeconds += delta;
       const config = RESOURCES[node.resourceType];
       if (order.workSeconds < config.harvestSeconds) return;
@@ -49,10 +61,16 @@ export class GatheringSystem {
     }
 
     if (order.state === 'returning') {
-      if (worker.destination === null) {
+      if (worker.destination !== null) return;
+      const depot = this.depotFor(worker);
+      if (!depot) return this.idle(worker);
+      const reach = ARRIVAL_RADIUS + Math.max(depot.footprint.x, depot.footprint.z) / 2;
+      if (distance(worker.position, depot.position) <= reach) {
         order.state = 'depositing';
         order.workSeconds = 0;
+        return;
       }
+      this.returnToCore(worker);
       return;
     }
 
@@ -64,8 +82,14 @@ export class GatheringSystem {
     else this.idle(worker);
   }
 
+  private depotFor(worker: UnitEntity): BuildingEntity | undefined {
+    return this.buildings.alive()
+      .filter((building) => building.team === worker.team && building.acceptsDeposits && building.operational)
+      .sort((a, b) => distance(a.position, worker.position) - distance(b.position, worker.position) || a.id.localeCompare(b.id))[0];
+  }
+
   private returnToCore(worker: UnitEntity): void {
-    const core = this.buildings.alive().find((building) => building.team === worker.team && building.acceptsDeposits);
+    const core = this.depotFor(worker);
     if (!core) return this.idle(worker);
     this.setPath(worker, this.approachPoint(core.position, worker.position, Math.max(core.footprint.x, core.footprint.z) / 2 + 1));
     if (!worker.gatherOrder) return;

@@ -42,6 +42,8 @@ export interface CombatComponent {
   readonly vision: number;
   readonly autoAcquires: boolean;
   targetId: EntityId | null;
+  /** Who hit this unit most recently. Drives self-defense for non-combat Agents. */
+  lastAttackerId: EntityId | null;
   /** True when a player or AI explicitly ordered this attack. */
   ordered: boolean;
   cooldown: number;

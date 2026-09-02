@@ -21,7 +21,7 @@ export const UNITS = {
   worker: {
     id: 'worker', label: 'Worker Agent', maxHp: 70, movementSpeed: 5.2,
     radius: 0.45, capacityCost: 1, cost: { matter: 45 }, productionTime: 6,
-    attackDamage: 5, attackRange: 1.6, attackCooldown: 1.4, vision: 9, autoAcquires: false,
+    attackDamage: 7, attackRange: 1.6, attackCooldown: 1.1, vision: 9, autoAcquires: false,
   },
   striker: {
     id: 'striker', label: 'Striker', maxHp: 120, movementSpeed: 4,

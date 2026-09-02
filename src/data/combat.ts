@@ -6,6 +6,11 @@ export const COMBAT = Object.freeze({
   repathInterval: 0.5,
   /** Radius searched when an ordered target dies, expressed in world units. */
   retargetRadius: 9,
+  /**
+   * How far a non-combat Agent will step toward whatever is shooting it. Enough to close on an
+   * attacker that outranges it, far too short to be lured away from its job.
+   */
+  defensivePursuit: 6,
   /** Extra distance a unit may drift beyond its stopping range before repathing. */
   rangeTolerance: 0.35,
   /** Seconds a destruction effect stays visible. */

@@ -30,6 +30,7 @@ export class CombatSystem {
       if (combat.damage <= 0) continue;
 
       let target = this.resolveTarget(unit);
+      if (!target) target = this.retaliate(unit);
       if (!target) target = this.acquire(unit);
       if (!target) {
         if (unit.activity === 'Attacking' || unit.activity === 'Engaging') unit.activity = unit.destination ? 'Moving' : 'Idle';
@@ -50,19 +51,43 @@ export class CombatSystem {
       combat.ordered = false;
       return wasOrdered || combat.autoAcquires ? this.retarget(unit, COMBAT.retargetRadius) : null;
     }
-    if (!combat.ordered && distanceBetween(unit, target) > combat.vision * 1.5) {
+    const leash = combat.autoAcquires ? combat.vision * 1.5 : COMBAT.defensivePursuit;
+    if (!combat.ordered && distanceBetween(unit, target) > leash) {
+      // A Worker shoots what is already on top of it, but never abandons its job to chase.
       combat.targetId = null;
       return null;
     }
     return target;
   }
 
+  /**
+   * Anything that can shoot defends itself, including Workers. Self-defense never overrides an
+   * explicit order and never makes a non-combat Agent chase its attacker.
+   */
+  private retaliate(unit: UnitEntity): CombatTarget | null {
+    const attackerId = unit.combat.lastAttackerId;
+    if (!attackerId) return null;
+    const attacker = this.deps.lookup(attackerId);
+    if (!attacker?.alive || !isHostile(unit, attacker)) {
+      unit.combat.lastAttackerId = null;
+      return null;
+    }
+    if (distanceBetween(unit, attacker) > unit.combat.vision) return null;
+    unit.combat.targetId = attacker.id;
+    return attacker;
+  }
+
+  /**
+   * Idle Agents pick their own targets: combat units across their whole vision, everything else
+   * only within arm's reach of where they are standing. A busy Agent acquires nothing and is
+   * limited to returning fire.
+   */
   private acquire(unit: UnitEntity): CombatTarget | null {
     const combat = unit.combat;
-    if (!combat.autoAcquires || combat.acquireCooldown > 0) return null;
+    if (combat.acquireCooldown > 0) return null;
     if (unit.gatherOrder || unit.buildOrder || unit.automation || unit.destination) return null;
     combat.acquireCooldown = COMBAT.acquisitionInterval;
-    return this.retarget(unit, combat.vision);
+    return this.retarget(unit, combat.autoAcquires ? combat.vision : COMBAT.defensivePursuit);
   }
 
   private retarget(unit: UnitEntity, radius: number): CombatTarget | null {
@@ -79,6 +104,7 @@ export class CombatSystem {
     const distance = distanceBetween(unit, target);
 
     if (distance <= stopDistance) {
+      // Stop to shoot, but leave gather/build orders intact so the job resumes afterwards.
       if (unit.destination) {
         unit.path = [];
         unit.pathIndex = 0;
@@ -96,6 +122,11 @@ export class CombatSystem {
       return;
     }
 
+    // A Worker will take a step toward an attacker that outranges it, but no further.
+    if (!combat.ordered && !combat.autoAcquires && distance > COMBAT.defensivePursuit) {
+      combat.targetId = null;
+      return;
+    }
     unit.activity = 'Engaging';
     const needsPath = !unit.destination || distance > stopDistance + COMBAT.rangeTolerance;
     if (!needsPath || combat.repathCooldown > 0) return;
