@@ -4,7 +4,7 @@ import type { ResourceNodeEntity } from '../entities/resources/ResourceNode';
 import type { BuildingEntity, Team, UnitEntity, Vec2 } from '../types/simulation';
 import { BUILDINGS } from '../../data/buildings';
 import type { PlaceableBuildingType } from '../building/PlacementController';
-import { MAP_BOUNDS, WORLD_OBSTACLES } from './map';
+import { MAP_BOUNDS, MAP_SIZE, WORLD_OBSTACLES } from './map';
 import { EffectsManager } from '../rendering/EffectsManager';
 
 interface HealthBar { readonly group: THREE.Group; readonly fill: THREE.Mesh; readonly width: number }
@@ -24,6 +24,7 @@ export class WorldScene {
   private animationTime = 0;
   private placementGhost: THREE.Group | null = null;
   private placementGhostType: PlaceableBuildingType | null = null;
+  private readonly sun: THREE.DirectionalLight;
   private readonly effects: EffectsManager;
   private readonly billboardQuaternion = new THREE.Quaternion();
 
@@ -31,15 +32,18 @@ export class WorldScene {
     this.scene.background = new THREE.Color(0xa8c9c5);
     this.scene.fog = new THREE.Fog(0xa8c9c5, 58, 118);
     this.scene.add(new THREE.HemisphereLight(0xe6f5dc, 0x42522d, 2.2));
-    const sun = new THREE.DirectionalLight(0xffe5b2, 3.7);
-    sun.position.set(-28, 42, 22);
-    sun.castShadow = true;
-    sun.shadow.mapSize.set(2048, 2048);
-    sun.shadow.camera.left = -45; sun.shadow.camera.right = 45;
-    sun.shadow.camera.top = 40; sun.shadow.camera.bottom = -40;
-    this.scene.add(sun);
+    this.sun = new THREE.DirectionalLight(0xffe5b2, 3.7);
+    this.sun.position.set(-28, 42, 22);
+    this.sun.castShadow = true;
+    this.sun.shadow.mapSize.set(2048, 2048);
+    // The shadow frustum stays tight and travels with the camera, so a large map keeps
+    // crisp shadows instead of stretching one huge low-resolution map across it.
+    this.sun.shadow.camera.left = -34; this.sun.shadow.camera.right = 34;
+    this.sun.shadow.camera.top = 30; this.sun.shadow.camera.bottom = -30;
+    this.sun.shadow.camera.far = 160;
+    this.scene.add(this.sun, this.sun.target);
 
-    const terrain = new THREE.PlaneGeometry(MAP_BOUNDS.maxX - MAP_BOUNDS.minX, MAP_BOUNDS.maxZ - MAP_BOUNDS.minZ, 36, 26);
+    const terrain = new THREE.PlaneGeometry(MAP_SIZE.width, MAP_SIZE.depth, Math.round(MAP_SIZE.width / 2), Math.round(MAP_SIZE.depth / 2));
     const terrainPositions = terrain.getAttribute('position');
     const colors: number[] = [];
     const color = new THREE.Color();
@@ -55,7 +59,7 @@ export class WorldScene {
     this.ground.name = 'terrain';
     this.scene.add(this.ground);
 
-    const grid = new THREE.GridHelper(72, 72, 0xbad689, 0x6f9148);
+    const grid = new THREE.GridHelper(Math.max(MAP_SIZE.width, MAP_SIZE.depth), Math.max(MAP_SIZE.width, MAP_SIZE.depth), 0xbad689, 0x6f9148);
     grid.position.y = 0.015;
     const gridMaterials = Array.isArray(grid.material) ? grid.material : [grid.material];
     gridMaterials.forEach((material) => { material.transparent = true; material.opacity = 0.055; });
@@ -76,9 +80,13 @@ export class WorldScene {
   }
 
   /** Advances presentation-only state: pooled combat effects and camera-facing indicators. */
-  updatePresentation(frameDelta: number, view: THREE.Object3D): void {
+  updatePresentation(frameDelta: number, view: THREE.Object3D, focus?: THREE.Vector3): void {
     this.effects.update(frameDelta);
     view.getWorldQuaternion(this.billboardQuaternion);
+    if (!focus) return;
+    this.sun.target.position.set(focus.x, 0, focus.z);
+    this.sun.position.set(focus.x - 28, 46, focus.z + 22);
+    this.sun.target.updateMatrixWorld();
   }
 
   get effectCounters(): { readonly active: number; readonly pooled: number; readonly created: number; readonly dropped: number } {
@@ -418,7 +426,7 @@ export class WorldScene {
   }
 
   private addPerimeterForest(): void {
-    const count = 118;
+    const count = 210;
     const trunkGeometry = new THREE.CylinderGeometry(0.16, 0.28, 1.5, 5);
     const crownGeometry = new THREE.IcosahedronGeometry(0.9, 0);
     const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x4e3d28, roughness: 1, flatShading: true });
@@ -435,8 +443,8 @@ export class WorldScene {
       const edge = index % 4;
       const along = this.noise(index * 5 + 1);
       const edgeOffset = -1.5 + this.noise(index * 5 + 2) * 3;
-      if (edge < 2) position.set(MAP_BOUNDS.minX + along * 72, 0, edge === 0 ? MAP_BOUNDS.minZ + edgeOffset : MAP_BOUNDS.maxZ - edgeOffset);
-      else position.set(edge === 2 ? MAP_BOUNDS.minX + edgeOffset : MAP_BOUNDS.maxX - edgeOffset, 0, MAP_BOUNDS.minZ + along * 52);
+      if (edge < 2) position.set(MAP_BOUNDS.minX + along * MAP_SIZE.width, 0, edge === 0 ? MAP_BOUNDS.minZ + edgeOffset : MAP_BOUNDS.maxZ - edgeOffset);
+      else position.set(edge === 2 ? MAP_BOUNDS.minX + edgeOffset : MAP_BOUNDS.maxX - edgeOffset, 0, MAP_BOUNDS.minZ + along * MAP_SIZE.depth);
       const height = 0.8 + this.noise(index * 5 + 3) * 1.35;
       euler.set(0, this.noise(index * 5 + 4) * Math.PI * 2, 0);
       rotation.setFromEuler(euler);
@@ -456,13 +464,16 @@ export class WorldScene {
   private addBoundaryCliffs(): void {
     const material = new THREE.MeshStandardMaterial({ color: 0xa67b45, roughness: 0.98, flatShading: true });
     const geometry = new THREE.DodecahedronGeometry(1, 0);
-    const cliffs = new THREE.InstancedMesh(geometry, material, 30);
+    const northCount = Math.round(MAP_SIZE.width / 4.3);
+    const westCount = Math.round(MAP_SIZE.depth / 4.8);
+    const total = northCount + westCount;
+    const cliffs = new THREE.InstancedMesh(geometry, material, total);
     const matrix = new THREE.Matrix4();
     const rotation = new THREE.Quaternion();
-    for (let index = 0; index < 30; index += 1) {
-      const north = index < 18;
-      const x = north ? -36 + index * 4.3 : -35 + this.noise(index + 40) * 4;
-      const z = north ? MAP_BOUNDS.minZ - 1.5 + this.noise(index + 50) : -26 + (index - 18) * 4.8;
+    for (let index = 0; index < total; index += 1) {
+      const north = index < northCount;
+      const x = north ? MAP_BOUNDS.minX + index * 4.3 : MAP_BOUNDS.minX + 1 + this.noise(index + 40) * 4;
+      const z = north ? MAP_BOUNDS.minZ - 1.5 + this.noise(index + 50) : MAP_BOUNDS.minZ + (index - northCount) * 4.8;
       const height = 2.3 + this.noise(index + 70) * 2.2;
       rotation.setFromEuler(new THREE.Euler(this.noise(index) * 0.2, this.noise(index + 10) * Math.PI, 0));
       matrix.compose(new THREE.Vector3(x, height * 0.55, z), rotation, new THREE.Vector3(2.6, height, 2.8));
@@ -476,7 +487,7 @@ export class WorldScene {
     const group = new THREE.Group();
     const metal = new THREE.MeshStandardMaterial({ color: 0x5d6657, roughness: 0.7, metalness: 0.45, flatShading: true });
     const glow = new THREE.MeshStandardMaterial({ color: 0x5dd7c3, emissive: 0x247d70, emissiveIntensity: 1.2 });
-    const locations = [[-31, -5], [30, 6], [18, 21]] as const;
+    const locations = [[-52, -4], [51, 5], [24, 34], [-25, -35], [2, 2]] as const;
     for (const [x, z] of locations) {
       const base = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 1.1, 0.6, 6), metal);
       const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.22, 3.2, 5), metal);

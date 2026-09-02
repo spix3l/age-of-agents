@@ -2,15 +2,12 @@
 export const AI = Object.freeze({
   /** Strategic decisions per second. The PRD caps this at 2–4 Hz. */
   decisionsPerSecond: 3,
-  /** Worker targets by match phase. */
-  workers: { early: 7, mid: 10, late: 12 },
   earlyPhaseSeconds: 150,
   midPhaseSeconds: 420,
   /** Share of Workers assigned to Energy; the rest gather Matter. */
   energyWorkerRatio: 0.25,
   /** Build a Relay once free capacity drops to this many slots. */
   capacityHeadroom: 3,
-  maxRelays: 4,
   maxFabricators: 2,
   /** Ring around the Core used for building placement candidates. */
   buildRingMin: 5.5,
@@ -19,8 +16,6 @@ export const AI = Object.freeze({
   /** Seconds a build type is skipped after repeated placement failures. */
   placementBackoffSeconds: 6,
   placementFailureLimit: 3,
-  /** Strikers required before an assault leaves the assembly point. */
-  attackForce: 16,
   /** Smaller force the AI will still commit with when it can no longer reinforce. */
   minimumAssault: 5,
   /** Reinforcement must be impossible for this long before the fallback assault commits. */
@@ -37,7 +32,7 @@ export const AI = Object.freeze({
   recoverLossRatio: 0.6,
   recoverLossWindowSeconds: 25,
   /** Seconds between scout dispatches while the enemy Core is unknown. */
-  scoutInterval: 45,
+  scoutInterval: 30,
   /** Multiplier applied to unit vision when deciding what the AI has observed. */
   observationRange: 1,
   /** Distance from the Core where new military units gather. */
@@ -47,12 +42,56 @@ export const AI = Object.freeze({
 });
 
 export type AIPhase = 'early' | 'mid' | 'late';
+export type AIDifficulty = 'relaxed' | 'standard' | 'relentless';
+
+export interface AITuning {
+  readonly difficulty: AIDifficulty;
+  readonly label: string;
+  readonly description: string;
+  /** Worker target per match phase. */
+  readonly workers: Readonly<Record<AIPhase, number>>;
+  /** Strikers required before a planned assault launches. */
+  readonly attackForce: number;
+  /** Seconds between military production orders; a higher value is a slower opponent. */
+  readonly productionInterval: number;
+  /** No assault may launch before this point in the match. */
+  readonly earliestAttackSeconds: number;
+  readonly maxRelays: number;
+}
+
+/**
+ * Difficulty presets. These are the only numbers that change how hard the opponent plays;
+ * its decision-making is identical at every level, so it never cheats to be harder.
+ */
+export const AI_DIFFICULTY: Readonly<Record<AIDifficulty, AITuning>> = Object.freeze({
+  relaxed: {
+    difficulty: 'relaxed', label: 'RELAXED', description: 'Builds slowly and attacks late. Room to learn the colony loop.',
+    workers: { early: 6, mid: 8, late: 10 }, attackForce: 10,
+    productionInterval: 9, earliestAttackSeconds: 780, maxRelays: 4,
+  },
+  standard: {
+    difficulty: 'standard', label: 'STANDARD', description: 'Expands, masses a real army, and commits once it has one.',
+    workers: { early: 8, mid: 11, late: 13 }, attackForce: 16,
+    productionInterval: 4.5, earliestAttackSeconds: 540, maxRelays: 6,
+  },
+  relentless: {
+    difficulty: 'relentless', label: 'RELENTLESS', description: 'Maximum economy, constant production, early aggression.',
+    workers: { early: 10, mid: 14, late: 18 }, attackForce: 22,
+    productionInterval: 0, earliestAttackSeconds: 180, maxRelays: 9,
+  },
+});
+
+export const DEFAULT_DIFFICULTY: AIDifficulty = 'standard';
+
+export function resolveTuning(difficulty: AIDifficulty = DEFAULT_DIFFICULTY): AITuning {
+  return AI_DIFFICULTY[difficulty] ?? AI_DIFFICULTY[DEFAULT_DIFFICULTY];
+}
 
 export function aiPhase(elapsedSeconds: number): AIPhase {
   if (elapsedSeconds < AI.earlyPhaseSeconds) return 'early';
   return elapsedSeconds < AI.midPhaseSeconds ? 'mid' : 'late';
 }
 
-export function desiredWorkers(elapsedSeconds: number): number {
-  return AI.workers[aiPhase(elapsedSeconds)];
+export function desiredWorkers(elapsedSeconds: number, tuning: AITuning): number {
+  return tuning.workers[aiPhase(elapsedSeconds)];
 }

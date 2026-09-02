@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import type { AIDifficulty } from '../data/ai';
 import { BUILDINGS } from '../data/buildings';
 import { RESOURCES } from '../data/resources';
 import { UNITS } from '../data/units';
@@ -26,6 +27,10 @@ import { WorldScene } from './world/WorldScene';
 function isUnit(entity: SelectableEntity): entity is UnitEntity { return 'movementSpeed' in entity; }
 function isBuilding(entity: SelectableEntity): entity is BuildingEntity { return 'productionQueue' in entity; }
 
+export interface GameOptions {
+  readonly difficulty?: AIDifficulty;
+}
+
 export class Game {
   private readonly renderer: Renderer;
   private readonly world: WorldScene;
@@ -42,11 +47,12 @@ export class Game {
   private smoothedFps = 60;
   private disposed = false;
 
-  constructor(container: HTMLElement) {
+  constructor(container: HTMLElement, options: GameOptions = {}) {
     this.renderer = new Renderer(container);
     this.world = new WorldScene();
     this.camera = new RTSCameraController(this.renderer.instance.domElement);
     this.simulation = new MatchSimulation({
+      difficulty: options.difficulty,
       hooks: {
         onUnitAdded: (unit) => this.world.addUnit(unit),
         onUnitRemoved: (unit) => this.world.removeUnit(unit.id),
@@ -203,7 +209,7 @@ export class Game {
     const frameDelta = this.lastFrameTime === null ? 1 / 60 : Math.min(0.1, (now - this.lastFrameTime) / 1000);
     this.lastFrameTime = now;
     this.smoothedFps += (1 / Math.max(frameDelta, 1 / 240) - this.smoothedFps) * 0.08;
-    this.world.updatePresentation(frameDelta, this.camera.camera);
+    this.world.updatePresentation(frameDelta, this.camera.camera, this.camera.focusPoint);
     this.world.syncUnits(this.state.units.all(), alpha);
     this.world.syncStructures(this.state.buildings.all(), this.state.resources.all());
     this.renderer.render(this.world.scene, this.camera.camera);

@@ -13,15 +13,22 @@ describe('economy match', () => {
     for (const team of ['player', 'enemy'] as const) {
       expect(ownedBy(first.buildings, team).filter((building) => building.kind === 'core')).toHaveLength(1);
       expect(ownedBy(first.units, team).filter((unit) => unit.kind === 'worker')).toHaveLength(3);
-      expect(first.resources.filter((node) => node.id.startsWith(team))).toHaveLength(2);
+      // Home cluster (2 Matter, 1 Energy) plus an expansion cluster (1 Matter, 1 Energy).
+      expect(first.resources.filter((node) => node.id.startsWith(team))).toHaveLength(5);
     }
     const grid = new NavigationGrid(MAP_BOUNDS.minX, MAP_BOUNDS.minZ, MAP_BOUNDS.maxX, MAP_BOUNDS.maxZ);
     WORLD_OBSTACLES.forEach((obstacle) => grid.setBlockedRect(obstacle.center, obstacle.size, true, 0.65));
     first.buildings.forEach((building) => grid.setBlockedRect(building.position, building.footprint, true, 0.35));
     for (const team of ['player', 'enemy'] as const) {
       const worker = first.units.find((unit) => unit.team === team)!;
-      for (const node of first.resources.filter((resource) => resource.id.startsWith(team))) {
-        expect(Math.hypot(worker.position.x - node.position.x, worker.position.z - node.position.z)).toBeLessThan(12);
+      const home = first.resources.filter((resource) => /^\w+-(matter-1|matter-2|energy-1)$/.test(resource.id) && resource.id.startsWith(team));
+      expect(home).toHaveLength(3);
+      for (const node of home) {
+        expect(Math.hypot(worker.position.x - node.position.x, worker.position.z - node.position.z)).toBeLessThan(16);
+        expect(findPath(grid, worker.position, node.position).length).toBeGreaterThan(0);
+      }
+      // The contested middle is reachable from both bases.
+      for (const node of first.resources.filter((resource) => resource.id.startsWith('middle'))) {
         expect(findPath(grid, worker.position, node.position).length).toBeGreaterThan(0);
       }
     }

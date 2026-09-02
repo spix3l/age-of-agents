@@ -23,6 +23,7 @@ import type { PlaceableBuildingType } from '../building/PlacementController';
 import { createMatch, type MatchOptions } from '../world/createMatch';
 import { MAP_BOUNDS, WORLD_OBSTACLES } from '../world/map';
 import { AIController, type AIControllerOptions } from '../ai/AIController';
+import type { AIDifficulty } from '../../data/ai';
 import { MatchState, type MatchResult } from './MatchState';
 
 export interface MatchHooks {
@@ -42,6 +43,7 @@ export interface MatchSimulationOptions extends MatchOptions {
   readonly hooks?: MatchHooks;
   /** Set to false to run without an opponent, e.g. in isolated combat fixtures. */
   readonly opponent?: boolean | AIControllerOptions;
+  readonly difficulty?: AIDifficulty;
 }
 
 type PlayableTeam = Exclude<Team, 'neutral'>;
@@ -110,7 +112,11 @@ export class MatchSimulation {
     const opponent = options.opponent ?? true;
     this.opponent = opponent === false
       ? null
-      : new AIController(this, { seed: options.seed, ...(opponent === true ? {} : opponent) });
+      : new AIController(this, {
+        seed: options.seed,
+        difficulty: options.difficulty,
+        ...(opponent === true ? {} : opponent),
+      });
   }
 
   get elapsedSeconds(): number { return this.state.elapsedSeconds; }

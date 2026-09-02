@@ -1,4 +1,4 @@
-import { AI, aiPhase, desiredWorkers, type AIPhase } from '../../data/ai';
+import { AI, aiPhase, desiredWorkers, type AIPhase, type AITuning } from '../../data/ai';
 
 export type AIState = 'EXPAND_ECONOMY' | 'TECH' | 'BUILD_ARMY' | 'SCOUT' | 'DEFEND' | 'ATTACK' | 'RECOVER';
 
@@ -40,8 +40,8 @@ export interface AIDecision {
  * Utility scoring over the seven strategic states. Pure and deterministic: the same snapshot
  * always yields the same decision, which is what the soak seeds depend on.
  */
-export function scoreStates(snapshot: AISnapshot): Record<AIState, number> {
-  const wanted = desiredWorkers(snapshot.elapsedSeconds);
+export function scoreStates(snapshot: AISnapshot, tuning: AITuning): Record<AIState, number> {
+  const wanted = desiredWorkers(snapshot.elapsedSeconds, tuning);
   const workerDeficit = Math.max(0, wanted - snapshot.workers) / wanted;
   const capacityFree = snapshot.capacityMax - snapshot.capacityUsed - snapshot.capacityReserved;
 
@@ -52,37 +52,37 @@ export function scoreStates(snapshot: AISnapshot): Record<AIState, number> {
       ? 90
       : 0,
     // A stalled economy must never deadlock the match: commit with a smaller force instead.
-    ATTACK: snapshot.enemyCoreKnown && (
-      snapshot.army >= AI.attackForce
+    ATTACK: snapshot.enemyCoreKnown && snapshot.elapsedSeconds >= tuning.earliestAttackSeconds && (
+      snapshot.army >= tuning.attackForce
       || (snapshot.army >= AI.minimumAssault && snapshot.reinforceStalledSeconds >= AI.reinforceStallSeconds && snapshot.productionQueued === 0)
     ) ? 80 : 0,
     SCOUT: !snapshot.enemyCoreKnown && !snapshot.scoutActive && snapshot.secondsSinceScout >= AI.scoutInterval && snapshot.army + snapshot.workers > 3
       ? 70
       : 0,
-    BUILD_ARMY: snapshot.fabricators > 0 && capacityFree > 0 && snapshot.army < AI.attackForce ? 55 : 0,
+    BUILD_ARMY: snapshot.fabricators > 0 && capacityFree > 0 && snapshot.army < tuning.attackForce ? 55 : 0,
     // Generations arrive with D6-02; until then TECH is a declared placeholder that never wins.
     TECH: 0,
     EXPAND_ECONOMY: 30 + workerDeficit * 40 + (snapshot.fabricators === 0 ? 15 : 0),
   };
 }
 
-export function decideState(snapshot: AISnapshot): AIDecision {
-  const scores = scoreStates(snapshot);
+export function decideState(snapshot: AISnapshot, tuning: AITuning): AIDecision {
+  const scores = scoreStates(snapshot, tuning);
   const ordered = (Object.keys(scores) as AIState[]).sort((a, b) => scores[b] - scores[a] || a.localeCompare(b));
   const state = ordered[0] ?? 'EXPAND_ECONOMY';
-  return { state, scores, reason: reasonFor(state, snapshot) };
+  return { state, scores, reason: reasonFor(state, snapshot, tuning) };
 }
 
-function reasonFor(state: AIState, snapshot: AISnapshot): string {
+function reasonFor(state: AIState, snapshot: AISnapshot, tuning: AITuning): string {
   switch (state) {
     case 'DEFEND': return `${snapshot.threatsNearBase} hostiles near base`;
     case 'RECOVER': return `lost ${snapshot.armyLostRecently} of ${snapshot.peakArmy} agents`;
-    case 'ATTACK': return snapshot.army >= AI.attackForce
+    case 'ATTACK': return snapshot.army >= tuning.attackForce
       ? `${snapshot.army} strikers ready, core known`
       : `${snapshot.army} strikers committed, cannot reinforce`;
     case 'SCOUT': return 'enemy core undiscovered';
-    case 'BUILD_ARMY': return `${snapshot.army}/${AI.attackForce} strikers`;
+    case 'BUILD_ARMY': return `${snapshot.army}/${tuning.attackForce} strikers`;
     case 'TECH': return 'placeholder until Generations ship';
-    default: return `${snapshot.workers}/${desiredWorkers(snapshot.elapsedSeconds)} workers, phase ${aiPhase(snapshot.elapsedSeconds)}`;
+    default: return `${snapshot.workers}/${desiredWorkers(snapshot.elapsedSeconds, tuning)} workers, phase ${aiPhase(snapshot.elapsedSeconds)}`;
   }
 }

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { MAP_BOUNDS } from '../world/map';
+import { MAP_BOUNDS, START_POSITIONS } from '../world/map';
 
 // Equal X/Y/Z offsets produce the classic orthographic isometric elevation:
 // atan(1 / sqrt(2)) = ~35.3 degrees above the ground plane.
@@ -19,7 +19,7 @@ export function panDirectionForKey(key: string): PanDirection | null {
 
 export class RTSCameraController {
   readonly camera: THREE.OrthographicCamera;
-  private readonly focus = new THREE.Vector3(-22, 0, 12);
+  private readonly focus = new THREE.Vector3(START_POSITIONS.player.x + 4, 0, START_POSITIONS.player.z - 4);
   private readonly pressed = new Set<string>();
   private zoom = 1;
   private readonly viewSize = 30;
@@ -36,6 +36,9 @@ export class RTSCameraController {
     this.resize();
     this.sync();
   }
+
+  /** World-space point the camera is centred on; the sun and shadows follow it. */
+  get focusPoint(): THREE.Vector3 { return this.focus; }
 
   update(delta: number): void {
     let dx = 0; let dz = 0;
@@ -78,7 +81,7 @@ export class RTSCameraController {
     event.preventDefault();
     if (event.ctrlKey) {
       // macOS exposes trackpad pinch as a ctrl-modified wheel gesture.
-      this.zoom = THREE.MathUtils.clamp(this.zoom * Math.exp(-event.deltaY * 0.01), 0.65, 2.2);
+      this.zoom = THREE.MathUtils.clamp(this.zoom * Math.exp(-event.deltaY * 0.01), 0.42, 2.2);
       this.resize();
       return;
     }

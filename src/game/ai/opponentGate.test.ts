@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { runSoak, type SoakReport } from '../debug/soak';
 
 const SEEDS = [10, 20, 30, 40, 50] as const;
-const MINUTES = 22;
+const MINUTES = 30;
 
 function median(values: readonly number[]): number {
   const sorted = [...values].sort((a, b) => a - b);
@@ -11,6 +11,7 @@ function median(values: readonly number[]): number {
 }
 
 describe('Day 5 opponent gate', () => {
+  // The shipping default difficulty; the presets either side of it are covered below.
   const reports: SoakReport[] = SEEDS.map((seed) => runSoak({ seed, minutes: MINUTES, sampleSeconds: 60 }));
 
   it('destroys an idle player Core in at least four of five fixed-seed runs', () => {
@@ -43,6 +44,18 @@ describe('Day 5 opponent gate', () => {
       expect(states.has('SCOUT')).toBe(true);
       expect(states.has('ATTACK')).toBe(true);
     }
+  });
+
+  it('keeps every difficulty preset winnable and ordered by aggression', () => {
+    const relaxed = runSoak({ seed: 10, difficulty: 'relaxed', minutes: MINUTES, sampleSeconds: 120 });
+    const standard = runSoak({ seed: 10, difficulty: 'standard', minutes: MINUTES, sampleSeconds: 120 });
+    const relentless = runSoak({ seed: 10, difficulty: 'relentless', minutes: MINUTES, sampleSeconds: 120 });
+    for (const report of [relaxed, standard, relentless]) {
+      expect(report.result).toBe('defeat');
+      expect(report.invariantFailures).toEqual([]);
+    }
+    expect(relentless.durationSeconds).toBeLessThan(standard.durationSeconds);
+    expect(standard.durationSeconds).toBeLessThan(relaxed.durationSeconds);
   });
 
   it('is reproducible for a fixed seed', () => {

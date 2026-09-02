@@ -6,6 +6,7 @@ import { SelectionBox } from '../selection/SelectionBox';
 import { useUiStore } from '../store';
 import { WorkerActions } from '../actions/WorkerActions';
 import { EndScreen } from '../menus/EndScreen';
+import { MainMenu } from '../menus/MainMenu';
 import { DebugPanel } from '../debug/DebugPanel';
 
 export function GameHud() {
@@ -44,6 +45,7 @@ export function GameHud() {
       <SelectionBox />
       <DebugPanel />
       <EndScreen />
+      <MainMenu />
     </div>
   );
 }

@@ -1,10 +1,12 @@
 import { MatchSimulation } from '../match/MatchSimulation';
+import type { AIDifficulty } from '../../data/ai';
 import type { MatchResult } from '../match/MatchState';
 import type { AIState } from '../ai/AIStrategy';
 import { Logger, type LogEntry } from './Logger';
 
 export interface SoakOptions {
   readonly seed: number;
+  readonly difficulty?: AIDifficulty;
   readonly minutes?: number;
   readonly sampleSeconds?: number;
   readonly logger?: Logger;
@@ -38,7 +40,11 @@ export function runSoak(options: SoakOptions): SoakReport {
   const minutes = options.minutes ?? 20;
   const sampleSeconds = options.sampleSeconds ?? 30;
   const logger = options.logger ?? new Logger({ categories: ['ai'] });
-  const simulation = new MatchSimulation({ seed: options.seed, scenario: 'economy', opponent: { seed: options.seed } });
+  const simulation = new MatchSimulation({
+    seed: options.seed,
+    scenario: 'economy',
+    opponent: { seed: options.seed, difficulty: options.difficulty },
+  });
   const ai = simulation.opponent;
   if (!ai) throw new Error('Soak runs require an opponent');
 

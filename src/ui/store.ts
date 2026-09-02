@@ -4,6 +4,7 @@ import type { PlaceableBuildingType } from '../game/building/PlacementController
 import type { EntityId, UnitTypeId } from '../game/types/ids';
 import type { HarvestableResourceType } from '../game/types/simulation';
 import type { MatchResult } from '../game/match/MatchState';
+import { DEFAULT_DIFFICULTY, type AIDifficulty } from '../data/ai';
 
 export interface MatchSummary {
   readonly durationSeconds: number;
@@ -82,6 +83,13 @@ interface UiState {
   matchResult: MatchResult | null;
   matchSummary: MatchSummary;
   matchNonce: number;
+  menuOpen: boolean;
+  helpOpen: boolean;
+  difficulty: AIDifficulty;
+  setDifficulty: (difficulty: AIDifficulty) => void;
+  setHelpOpen: (open: boolean) => void;
+  startMatch: () => void;
+  returnToMenu: () => void;
   debugVisible: boolean;
   debug: DebugSnapshot;
   setDebugSnapshot: (debug: DebugSnapshot) => void;
@@ -112,8 +120,17 @@ export const useUiStore = create<UiState>((set, get) => ({
   matter: 0, energy: 0, capacityUsed: 0, capacityReserved: 0, capacityMax: 0,
   selectedCount: 0, totalUnits: 0, selection: EMPTY_SELECTION,
   queue: { count: 0, progress: 0, label: 'QUEUE EMPTY', items: [] },
-  selectionBox: null, lastOrder: 'AWAITING COMMAND', matchResult: null, matchSummary: EMPTY_MATCH_SUMMARY, matchNonce: 0, debugVisible: false, debug: EMPTY_DEBUG, productionRequest: null, buildRequest: null, automationRequest: null, unitProductionRequest: null, cancelProductionRequest: null, cancelConstructionRequest: null, placementMode: null,
+  selectionBox: null, lastOrder: 'AWAITING COMMAND', matchResult: null, matchSummary: EMPTY_MATCH_SUMMARY, matchNonce: 0,
+  menuOpen: true, helpOpen: false, difficulty: DEFAULT_DIFFICULTY, debugVisible: false, debug: EMPTY_DEBUG, productionRequest: null, buildRequest: null, automationRequest: null, unitProductionRequest: null, cancelProductionRequest: null, cancelConstructionRequest: null, placementMode: null,
   setEconomySnapshot: (snapshot) => set(snapshot),
+  setDifficulty: (difficulty) => set({ difficulty }),
+  setHelpOpen: (helpOpen) => set({ helpOpen }),
+  startMatch: () => set((state) => ({
+    menuOpen: false, helpOpen: false, matchResult: null, matchSummary: EMPTY_MATCH_SUMMARY,
+    matchNonce: state.matchNonce + 1, lastOrder: 'COLONY ONLINE // AWAITING COMMAND',
+    selectionBox: null, placementMode: null,
+  })),
+  returnToMenu: () => set({ menuOpen: true, helpOpen: false, matchResult: null, selectionBox: null, placementMode: null }),
   setDebugSnapshot: (debug) => set({ debug }),
   toggleDebug: () => set((state) => ({ debugVisible: !state.debugVisible })),
   setMatchOutcome: (matchResult, matchSummary) => set({ matchResult, matchSummary }),

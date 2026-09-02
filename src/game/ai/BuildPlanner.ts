@@ -1,4 +1,4 @@
-import { AI } from '../../data/ai';
+import { AI, type AITuning } from '../../data/ai';
 import { BUILDINGS } from '../../data/buildings';
 import { validatePlacement, type PlaceableBuildingType } from '../building/PlacementController';
 import type { Random } from '../util/Random';
@@ -17,7 +17,7 @@ export class BuildPlanner {
   private readonly backoff = new Map<PlaceableBuildingType, Backoff>();
   private lastPlacement: Vec2 | null = null;
 
-  constructor(private readonly random: Random) {}
+  constructor(private readonly random: Random, private readonly tuning: AITuning) {}
 
   get lastSite(): Vec2 | null { return this.lastPlacement; }
 
@@ -48,10 +48,10 @@ export class BuildPlanner {
   private desiredBuilding(view: AIView, snapshot: AISnapshot): PlaceableBuildingType | null {
     if (snapshot.constructionSites > 0) return null;
     const capacityFree = snapshot.capacityMax - snapshot.capacityUsed - snapshot.capacityReserved;
-    if (capacityFree <= AI.capacityHeadroom && snapshot.relays < AI.maxRelays) return 'relay';
+    if (capacityFree <= AI.capacityHeadroom && snapshot.relays < this.tuning.maxRelays) return 'relay';
     if (snapshot.fabricators < 1) return 'fabricator';
     if (snapshot.fabricators < AI.maxFabricators && view.balances().matter > 260) return 'fabricator';
-    if (snapshot.relays < AI.maxRelays && capacityFree <= AI.capacityHeadroom * 2) return 'relay';
+    if (snapshot.relays < this.tuning.maxRelays && capacityFree <= AI.capacityHeadroom * 2) return 'relay';
     return null;
   }
 

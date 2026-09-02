@@ -25,7 +25,7 @@ describe('AI military', () => {
     const simulation = idleMatch(32);
     const ai = simulation.opponent!;
     const playerCore = simulation.coreOf('player')!;
-    for (let step = 0; step < 30 * 240; step += 1) {
+    for (let step = 0; step < 30 * 420; step += 1) {
       simulation.step(1 / 30);
       if (!ai.knowledge.hasDiscoveredCore) {
         expect(playerCore.hp).toBe(playerCore.maxHp);

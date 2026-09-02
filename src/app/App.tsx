@@ -6,13 +6,15 @@ import { useUiStore } from '../ui/store';
 export function App() {
   const gameRoot = useRef<HTMLDivElement>(null);
   const matchNonce = useUiStore((state) => state.matchNonce);
+  const menuOpen = useUiStore((state) => state.menuOpen);
 
   useEffect(() => {
-    if (!gameRoot.current) return;
-    const game = new Game(gameRoot.current);
+    if (!gameRoot.current || menuOpen) return;
+    // Difficulty is read once per match, at construction, so a live match never shifts under the player.
+    const game = new Game(gameRoot.current, { difficulty: useUiStore.getState().difficulty });
     game.start();
     return () => game.dispose();
-  }, [matchNonce]);
+  }, [matchNonce, menuOpen]);
 
   return (
     <main className="game-shell">

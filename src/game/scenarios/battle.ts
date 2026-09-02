@@ -2,6 +2,7 @@ import { STARTING_ECONOMY, RESOURCES } from '../../data/resources';
 import { createCore } from '../entities/buildings/Core';
 import { createResourceNode } from '../entities/resources/ResourceNode';
 import { entityId } from '../types/ids';
+import { START_POSITIONS } from '../world/map';
 import type { BuildingEntity, Team, UnitEntity } from '../types/simulation';
 import { createUnitEntity, type EconomyScenario } from './economy';
 
@@ -11,8 +12,8 @@ import { createUnitEntity, type EconomyScenario } from './economy';
  */
 export function createBattleScenario(seed = 20_260_904, strikersPerSide = 6): EconomyScenario {
   const buildings: BuildingEntity[] = [
-    createCore(entityId('player-core'), 'player', { x: -25, z: 10 }),
-    createCore(entityId('enemy-core'), 'enemy', { x: 25, z: -10 }),
+    createCore(entityId('player-core'), 'player', START_POSITIONS.player),
+    createCore(entityId('enemy-core'), 'enemy', START_POSITIONS.enemy),
   ];
   const units: UnitEntity[] = [];
   for (const [team, originX, originZ, facing] of [['player', -8, 4, 1], ['enemy', 8, -4, -1]] as const) {
@@ -35,10 +36,10 @@ export function createBattleScenario(seed = 20_260_904, strikersPerSide = 6): Ec
     }
   }
   const resources = [
-    createResourceNode(entityId('player-matter'), 'matter', { x: -19, z: 16 }, RESOURCES.matter.capacity),
-    createResourceNode(entityId('player-energy'), 'energy', { x: -26, z: 18 }, RESOURCES.energy.capacity),
-    createResourceNode(entityId('enemy-matter'), 'matter', { x: 19, z: -16 }, RESOURCES.matter.capacity),
-    createResourceNode(entityId('enemy-energy'), 'energy', { x: 26, z: -18 }, RESOURCES.energy.capacity),
+    createResourceNode(entityId('player-matter'), 'matter', { x: START_POSITIONS.player.x + 7, z: START_POSITIONS.player.z - 7 }, RESOURCES.matter.capacity),
+    createResourceNode(entityId('player-energy'), 'energy', { x: START_POSITIONS.player.x + 10, z: START_POSITIONS.player.z - 2 }, RESOURCES.energy.capacity),
+    createResourceNode(entityId('enemy-matter'), 'matter', { x: START_POSITIONS.enemy.x - 7, z: START_POSITIONS.enemy.z + 7 }, RESOURCES.matter.capacity),
+    createResourceNode(entityId('enemy-energy'), 'energy', { x: START_POSITIONS.enemy.x - 10, z: START_POSITIONS.enemy.z + 2 }, RESOURCES.energy.capacity),
   ];
   return { seed, units, buildings, resources, startingBalances: STARTING_ECONOMY };
 }

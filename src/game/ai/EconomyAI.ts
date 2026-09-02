@@ -1,5 +1,6 @@
-import { AI, desiredWorkers } from '../../data/ai';
+import { AI, desiredWorkers, type AITuning } from '../../data/ai';
 import { UNITS } from '../../data/units';
+import type { EntityId } from '../types/ids';
 import type { UnitEntity } from '../types/simulation';
 import type { AICommands, AIView } from './AIContext';
 import type { AISnapshot, AIState } from './AIStrategy';
@@ -10,14 +11,17 @@ import type { AISnapshot, AIState } from './AIStrategy';
  * the same resource and capacity costs a player does.
  */
 export class EconomyAI {
-  update(view: AIView, commands: AICommands, snapshot: AISnapshot, state: AIState): void {
-    this.assignIdleWorkers(view, commands);
+  constructor(private readonly tuning: AITuning) {}
+
+  /** `reserved` holds units another slice is using, such as the current scout. */
+  update(view: AIView, commands: AICommands, snapshot: AISnapshot, state: AIState, reserved: ReadonlySet<EntityId> = new Set()): void {
+    this.assignIdleWorkers(view, commands, reserved);
     this.queueWorkers(view, commands, snapshot, state);
   }
 
   /** Splits free Workers between Matter and Energy using the configured ratio. */
-  private assignIdleWorkers(view: AIView, commands: AICommands): void {
-    const workers = view.units().filter((unit) => unit.kind === 'worker');
+  private assignIdleWorkers(view: AIView, commands: AICommands, reserved: ReadonlySet<EntityId>): void {
+    const workers = view.units().filter((unit) => unit.kind === 'worker' && !reserved.has(unit.id));
     const free = workers.filter(isFree);
     if (free.length === 0) return;
     const busy = workers.filter((worker) => !isFree(worker));
@@ -36,7 +40,7 @@ export class EconomyAI {
   private queueWorkers(view: AIView, commands: AICommands, snapshot: AISnapshot, state: AIState): void {
     const core = view.core();
     if (!core?.operational) return;
-    const wanted = desiredWorkers(snapshot.elapsedSeconds);
+    const wanted = desiredWorkers(snapshot.elapsedSeconds, this.tuning);
     const pending = core.productionQueue.filter((order) => order.unitType === 'worker').length;
     if (snapshot.workers + pending >= wanted) return;
     if (core.productionQueue.length >= 2) return;
@@ -48,8 +52,9 @@ export class EconomyAI {
   }
 }
 
+/** A Worker already travelling under an explicit order is busy, not idle. */
 function isFree(worker: UnitEntity): boolean {
-  return !worker.automation && !worker.gatherOrder && !worker.buildOrder;
+  return !worker.automation && !worker.gatherOrder && !worker.buildOrder && !worker.destination;
 }
 
 function automationType(worker: UnitEntity): 'matter' | 'energy' | null {

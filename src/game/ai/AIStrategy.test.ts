@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { AI } from '../../data/ai';
+import { AI, resolveTuning } from '../../data/ai';
 import { decideState, scoreStates, type AISnapshot, type AIState } from './AIStrategy';
+
+const TUNING = resolveTuning('standard');
+const decide = (input: AISnapshot) => decideState(input, TUNING);
+const score = (input: AISnapshot) => scoreStates(input, TUNING);
 
 function snapshot(overrides: Partial<AISnapshot> = {}): AISnapshot {
   return {
-    elapsedSeconds: 60, phase: 'early', matter: 100, energy: 50,
+    elapsedSeconds: 600, phase: 'mid', matter: 100, energy: 50,
     capacityUsed: 4, capacityReserved: 0, capacityMax: 13,
     workers: 5, idleWorkers: 0, army: 0, hasCore: true,
     fabricators: 0, relays: 1, constructionSites: 0,
@@ -16,60 +20,66 @@ function snapshot(overrides: Partial<AISnapshot> = {}): AISnapshot {
 
 describe('AI strategy', () => {
   it('declares all seven strategic states, with TECH reserved until Generations ship', () => {
-    const states = Object.keys(scoreStates(snapshot())) as AIState[];
+    const states = Object.keys(score(snapshot())) as AIState[];
     expect(states.sort()).toEqual(['ATTACK', 'BUILD_ARMY', 'DEFEND', 'EXPAND_ECONOMY', 'RECOVER', 'SCOUT', 'TECH']);
-    expect(scoreStates(snapshot()).TECH).toBe(0);
+    expect(score(snapshot()).TECH).toBe(0);
   });
 
   it('expands the economy by default and grows that preference with the Worker deficit', () => {
-    expect(decideState(snapshot()).state).toBe('EXPAND_ECONOMY');
-    const hungry = scoreStates(snapshot({ workers: 1 })).EXPAND_ECONOMY;
-    const satisfied = scoreStates(snapshot({ workers: 12 })).EXPAND_ECONOMY;
+    expect(decide(snapshot()).state).toBe('EXPAND_ECONOMY');
+    const hungry = score(snapshot({ workers: 1 })).EXPAND_ECONOMY;
+    const satisfied = score(snapshot({ workers: 12 })).EXPAND_ECONOMY;
     expect(hungry).toBeGreaterThan(satisfied);
   });
 
   it('scouts only while the enemy Core is unknown and no scout is already out', () => {
     const ready = snapshot({ secondsSinceScout: AI.scoutInterval, army: 2 });
-    expect(decideState(ready).state).toBe('SCOUT');
-    expect(decideState({ ...ready, scoutActive: true }).state).not.toBe('SCOUT');
-    expect(decideState({ ...ready, enemyCoreKnown: true }).state).not.toBe('SCOUT');
+    expect(decide(ready).state).toBe('SCOUT');
+    expect(decide({ ...ready, scoutActive: true }).state).not.toBe('SCOUT');
+    expect(decide({ ...ready, enemyCoreKnown: true }).state).not.toBe('SCOUT');
   });
 
   it('builds an army once a Fabricator exists and attacks only with a known Core and enough force', () => {
     const building = snapshot({ fabricators: 1, army: 2, secondsSinceScout: 0, enemyCoreKnown: true });
-    expect(decideState(building).state).toBe('BUILD_ARMY');
-    expect(decideState({ ...building, army: AI.attackForce }).state).toBe('ATTACK');
+    expect(decide(building).state).toBe('BUILD_ARMY');
+    expect(decide({ ...building, army: TUNING.attackForce }).state).toBe('ATTACK');
     // Force alone is never enough: the Core has to have been observed.
-    expect(decideState({ ...building, army: AI.attackForce, enemyCoreKnown: false }).state).not.toBe('ATTACK');
+    expect(decide({ ...building, army: TUNING.attackForce, enemyCoreKnown: false }).state).not.toBe('ATTACK');
   });
 
   it('commits a smaller force rather than deadlocking when it can no longer reinforce', () => {
     const stalled = snapshot({ enemyCoreKnown: true, fabricators: 1, army: AI.minimumAssault, reinforceStalledSeconds: AI.reinforceStallSeconds });
-    expect(decideState(stalled).state).toBe('ATTACK');
-    expect(decideState({ ...stalled, productionQueued: 1 }).state).not.toBe('ATTACK');
-    expect(decideState({ ...stalled, army: AI.minimumAssault - 1 }).state).not.toBe('ATTACK');
+    expect(decide(stalled).state).toBe('ATTACK');
+    expect(decide({ ...stalled, productionQueued: 1 }).state).not.toBe('ATTACK');
+    expect(decide({ ...stalled, army: AI.minimumAssault - 1 }).state).not.toBe('ATTACK');
     // A brief cash shortage is not a stall.
-    expect(decideState({ ...stalled, reinforceStalledSeconds: AI.reinforceStallSeconds - 1 }).state).not.toBe('ATTACK');
+    expect(decide({ ...stalled, reinforceStalledSeconds: AI.reinforceStallSeconds - 1 }).state).not.toBe('ATTACK');
   });
 
   it('prioritises defence over every other state', () => {
-    const besieged = snapshot({ threatsNearBase: 3, army: AI.attackForce, enemyCoreKnown: true, fabricators: 1 });
-    expect(decideState(besieged).state).toBe('DEFEND');
-    expect(scoreStates(besieged).DEFEND).toBeGreaterThan(scoreStates(besieged).ATTACK);
+    const besieged = snapshot({ threatsNearBase: 3, army: TUNING.attackForce, enemyCoreKnown: true, fabricators: 1 });
+    expect(decide(besieged).state).toBe('DEFEND');
+    expect(score(besieged).DEFEND).toBeGreaterThan(score(besieged).ATTACK);
   });
 
   it('recovers after heavy losses and stays in RECOVER until the timer expires', () => {
     const mauled = snapshot({ peakArmy: 8, armyLostRecently: 6, army: 2, fabricators: 1, enemyCoreKnown: true });
-    expect(decideState(mauled).state).toBe('RECOVER');
-    const timed = snapshot({ elapsedSeconds: 100, recoveringUntil: 130, fabricators: 1, army: AI.attackForce, enemyCoreKnown: true });
-    expect(decideState(timed).state).toBe('RECOVER');
-    expect(decideState({ ...timed, elapsedSeconds: 131 }).state).toBe('ATTACK');
+    expect(decide(mauled).state).toBe('RECOVER');
+    const timed = snapshot({ elapsedSeconds: 700, recoveringUntil: 730, fabricators: 1, army: TUNING.attackForce, enemyCoreKnown: true });
+    expect(decide(timed).state).toBe('RECOVER');
+    expect(decide({ ...timed, elapsedSeconds: 731 }).state).toBe('ATTACK');
+  });
+
+  it('never launches an assault before the difficulty\u2019s earliest attack time', () => {
+    const ready = snapshot({ enemyCoreKnown: true, fabricators: 1, army: TUNING.attackForce });
+    expect(decide({ ...ready, elapsedSeconds: TUNING.earliestAttackSeconds }).state).toBe('ATTACK');
+    expect(decide({ ...ready, elapsedSeconds: TUNING.earliestAttackSeconds - 1 }).state).not.toBe('ATTACK');
   });
 
   it('is a pure function of the snapshot', () => {
     const input = snapshot({ army: 3, fabricators: 1 });
-    const first = decideState(input);
-    const second = decideState({ ...input });
+    const first = decide(input);
+    const second = decide({ ...input });
     expect(second.state).toBe(first.state);
     expect(second.scores).toEqual(first.scores);
     expect(first.reason).toBeTruthy();

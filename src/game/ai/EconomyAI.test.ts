@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MatchSimulation } from '../match/MatchSimulation';
 import { checkInvariants } from '../debug/soak';
-import { desiredWorkers } from '../../data/ai';
+import { desiredWorkers, resolveTuning } from '../../data/ai';
 
 function idleMatch(seed = 11) {
   return new MatchSimulation({ seed, scenario: 'economy', opponent: { seed } });
@@ -18,7 +18,7 @@ describe('AI economy', () => {
     simulation.run(270);
     const grown = simulation.unitsOf('enemy').filter((unit) => unit.kind === 'worker');
     expect(grown.length).toBeGreaterThan(3);
-    expect(grown.length).toBeLessThanOrEqual(desiredWorkers(simulation.elapsedSeconds) + 2);
+    expect(grown.length).toBeLessThanOrEqual(desiredWorkers(simulation.elapsedSeconds, resolveTuning('standard')) + 2);
   });
 
   it('splits Workers across Matter and Energy and actually banks both resources', () => {

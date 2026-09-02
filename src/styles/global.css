@@ -122,6 +122,28 @@ kbd { min-width: 42px; padding: 3px 5px; color: #bddbd5; text-align: center; bor
 .debug-panel dt { color: #6e918b; font: 600 7px 'Arial Narrow', sans-serif; letter-spacing: .1em; }
 .debug-panel dd { margin: 0; color: #cfe7e1; font: 600 8px 'Arial Narrow', sans-serif; overflow-wrap: anywhere; }
 
+.main-menu { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px; overflow-y: auto; pointer-events: auto; background: radial-gradient(circle at 50% 35%, rgba(10,32,31,.9), rgba(3,10,11,.98)); }
+.menu-card { display: flex; flex-direction: column; gap: 14px; width: min(560px, 100%); padding: 30px 34px; border: 1px solid #2f5a55; background: linear-gradient(180deg, #0e2523, #071514); box-shadow: 0 30px 70px rgba(0,0,0,.6); }
+.menu-eyebrow { color: #6f978f; font: 600 8px 'Arial Narrow', sans-serif; letter-spacing: .28em; }
+.menu-card h1 { margin: 0; color: #7ef2d2; font: 700 46px 'Arial Narrow', sans-serif; letter-spacing: .16em; text-shadow: 0 0 26px rgba(94,240,205,.28); }
+.menu-tagline { margin: 0; color: #a8c6c0; font: 400 11px/1.5 'Arial Narrow', sans-serif; }
+.difficulty { display: grid; gap: 6px; margin: 4px 0 0; padding: 12px 0 0; border: 0; border-top: 1px solid #23443f; }
+.difficulty legend { padding: 0 8px 0 0; color: #6f978f; font: 600 7px 'Arial Narrow', sans-serif; letter-spacing: .2em; }
+.difficulty button { display: grid; gap: 3px; padding: 9px 12px; text-align: left; color: #cbe6e0; border: 1px solid #2c4f4a; background: #0d211f; cursor: pointer; }
+.difficulty button strong { font: 700 10px 'Arial Narrow', sans-serif; letter-spacing: .14em; }
+.difficulty button small { color: #86a7a1; font: 400 9px/1.4 'Arial Narrow', sans-serif; }
+.difficulty button:hover, .difficulty button:focus-visible { border-color: #58c8ae; outline: none; }
+.difficulty button.active { color: #06201c; border-color: #74f2cd; background: #58ddb8; }
+.difficulty button.active small { color: #0a3730; }
+.menu-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
+.menu-actions button { min-height: 38px; color: #cfe9e3; border: 1px solid #35635c; background: #12302d; cursor: pointer; font: 700 10px 'Arial Narrow', sans-serif; letter-spacing: .14em; }
+.menu-actions button.primary { color: #06201c; border-color: #74f2cd; background: #63e7c1; }
+.menu-actions button:hover, .menu-actions button:focus-visible { border-color: #8ef7d9; outline: none; }
+.how-to-play { display: grid; gap: 8px; margin: 6px 0 0; padding: 12px 0 0; border-top: 1px solid #23443f; }
+.how-to-play > div { display: grid; grid-template-columns: 62px 1fr; gap: 10px; }
+.how-to-play dt { color: #7ee5ca; font: 700 8px 'Arial Narrow', sans-serif; letter-spacing: .14em; }
+.how-to-play dd { margin: 0; color: #a8c6c0; font: 400 9px/1.5 'Arial Narrow', sans-serif; }
+
 .end-screen { position: fixed; inset: 0; display: grid; place-items: center; pointer-events: auto; background: radial-gradient(circle at 50% 42%, rgba(8,26,26,.72), rgba(4,12,13,.94)); backdrop-filter: blur(3px); }
 .end-card { display: flex; flex-direction: column; gap: 12px; min-width: 320px; max-width: 460px; padding: 26px 30px; border: 1px solid #2f5a55; background: linear-gradient(180deg, #0e2523, #081716); box-shadow: 0 24px 60px rgba(0,0,0,.55); text-align: center; }
 .end-card small { color: #7fa39c; font: 600 8px 'Arial Narrow', sans-serif; letter-spacing: .22em; }
@@ -141,6 +163,9 @@ kbd { min-width: 42px; padding: 3px 5px; color: #bddbd5; text-align: center; bor
 .selection-box { position: fixed; border: 1px solid #69f4d2; background: rgba(53,219,181,.12); box-shadow: inset 0 0 20px rgba(47,230,187,.1), 0 0 8px rgba(82,235,201,.2); }
 
 @media (max-width: 700px) {
+  .menu-card { padding: 20px; }
+  .menu-card h1 { font-size: 34px; }
+  .menu-actions { grid-template-columns: 1fr; }
   .end-card { min-width: 0; width: calc(100vw - 40px); padding: 20px; }
   .end-stats { grid-template-columns: 1fr; }
   .objective-panel { top: 82px; left: 12px; width: 220px; }

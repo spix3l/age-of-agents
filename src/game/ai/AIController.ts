@@ -1,4 +1,4 @@
-import { AI, aiPhase } from '../../data/ai';
+import { AI, aiPhase, resolveTuning, type AIDifficulty, type AITuning } from '../../data/ai';
 import { UNITS } from '../../data/units';
 import type { MatchSimulation } from '../match/MatchSimulation';
 import { Random } from '../util/Random';
@@ -13,6 +13,7 @@ import { decideState, type AIDecision, type AISnapshot, type AIState } from './A
 export interface AIControllerOptions {
   readonly seed?: number;
   readonly team?: PlayableTeam;
+  readonly difficulty?: AIDifficulty;
   readonly onDecision?: (decision: AIDecision, snapshot: AISnapshot) => void;
 }
 
@@ -40,7 +41,8 @@ export class AIController {
   private readonly view: AIView;
   private readonly commands: AICommands;
   private readonly random: Random;
-  private readonly economy = new EconomyAI();
+  readonly tuning: AITuning;
+  private readonly economy: EconomyAI;
   private readonly builder: BuildPlanner;
   private readonly military: MilitaryAI;
   private readonly interval = 1 / AI.decisionsPerSecond;
@@ -64,8 +66,10 @@ export class AIController {
     this.view = context.view;
     this.commands = context.commands;
     this.random = new Random(options.seed ?? 20_260_905);
-    this.builder = new BuildPlanner(this.random);
-    this.military = new MilitaryAI(this.random);
+    this.tuning = resolveTuning(options.difficulty);
+    this.economy = new EconomyAI(this.tuning);
+    this.builder = new BuildPlanner(this.random, this.tuning);
+    this.military = new MilitaryAI(this.random, this.tuning);
   }
 
   get team(): PlayableTeam { return this.view.team; }
@@ -105,14 +109,15 @@ export class AIController {
     this.knowledge.observe([...this.view.units(), ...this.view.buildings()], this.view.hostiles(), elapsed);
     const snapshot = this.buildSnapshot(elapsed);
     this.lastSnapshot = snapshot;
-    const decision = decideState(snapshot);
+    const decision = decideState(snapshot, this.tuning);
     if (decision.state !== this.currentState) this.onStateChange(decision.state, snapshot);
     this.currentState = decision.state;
     this.currentReason = decision.reason;
     this.decisionCount += 1;
     this.options.onDecision?.(decision, snapshot);
 
-    this.economy.update(this.view, this.commands, snapshot, decision.state);
+    const scoutId = this.military.debug.scoutId;
+    this.economy.update(this.view, this.commands, snapshot, decision.state, scoutId ? new Set([scoutId]) : new Set());
     this.builder.update(this.view, this.commands, snapshot, decision.state);
     this.military.update(this.view, this.commands, snapshot, decision.state, this.knowledge, step);
     if (decision.state === 'SCOUT') this.lastScoutAt = elapsed;
@@ -155,7 +160,7 @@ export class AIController {
       constructionSites: buildings.filter((building) => !building.operational).length,
       threatsNearBase: threats.length,
       enemyCoreKnown: this.knowledge.hasDiscoveredCore,
-      scoutActive: Boolean(this.military.debug.scoutId),
+      scoutActive: this.military.debug.scouting,
       secondsSinceScout: elapsed - this.lastScoutAt,
       armyLostRecently: this.recentLosses(elapsed),
       reinforceStalledSeconds: this.reinforceStall(this.canReinforce(buildings, balances, capacity), elapsed),
@@ -165,7 +170,10 @@ export class AIController {
     };
   }
 
-  /** Can another Striker still be produced at all? Drives the fallback assault. */
+  /**
+   * Can another Striker still be produced, now or soon? Only a colony that can neither pay for
+   * one nor still gather is truly stalled, which is what unlocks the fallback assault.
+   */
   private canReinforce(
     buildings: readonly { kind: string; operational: boolean }[],
     balances: { matter: number; energy: number },
@@ -175,7 +183,10 @@ export class AIController {
     if (!hasFabricator) return true;
     if (capacity.used + capacity.reserved >= capacity.max) return true;
     const cost = UNITS.striker.cost;
-    return balances.matter >= (cost.matter ?? 0) && balances.energy >= (cost.energy ?? 0);
+    if (balances.matter >= (cost.matter ?? 0) && balances.energy >= (cost.energy ?? 0)) return true;
+    // Poverty with live income is temporary; poverty with no gatherers left is not.
+    return this.view.units().some((unit) => unit.kind === 'worker' && (unit.gatherOrder || unit.automation))
+      && this.view.resources().length > 0;
   }
 
   private reinforceStall(canReinforce: boolean, elapsed: number): number {

@@ -10,10 +10,11 @@ interface EndScreenCardProps {
   readonly result: MatchResult | null;
   readonly summary: MatchSummary;
   readonly onRestart: () => void;
+  readonly onMainMenu: () => void;
 }
 
 /** Presentational half, kept separate from the store so it can be rendered in tests. */
-export function EndScreenCard({ result, summary, onRestart }: EndScreenCardProps) {
+export function EndScreenCard({ result, summary, onRestart, onMainMenu }: EndScreenCardProps) {
   if (!result) return null;
   const victory = result === 'victory';
   return (
@@ -33,7 +34,7 @@ export function EndScreenCard({ result, summary, onRestart }: EndScreenCardProps
         </dl>
         <div className="end-actions">
           <button type="button" className="primary" onClick={onRestart}>PLAY AGAIN</button>
-          <button type="button" disabled title="Available with the main menu">MAIN MENU</button>
+          <button type="button" onClick={onMainMenu}>MAIN MENU</button>
         </div>
       </div>
     </div>
@@ -44,5 +45,6 @@ export function EndScreen() {
   const result = useUiStore((state) => state.matchResult);
   const summary = useUiStore((state) => state.matchSummary);
   const restart = useUiStore((state) => state.restartMatch);
-  return <EndScreenCard result={result} summary={summary} onRestart={restart} />;
+  const mainMenu = useUiStore((state) => state.returnToMenu);
+  return <EndScreenCard result={result} summary={summary} onRestart={restart} onMainMenu={mainMenu} />;
 }
