@@ -21,6 +21,11 @@ export function createUnitEntity(id: string, kind: UnitEntity['kind'], team: Exc
     hp: config.maxHp, maxHp: config.maxHp, radius: config.radius, movementSpeed: config.movementSpeed,
     path: [], pathIndex: 0, destination: null, stuckSeconds: 0, repathCount: 0, selected: false,
     activity: 'Idle', cargo: { type: null, amount: 0 }, gatherOrder: null, buildOrder: null, automation: null,
+    combat: {
+      damage: config.attackDamage, range: config.attackRange, cooldownTime: config.attackCooldown, vision: config.vision,
+      autoAcquires: config.autoAcquires, targetId: null, ordered: false,
+      cooldown: 0, acquireCooldown: 0, repathCooldown: 0,
+    },
   };
 }
 

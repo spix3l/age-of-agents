@@ -9,7 +9,7 @@ This is the portfolio view for the file-backed backlog derived from [`PRD.md`](P
 | [EPIC-01](backlog/epics/EPIC-01-world.md) | Day 1 | The World | 9 | DONE |
 | [EPIC-02](backlog/epics/EPIC-02-economy.md) | Day 2 | The Machine Economy | 7 | DONE |
 | [EPIC-03](backlog/epics/EPIC-03-colony.md) | Day 3 | Build the Colony | 8 | DONE |
-| [EPIC-04](backlog/epics/EPIC-04-war.md) | Day 4 | War | 7 | TODO |
+| [EPIC-04](backlog/epics/EPIC-04-war.md) | Day 4 | War | 7 | DONE |
 | [EPIC-05](backlog/epics/EPIC-05-opponent.md) | Day 5 | The Other Intelligence | 7 | TODO |
 | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Day 6 | Evolution | 11 | TODO |
 | [EPIC-07](backlog/epics/EPIC-07-release.md) | Day 7 | Survive and Ship | 9 | TODO |
@@ -42,13 +42,13 @@ This is the portfolio view for the file-backed backlog derived from [`PRD.md`](P
 | [D3-06](backlog/tasks/D3-06.md) | [EPIC-03](backlog/epics/EPIC-03-colony.md) | Implement persistent economic automation | P0 | M | D2-02 | DONE |
 | [D3-07](backlog/tasks/D3-07.md) | [EPIC-03](backlog/epics/EPIC-03-colony.md) | Implement rally points | P1 | S | D3-04 | CUT |
 | [D3-08](backlog/tasks/D3-08.md) | [EPIC-03](backlog/epics/EPIC-03-colony.md) | Integrate and prove the Day 3 colony gate | P0 | M | D3-03, D3-04, D3-05, D3-06 | DONE |
-| [D4-01](backlog/tasks/D4-01.md) | [EPIC-04](backlog/epics/EPIC-04-war.md) | Add teams, health, damage, and destruction lifecycle | P0 | M | D1-04, D3-04 | TODO |
-| [D4-02](backlog/tasks/D4-02.md) | [EPIC-04](backlog/epics/EPIC-04-war.md) | Build spatial hash and hostile target queries | P0 | M | D1-04 | TODO |
-| [D4-03](backlog/tasks/D4-03.md) | [EPIC-04](backlog/epics/EPIC-04-war.md) | Implement Attack command and combat state machine | P0 | L | D1-07, D4-01, D4-02 | TODO |
-| [D4-04](backlog/tasks/D4-04.md) | [EPIC-04](backlog/epics/EPIC-04-war.md) | Add readable laser/projectile and impact effects | P0 | M | D4-03 | TODO |
-| [D4-05](backlog/tasks/D4-05.md) | [EPIC-04](backlog/epics/EPIC-04-war.md) | Add health bars, command markers, and death feedback | P0 | M | D4-01, D4-03 | TODO |
-| [D4-06](backlog/tasks/D4-06.md) | [EPIC-04](backlog/epics/EPIC-04-war.md) | Implement Core destruction and match end | P0 | M | D4-01, D2-06 | TODO |
-| [D4-07](backlog/tasks/D4-07.md) | [EPIC-04](backlog/epics/EPIC-04-war.md) | Integrate and prove the Day 4 battle gate | P0 | M | D4-04, D4-05, D4-06 | TODO |
+| [D4-01](backlog/tasks/D4-01.md) | [EPIC-04](backlog/epics/EPIC-04-war.md) | Add teams, health, damage, and destruction lifecycle | P0 | M | D1-04, D3-04 | DONE |
+| [D4-02](backlog/tasks/D4-02.md) | [EPIC-04](backlog/epics/EPIC-04-war.md) | Build spatial hash and hostile target queries | P0 | M | D1-04 | DONE |
+| [D4-03](backlog/tasks/D4-03.md) | [EPIC-04](backlog/epics/EPIC-04-war.md) | Implement Attack command and combat state machine | P0 | L | D1-07, D4-01, D4-02 | DONE |
+| [D4-04](backlog/tasks/D4-04.md) | [EPIC-04](backlog/epics/EPIC-04-war.md) | Add readable laser/projectile and impact effects | P0 | M | D4-03 | DONE |
+| [D4-05](backlog/tasks/D4-05.md) | [EPIC-04](backlog/epics/EPIC-04-war.md) | Add health bars, command markers, and death feedback | P0 | M | D4-01, D4-03 | DONE |
+| [D4-06](backlog/tasks/D4-06.md) | [EPIC-04](backlog/epics/EPIC-04-war.md) | Implement Core destruction and match end | P0 | M | D4-01, D2-06 | DONE |
+| [D4-07](backlog/tasks/D4-07.md) | [EPIC-04](backlog/epics/EPIC-04-war.md) | Integrate and prove the Day 4 battle gate | P0 | M | D4-04, D4-05, D4-06 | DONE |
 | [D5-01](backlog/tasks/D5-01.md) | [EPIC-05](backlog/epics/EPIC-05-opponent.md) | Create AI controller, utility states, and command adapter | P0 | M | D3-08, D4-07 | TODO |
 | [D5-02](backlog/tasks/D5-02.md) | [EPIC-05](backlog/epics/EPIC-05-opponent.md) | Implement AI gathering and Worker production | P0 | L | D5-01 | TODO |
 | [D5-03](backlog/tasks/D5-03.md) | [EPIC-05](backlog/epics/EPIC-05-opponent.md) | Implement AI building and capacity management | P0 | L | D5-01, D5-02 | TODO |

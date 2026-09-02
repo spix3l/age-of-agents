@@ -16,3 +16,6 @@ export const BUILDINGS = {
   relay: { id: 'relay', label: 'Relay Node', maxHp: 450, footprint: [2, 2], cost: { matter: 80, energy: 20 }, constructionTime: 8, capacityContribution: 5 },
   fabricator: { id: 'fabricator', label: 'Fabricator', maxHp: 800, footprint: [4, 3], cost: { matter: 160, energy: 80 }, constructionTime: 12, capacityContribution: 0 },
 } as const satisfies Readonly<Record<BuildingTypeId, BuildingConfig>>;
+
+/** Navigation padding applied around every building footprint. Blocking and unblocking must match. */
+export const BUILDING_FOOTPRINT_PADDING = 0.35;

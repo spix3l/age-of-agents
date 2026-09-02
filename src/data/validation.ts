@@ -18,6 +18,9 @@ export function validateUnitConfig(config: UnitConfig): void {
   if (config.capacityCost < 0 || config.productionTime < 0) {
     throw new Error(`${config.id} has a negative capacity or production time`);
   }
+  if (config.attackDamage < 0 || config.attackRange <= 0 || config.attackCooldown <= 0 || config.vision <= 0) {
+    throw new Error(`${config.id} has invalid combat stats`);
+  }
   validateCost(config.cost, config.id);
 }
 

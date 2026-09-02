@@ -31,11 +31,27 @@ export interface UnitEntity extends SimEntity {
   gatherOrder: { resourceId: EntityId; resourceType: HarvestableResourceType; state: GatherState; workSeconds: number } | null;
   buildOrder: { buildingId: EntityId } | null;
   automation: { resourceType: HarvestableResourceType; searchCooldown: number } | null;
+  combat: CombatComponent;
+}
+
+/** Per-unit combat state. Cooldowns are advanced with simulation delta time only. */
+export interface CombatComponent {
+  readonly damage: number;
+  readonly range: number;
+  readonly cooldownTime: number;
+  readonly vision: number;
+  readonly autoAcquires: boolean;
+  targetId: EntityId | null;
+  /** True when a player or AI explicitly ordered this attack. */
+  ordered: boolean;
+  cooldown: number;
+  acquireCooldown: number;
+  repathCooldown: number;
 }
 
 export type HarvestableResourceType = Exclude<ResourceType, 'data'>;
 export type GatherState = 'moving-to-node' | 'extracting' | 'returning' | 'depositing';
-export type WorkerActivity = 'Idle' | 'Moving' | 'Gathering Matter' | 'Gathering Energy' | 'Returning cargo' | 'Building' | 'Automating Matter' | 'Automating Energy';
+export type WorkerActivity = 'Idle' | 'Moving' | 'Gathering Matter' | 'Gathering Energy' | 'Returning cargo' | 'Building' | 'Automating Matter' | 'Automating Energy' | 'Attacking' | 'Engaging';
 
 export interface ProductionOrder {
   readonly id: EntityId;
@@ -61,3 +77,5 @@ export interface BuildingEntity extends SimEntity {
   builderId: EntityId | null;
   capacityApplied: boolean;
 }
+
+export type CombatTarget = UnitEntity | BuildingEntity;

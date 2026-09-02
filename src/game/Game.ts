@@ -1,16 +1,23 @@
 import * as THREE from 'three';
-import { BUILDINGS } from '../data/buildings';
+import { BUILDINGS, BUILDING_FOOTPRINT_PADDING } from '../data/buildings';
 import { RESOURCES } from '../data/resources';
 import { UNITS } from '../data/units';
 import { useUiStore, type SelectionSnapshot } from '../ui/store';
 import { RTSCameraController } from './camera/RTSCameraController';
 import { PlacementController, validatePlacement, type PlaceableBuildingType, type PlacementFailure } from './building/PlacementController';
+import { issueAttackCommand } from './commands/AttackCommand';
 import { issueGatherCommand } from './commands/GatherCommand';
 import { issueMoveCommand } from './commands/MoveCommand';
 import { automateWorkers } from './commands/AutomateCommand';
 import { Capacity } from './economy/Capacity';
 import { EconomyLedger } from './economy/EconomyLedger';
 import { activateCapacityProvider } from './economy/CapacityProviders';
+import { DamageService, type DeathRecord } from './combat/DamageService';
+import { destroyEntity } from './combat/destruction';
+import { MatchStats } from './combat/MatchStats';
+import { MatchState } from './match/MatchState';
+import { SpatialHash } from './spatial/SpatialHash';
+import { CombatSystem } from './systems/CombatSystem';
 import type { ResourceNodeEntity } from './entities/resources/ResourceNode';
 import { createBuildingSite } from './entities/buildings/Building';
 import { GameLoop } from './GameLoop';
@@ -26,7 +33,7 @@ import { MovementSystem } from './systems/MovementSystem';
 import { ProductionSystem, type ProductionRejection } from './systems/ProductionSystem';
 import { SelectionSystem, type ScreenPoint, type SelectableEntity } from './systems/SelectionSystem';
 import { entityId, type EntityId, type UnitTypeId } from './types/ids';
-import type { BuildingEntity, HarvestableResourceType, UnitEntity } from './types/simulation';
+import type { BuildingEntity, CombatTarget, HarvestableResourceType, UnitEntity } from './types/simulation';
 import { createMatch } from './world/createMatch';
 import { MAP_BOUNDS, WORLD_OBSTACLES } from './world/map';
 import { WorldScene } from './world/WorldScene';
@@ -45,6 +52,11 @@ export class Game {
   private readonly automation: AutomationSystem;
   private readonly construction: ConstructionSystem;
   private readonly production = new ProductionSystem();
+  private readonly combat: CombatSystem;
+  private readonly targets = new SpatialHash<CombatTarget>();
+  private readonly stats = new MatchStats();
+  private readonly damage = new DamageService(this.stats);
+  private readonly match = new MatchState();
   private readonly placement: PlacementController;
   private readonly selection: SelectionSystem;
   private readonly input: InputManager;
@@ -52,6 +64,8 @@ export class Game {
   private readonly raycaster = new THREE.Raycaster();
   private readonly pointer = new THREE.Vector2();
   private uiSnapshotCooldown = 0;
+  private agentsCreated = 0;
+  private lastFrameTime: number | null = null;
   private unitSequence = 4;
   private buildingSequence = 1;
   private disposed = false;
@@ -72,7 +86,7 @@ export class Game {
     }
     for (const building of match.buildings) {
       this.state.buildings.add(building);
-      this.navigation.setBlockedRect(building.position, building.footprint, true, 0.35);
+      this.navigation.setBlockedRect(building.position, building.footprint, true, BUILDING_FOOTPRINT_PADDING);
       this.world.addBuilding(building);
     }
     for (const resource of match.resources) {
@@ -85,6 +99,13 @@ export class Game {
     }
 
     this.movement = new MovementSystem(this.navigation);
+    this.combat = new CombatSystem({
+      targets: this.targets,
+      lookup: (id) => this.state.units.get(id) ?? this.state.buildings.get(id),
+      damage: this.damage,
+      grid: this.navigation,
+      onShot: (attacker, target) => this.world.showShot(attacker.position, target.position, attacker.team, 'footprint' in target ? 1.6 : 0.9),
+    });
     this.gathering = new GatheringSystem(
       this.state.resources,
       this.state.buildings,
@@ -140,6 +161,10 @@ export class Game {
     this.world.dispose();
     this.renderer.dispose();
     this.state.reset();
+    this.targets.clear();
+    this.damage.clear();
+    this.stats.reset();
+    this.match.reset();
     useUiStore.getState().setSelectionBox(null);
     useUiStore.getState().setProductionRequest(null);
     useUiStore.getState().setBuildRequest(null);
@@ -159,8 +184,12 @@ export class Game {
   );
 
   private readonly update = (delta: number): void => {
-    this.state.elapsedSeconds += delta;
     this.camera.update(delta);
+    if (this.match.isOver) {
+      this.publishThrottledUi(delta);
+      return;
+    }
+    this.state.elapsedSeconds += delta;
     this.movement.update(this.state.units.alive(), delta);
     this.gathering.update(this.state.units.alive(), delta);
     this.automation.update(this.state.units.alive(), delta);
@@ -170,24 +199,91 @@ export class Game {
       (team) => team === 'neutral' ? undefined : this.state.economies.get(team),
       this.spawnUnit,
     );
-    this.uiSnapshotCooldown -= delta;
-    if (this.uiSnapshotCooldown <= 0) {
-      this.publishUi();
-      this.uiSnapshotCooldown = 0.1;
-    }
+    this.targets.sync([...this.state.units.alive(), ...this.state.buildings.alive()]);
+    this.combat.update(this.state.units.alive(), delta);
+    this.damage.processDeaths(this.handleDeath);
+    this.publishThrottledUi(delta);
   };
 
+  private publishThrottledUi(delta: number): void {
+    this.uiSnapshotCooldown -= delta;
+    if (this.uiSnapshotCooldown > 0) return;
+    this.publishUi();
+    this.uiSnapshotCooldown = 0.1;
+  }
+
+  /** Runs once per dead entity, after every system has finished iterating its entity list. */
+  private readonly handleDeath = (record: DeathRecord): void => {
+    const entity = record.entity;
+    const isBuilding = 'footprint' in entity;
+    this.world.showDestruction(entity.position, entity.team, isBuilding ? Math.max(entity.footprint.x, entity.footprint.z) * 0.5 : 1);
+    this.targets.remove(entity.id);
+    this.selection.forget(entity.id);
+    destroyEntity(entity, {
+      state: this.state,
+      navigation: this.navigation,
+      onUnitRemoved: (unit) => this.world.removeUnit(unit.id),
+      onBuildingRemoved: (building) => this.world.removeBuilding(building.id),
+    });
+    if (isBuilding && entity.kind === 'core') this.endMatch(entity.team);
+    else useUiStore.getState().setLastOrder(`${entity.team === 'player' ? 'AGENT LOST' : 'HOSTILE DESTROYED'} // ${(isBuilding ? BUILDINGS[entity.kind].label : UNITS[entity.kind].label).toUpperCase()}`);
+    this.publishUi();
+  };
+
+  private endMatch(coreTeam: BuildingEntity['team']): void {
+    const result = this.match.reportCoreDestroyed(coreTeam, this.state.elapsedSeconds);
+    if (!result) return;
+    const ledger = this.state.economies.get('player')?.ledger.collectedSnapshot();
+    const stats = this.stats.snapshot('player');
+    this.selection.clear();
+    this.placement.cancel();
+    this.world.hidePlacementGhost();
+    useUiStore.getState().setPlacementMode(null);
+    useUiStore.getState().setLastOrder(result === 'victory' ? 'ENEMY CORE DESTROYED' : 'CORE LOST');
+    useUiStore.getState().setMatchOutcome(result, {
+      durationSeconds: this.match.endedAt,
+      matterCollected: ledger?.matter ?? 0,
+      energyCollected: ledger?.energy ?? 0,
+      agentsCreated: this.agentsCreated,
+      agentsKilled: stats.unitsKilled,
+      agentsLost: stats.unitsLost,
+      buildingsDestroyed: stats.buildingsDestroyed,
+      buildingsLost: stats.buildingsLost,
+    });
+  }
+
   private readonly render = (alpha: number): void => {
+    const now = performance.now();
+    const frameDelta = this.lastFrameTime === null ? 1 / 60 : Math.min(0.1, (now - this.lastFrameTime) / 1000);
+    this.lastFrameTime = now;
+    this.world.updatePresentation(frameDelta, this.camera.camera);
     this.world.syncUnits(this.state.units.all(), alpha);
     this.world.syncStructures(this.state.buildings.all(), this.state.resources.all());
     this.renderer.render(this.world.scene, this.camera.camera);
   };
 
   private readonly issueContextOrder = (point: ScreenPoint): void => {
+    if (this.match.isOver) return;
     const selectedWorkers = this.selection.selected().filter(isUnit);
     if (selectedWorkers.length === 0) return;
     this.setRay(point);
     const hitIds = this.raycaster.intersectObjects(this.world.selectableMeshes, false).map((hit) => hit.object.userData.entityId as EntityId);
+    const hostileHit = hitIds
+      .map((id): CombatTarget | undefined => this.state.units.get(id) ?? this.state.buildings.get(id))
+      .find((entity): entity is CombatTarget => Boolean(entity?.alive && entity.team === 'enemy'));
+    if (hostileHit) {
+      for (const attacker of selectedWorkers) this.cancelWorkerBuild(attacker);
+      const attack = issueAttackCommand(selectedWorkers, hostileHit, this.navigation);
+      if (attack.issued > 0) {
+        this.world.showAttackMarker(hostileHit.position.x, hostileHit.position.z);
+        useUiStore.getState().setLastOrder(`ATTACK // ${attack.issued} AGENTS`);
+      } else {
+        this.world.showRejectedMarker(hostileHit.position.x, hostileHit.position.z);
+        useUiStore.getState().setLastOrder('ATTACK REJECTED // NO APPROACH');
+      }
+      this.publishUi();
+      return;
+    }
     const siteHit = hitIds.map((id) => this.state.buildings.get(id)).find((building) => Boolean(building?.alive && !building.operational && building.team === 'player'));
     if (siteHit) {
       const builder = selectedWorkers.find((unit) => unit.kind === 'worker');
@@ -226,6 +322,7 @@ export class Game {
   };
 
   private readonly beginPlacement = (type: PlaceableBuildingType): void => {
+    if (this.match.isOver) return;
     const workers = this.selection.selected().filter(isUnit).filter((unit) => unit.kind === 'worker');
     if (workers.length === 0) return;
     this.placement.begin(type);
@@ -254,6 +351,7 @@ export class Game {
   };
 
   private readonly enqueueWorker = (): void => {
+    if (this.match.isOver) return;
     const core = this.selection.selected().find((entity): entity is BuildingEntity => isBuilding(entity) && entity.kind === 'core' && entity.team === 'player');
     const economy = this.state.economies.get('player');
     if (!core || !economy) return;
@@ -263,6 +361,7 @@ export class Game {
   };
 
   private readonly enqueueUnit = (unitType: UnitTypeId): void => {
+    if (this.match.isOver) return;
     const producer = this.selection.selected().find((entity): entity is BuildingEntity => isBuilding(entity) && entity.team === 'player');
     const economy = this.state.economies.get('player');
     if (!producer || !economy) return;
@@ -272,6 +371,7 @@ export class Game {
   };
 
   private readonly cancelProduction = (orderId: EntityId): void => {
+    if (this.match.isOver) return;
     const producer = this.selection.selected().find((entity): entity is BuildingEntity => isBuilding(entity) && entity.team === 'player');
     const economy = this.state.economies.get('player');
     if (!producer || !economy) return;
@@ -282,6 +382,7 @@ export class Game {
   };
 
   private readonly automateSelection = (resourceType: HarvestableResourceType): void => {
+    if (this.match.isOver) return;
     const workers = this.selection.selected().filter(isUnit);
     for (const worker of workers) this.cancelWorkerBuild(worker);
     const changed = automateWorkers(workers, resourceType);
@@ -300,6 +401,7 @@ export class Game {
     const unit = createUnitEntity(`${producer.team}-${unitType}-${this.unitSequence++}`, unitType, producer.team, position);
     this.state.units.add(unit);
     this.world.addUnit(unit);
+    if (producer.team === 'player') this.agentsCreated += 1;
     return unit;
   };
 
@@ -316,10 +418,10 @@ export class Game {
     }
     const site = createBuildingSite(entityId(`player-${type}-${this.buildingSequence++}`), type, 'player', position, worker.id);
     this.state.buildings.add(site);
-    this.navigation.setBlockedRect(site.position, site.footprint, true, 0.35);
+    this.navigation.setBlockedRect(site.position, site.footprint, true, BUILDING_FOOTPRINT_PADDING);
     this.world.addBuilding(site);
     if (!this.construction.assign(worker, site)) {
-      this.navigation.setBlockedRect(site.position, site.footprint, false, 0.35);
+      this.navigation.setBlockedRect(site.position, site.footprint, false, BUILDING_FOOTPRINT_PADDING);
       this.state.buildings.destroy(site.id);
       this.world.removeBuilding(site.id);
       economy.ledger.refund(config.cost);
@@ -338,12 +440,13 @@ export class Game {
   };
 
   private readonly cancelSelectedConstruction = (): void => {
+    if (this.match.isOver) return;
     const site = this.selection.selected().find((entity): entity is BuildingEntity => isBuilding(entity) && !entity.operational && entity.team === 'player');
     const economy = this.state.economies.get('player');
     if (!site || !economy) return;
     const refund = constructionRefund(site);
     economy.ledger.refund(refund);
-    this.navigation.setBlockedRect(site.position, site.footprint, false, 0.35);
+    this.navigation.setBlockedRect(site.position, site.footprint, false, BUILDING_FOOTPRINT_PADDING);
     this.state.buildings.destroy(site.id);
     this.world.removeBuilding(site.id);
     for (const worker of this.state.units.alive()) if (worker.buildOrder?.buildingId === site.id) { worker.buildOrder = null; worker.path = []; worker.pathIndex = 0; worker.destination = null; worker.activity = 'Idle'; }
@@ -393,9 +496,18 @@ export class Game {
   private selectionSnapshot(selected: readonly SelectableEntity[]): SelectionSnapshot {
     if (selected.length === 0) return { type: 'none', name: 'NO SELECTION', activity: 'Select a Worker, Core, or resource node', isPlayerCore: false, canBuild: false };
     if (selected.length > 1) {
-      const workers = selected.filter(isUnit);
-      const active = workers.find((worker) => worker.activity !== 'Idle')?.activity ?? 'Idle';
-      return { type: 'group', name: `${workers.length} WORKER AGENTS`, activity: active, detail: `${workers.reduce((sum, worker) => sum + worker.cargo.amount, 0)} cargo`, isPlayerCore: false, canBuild: workers.some((worker) => worker.kind === 'worker') };
+      const units = selected.filter(isUnit);
+      const active = units.find((unit) => unit.activity !== 'Idle')?.activity ?? 'Idle';
+      const strikers = units.filter((unit) => unit.kind === 'striker').length;
+      const cargo = units.reduce((sum, unit) => sum + unit.cargo.amount, 0);
+      return {
+        type: 'group',
+        name: strikers === units.length ? `${strikers} STRIKERS` : strikers > 0 ? `${units.length} AGENTS` : `${units.length} WORKER AGENTS`,
+        activity: active,
+        detail: strikers > 0 ? `${strikers} armed` : `${cargo} cargo`,
+        isPlayerCore: false,
+        canBuild: units.some((unit) => unit.kind === 'worker'),
+      };
     }
     const entity = selected[0]!;
     if (isUnit(entity)) return { type: 'unit', name: UNITS[entity.kind].label, hp: entity.hp, maxHp: entity.maxHp, activity: entity.automation ? `Automating ${entity.automation.resourceType === 'matter' ? 'Matter' : 'Energy'}` : entity.activity, detail: entity.cargo.amount > 0 ? `${entity.cargo.amount} ${entity.cargo.type}` : undefined, isPlayerCore: false, canBuild: entity.kind === 'worker' };

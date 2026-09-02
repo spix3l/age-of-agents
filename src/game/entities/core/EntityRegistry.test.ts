@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { entityId } from '../../types/ids';
 import type { UnitEntity } from '../../types/simulation';
+import { createWorkerEntity } from '../../scenarios/economy';
 import { EntityRegistry } from './EntityRegistry';
 
 function unit(id: string): UnitEntity {
-  return { id: entityId(id), kind: 'worker', team: 'player', alive: true, position: { x: 0, z: 0 }, previousPosition: { x: 0, z: 0 }, hp: 70, maxHp: 70, radius: 0.5, movementSpeed: 4, path: [], pathIndex: 0, destination: null, stuckSeconds: 0, repathCount: 0, selected: false, activity: 'Idle', cargo: { type: null, amount: 0 }, gatherOrder: null, buildOrder: null, automation: null };
+  return createWorkerEntity(id, 'player', { x: 0, z: 0 });
 }
 
 describe('EntityRegistry', () => {

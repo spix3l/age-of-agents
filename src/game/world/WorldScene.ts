@@ -1,13 +1,15 @@
 import * as THREE from 'three';
 import type { EntityId } from '../types/ids';
 import type { ResourceNodeEntity } from '../entities/resources/ResourceNode';
-import type { BuildingEntity, UnitEntity } from '../types/simulation';
+import type { BuildingEntity, Team, UnitEntity, Vec2 } from '../types/simulation';
 import { BUILDINGS } from '../../data/buildings';
 import type { PlaceableBuildingType } from '../building/PlacementController';
 import { MAP_BOUNDS, WORLD_OBSTACLES } from './map';
+import { EffectsManager } from '../rendering/EffectsManager';
 
-interface UnitVisual { readonly group: THREE.Group; readonly ring: THREE.Mesh; readonly orderBeacon: THREE.Group }
-interface StaticVisual { readonly group: THREE.Group; readonly ring: THREE.Mesh; readonly model?: THREE.Group; readonly progress?: THREE.Mesh }
+interface HealthBar { readonly group: THREE.Group; readonly fill: THREE.Mesh; readonly width: number }
+interface UnitVisual { readonly group: THREE.Group; readonly ring: THREE.Mesh; readonly orderBeacon: THREE.Group; readonly health: HealthBar }
+interface StaticVisual { readonly group: THREE.Group; readonly ring: THREE.Mesh; readonly model?: THREE.Group; readonly progress?: THREE.Mesh; readonly health?: HealthBar }
 
 export class WorldScene {
   readonly scene = new THREE.Scene();
@@ -22,6 +24,8 @@ export class WorldScene {
   private animationTime = 0;
   private placementGhost: THREE.Group | null = null;
   private placementGhostType: PlaceableBuildingType | null = null;
+  private readonly effects: EffectsManager;
+  private readonly billboardQuaternion = new THREE.Quaternion();
 
   constructor() {
     this.scene.background = new THREE.Color(0xa8c9c5);
@@ -68,6 +72,26 @@ export class WorldScene {
     this.marker.rotation.x = -Math.PI / 2;
     this.marker.position.y = 0.08;
     this.scene.add(this.marker);
+    this.effects = new EffectsManager(this.scene);
+  }
+
+  /** Advances presentation-only state: pooled combat effects and camera-facing indicators. */
+  updatePresentation(frameDelta: number, view: THREE.Object3D): void {
+    this.effects.update(frameDelta);
+    view.getWorldQuaternion(this.billboardQuaternion);
+  }
+
+  get effectCounters(): { readonly active: number; readonly pooled: number; readonly created: number; readonly dropped: number } {
+    return { active: this.effects.activeCount, pooled: this.effects.pooledCount, created: this.effects.createdCount, dropped: this.effects.droppedCount };
+  }
+
+  showShot(from: Vec2, to: Vec2, team: Team, targetHeight = 0.9): void {
+    this.effects.spawnShot(from, to, team, 1.05, targetHeight);
+    this.effects.spawnImpact(to, team, targetHeight);
+  }
+
+  showDestruction(at: Vec2, team: Team, scale = 1): void {
+    this.effects.spawnDeath(at, team, scale);
   }
 
   addUnit(unit: UnitEntity): void {
@@ -90,9 +114,11 @@ export class WorldScene {
     ring.rotation.x = -Math.PI / 2; ring.position.y = 0.045; ring.visible = false; group.add(ring);
     const orderBeacon = this.createOrderBeacon();
     group.add(orderBeacon);
+    const health = this.createHealthBar(1.15, 1.55);
+    group.add(health.group);
     this.scene.add(group);
-    this.selectableMeshes.push(body, head, eye, ...group.children.filter((child) => child !== ring && child !== body && child !== head && child !== eye));
-    this.units.set(unit.id, { group, ring, orderBeacon });
+    this.selectableMeshes.push(body, head, eye, ...group.children.filter((child) => child !== ring && child !== body && child !== head && child !== eye && child !== health.group && child !== orderBeacon));
+    this.units.set(unit.id, { group, ring, orderBeacon, health });
   }
 
   addBuilding(building: BuildingEntity): void {
@@ -120,10 +146,11 @@ export class WorldScene {
     progress.position.set(0, 0.18, building.footprint.z / 2 + 0.35);
     progress.visible = !building.operational;
     progress.scale.x = Math.max(0.02, building.constructionProgress);
-    group.add(model, ring, progress);
+    const health = this.createHealthBar(Math.max(2, building.footprint.x), building.kind === 'core' ? 5.2 : building.kind === 'fabricator' ? 3.6 : 4);
+    group.add(model, ring, progress, health.group);
     this.scene.add(group);
     this.selectableMeshes.push(base, tower, crown, glow);
-    this.buildings.set(building.id, { group, ring, model, progress });
+    this.buildings.set(building.id, { group, ring, model, progress, health });
   }
 
   addResource(node: ResourceNodeEntity): void {
@@ -171,6 +198,7 @@ export class WorldScene {
         const pulse = 0.92 + Math.sin(this.animationTime * 6 + unit.position.x) * 0.12;
         visual.orderBeacon.scale.setScalar(pulse);
       }
+      this.updateHealthBar(visual.health, unit.hp, unit.maxHp, unit.selected, unit.team);
       visual.group.visible = unit.alive;
     }
     if (this.markerLife > 0) {
@@ -195,6 +223,7 @@ export class WorldScene {
         visual.progress.visible = !building.operational;
         visual.progress.scale.x = Math.max(0.02, building.constructionProgress);
       }
+      if (visual.health) this.updateHealthBar(visual.health, building.hp, building.maxHp, building.selected && building.operational, building.team, building.operational);
     }
     for (const node of resources) {
       const visual = this.resources.get(node.id);
@@ -230,6 +259,14 @@ export class WorldScene {
     this.markerLife = 1.25;
   }
 
+  showAttackMarker(x: number, z: number): void {
+    this.markerMode = 'gather';
+    (this.marker.material as THREE.MeshBasicMaterial).color.setHex(0xff8a4c);
+    this.marker.position.set(x, 0.1, z);
+    this.marker.scale.setScalar(1.6);
+    this.markerLife = 1;
+  }
+
   showPlacementGhost(type: PlaceableBuildingType, x: number, z: number, valid: boolean): void {
     if (!this.placementGhost || this.placementGhostType !== type) {
       this.removePlacementGhost();
@@ -259,23 +296,35 @@ export class WorldScene {
 
   hidePlacementGhost(): void { if (this.placementGhost) this.placementGhost.visible = false; }
 
+  removeUnit(id: EntityId): void {
+    const visual = this.units.get(id);
+    if (!visual) return;
+    this.disposeGroup(visual.group, id);
+    this.units.delete(id);
+  }
+
   removeBuilding(id: EntityId): void {
     const visual = this.buildings.get(id);
     if (!visual) return;
-    this.scene.remove(visual.group);
+    this.disposeGroup(visual.group, id);
+    this.buildings.delete(id);
+  }
+
+  private disposeGroup(group: THREE.Group, id: EntityId): void {
+    this.scene.remove(group);
     for (let index = this.selectableMeshes.length - 1; index >= 0; index -= 1) {
       if (this.selectableMeshes[index]?.userData.entityId === id) this.selectableMeshes.splice(index, 1);
     }
-    visual.group.traverse((object) => {
+    group.traverse((object) => {
       if (!(object instanceof THREE.Mesh)) return;
       object.geometry.dispose();
       const materials = Array.isArray(object.material) ? object.material : [object.material];
       materials.forEach((material) => material.dispose());
     });
-    this.buildings.delete(id);
   }
 
   dispose(): void {
+    this.effects.dispose();
     this.scene.traverse((object) => {
       if (object instanceof THREE.Mesh) {
         object.geometry.dispose();
@@ -307,6 +356,37 @@ export class WorldScene {
     group.position.set(obstacle.center.x, 0, obstacle.center.z);
     group.rotation.y = obstacle.rotation ?? 0;
     this.scene.add(group);
+  }
+
+  private createHealthBar(width: number, height: number): HealthBar {
+    const group = new THREE.Group();
+    group.position.y = height;
+    group.visible = false;
+    const background = new THREE.Mesh(
+      new THREE.PlaneGeometry(width, 0.16),
+      new THREE.MeshBasicMaterial({ color: 0x101a1c, transparent: true, opacity: 0.72, depthTest: false }),
+    );
+    const fill = new THREE.Mesh(
+      new THREE.PlaneGeometry(width, 0.11),
+      new THREE.MeshBasicMaterial({ color: 0x63efbd, depthTest: false }),
+    );
+    fill.position.z = 0.001;
+    background.renderOrder = 10;
+    fill.renderOrder = 11;
+    group.add(background, fill);
+    return { group, fill, width };
+  }
+
+  private updateHealthBar(bar: HealthBar, hp: number, maxHp: number, forceVisible: boolean, team: Team, allowed = true): void {
+    const ratio = Math.max(0, Math.min(1, maxHp > 0 ? hp / maxHp : 0));
+    const visible = allowed && (forceVisible || ratio < 0.999);
+    bar.group.visible = visible;
+    if (!visible) return;
+    bar.group.quaternion.copy(this.billboardQuaternion);
+    bar.fill.scale.x = Math.max(0.001, ratio);
+    bar.fill.position.x = -(bar.width * (1 - ratio)) / 2;
+    const material = bar.fill.material as THREE.MeshBasicMaterial;
+    material.color.setHex(team === 'player' ? (ratio > 0.35 ? 0x63efbd : 0xffb257) : ratio > 0.35 ? 0xff8a6a : 0xffd18c);
   }
 
   private createOrderBeacon(): THREE.Group {

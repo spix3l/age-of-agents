@@ -61,6 +61,9 @@ export class SelectionSystem {
 
   clear(): void { this.selectedIds.clear(); this.commit(); }
 
+  /** Drops a destroyed entity so its ID can never be re-resolved by a later registry reuse. */
+  forget(id: EntityId): void { this.selectedIds.delete(id); }
+
   private setPointer(point: ScreenPoint): void {
     const bounds = this.canvas.getBoundingClientRect();
     this.pointer.set(((point.x - bounds.left) / bounds.width) * 2 - 1, -((point.y - bounds.top) / bounds.height) * 2 + 1);

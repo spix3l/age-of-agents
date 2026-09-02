@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ownedBy } from '../entities/core/ownership';
 import { findPath } from '../navigation/AStar';
 import { NavigationGrid } from '../navigation/NavigationGrid';
-import { createMatch } from './createMatch';
+import { createMatch, readScenarioFromLocation } from './createMatch';
 import { MAP_BOUNDS, WORLD_OBSTACLES } from './map';
 
 describe('economy match', () => {
@@ -26,5 +26,24 @@ describe('economy match', () => {
       }
     }
     expect(first.startingBalances).toEqual({ matter: 25, energy: 20, data: 0, capacity: 8 });
+  });
+});
+
+describe('battle scenario selection', () => {
+  it('keeps the shipping economy opening by default and mirrors the debug armies on request', () => {
+    expect(readScenarioFromLocation('')).toBe('economy');
+    expect(readScenarioFromLocation('?scenario=battle')).toBe('battle');
+    expect(createMatch({ seed: 7 }).units.every((unit) => unit.kind === 'worker')).toBe(true);
+
+    const battle = createMatch({ seed: 7, scenario: 'battle' });
+    expect(createMatch({ seed: 7, scenario: 'battle' })).toEqual(battle);
+    for (const team of ['player', 'enemy'] as const) {
+      expect(ownedBy(battle.units, team).filter((unit) => unit.kind === 'striker')).toHaveLength(6);
+      expect(ownedBy(battle.buildings, team).filter((building) => building.kind === 'core')).toHaveLength(1);
+    }
+    const playerStrikers = ownedBy(battle.units, 'player').filter((unit) => unit.kind === 'striker');
+    const enemyStrikers = ownedBy(battle.units, 'enemy').filter((unit) => unit.kind === 'striker');
+    expect(playerStrikers[0]!.maxHp).toBe(enemyStrikers[0]!.maxHp);
+    expect(playerStrikers[0]!.combat.damage).toBe(enemyStrikers[0]!.combat.damage);
   });
 });
