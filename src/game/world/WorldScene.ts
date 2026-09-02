@@ -6,10 +6,37 @@ import { BUILDINGS } from '../../data/buildings';
 import type { PlaceableBuildingType } from '../building/PlacementController';
 import { MAP_BOUNDS, MAP_SIZE, WORLD_OBSTACLES } from './map';
 import { EffectsManager } from '../rendering/EffectsManager';
+import { ResourceCache } from '../rendering/models/palette';
+import { buildUnitModel, type UnitModel } from '../rendering/models/units';
+import { buildBuildingModel, buildConstructionScaffold, type BuildingModel } from '../rendering/models/buildings';
+import { buildResourceModel, type ResourceModel } from '../rendering/models/resources';
 
 interface HealthBar { readonly group: THREE.Group; readonly fill: THREE.Mesh; readonly width: number }
-interface UnitVisual { readonly group: THREE.Group; readonly ring: THREE.Mesh; readonly orderBeacon: THREE.Group; readonly health: HealthBar }
-interface StaticVisual { readonly group: THREE.Group; readonly ring: THREE.Mesh; readonly model?: THREE.Group; readonly progress?: THREE.Mesh; readonly health?: HealthBar }
+
+interface UnitVisual {
+  readonly group: THREE.Group;
+  readonly ring: THREE.Mesh;
+  readonly orderBeacon: THREE.Group;
+  readonly health: HealthBar;
+  readonly model: UnitModel;
+  /** Walk-cycle phase, facing angle, and weapon recoil are per-unit animation state. */
+  phase: number;
+  yaw: number;
+  /** Facing requested by combat, used when the unit is standing still and shooting. */
+  aimYaw: number | null;
+  recoil: number;
+}
+
+interface StaticVisual {
+  readonly group: THREE.Group;
+  readonly ring: THREE.Mesh;
+  readonly model?: THREE.Group;
+  readonly progress?: THREE.Mesh;
+  readonly health?: HealthBar;
+  readonly parts?: BuildingModel;
+  readonly scaffold?: THREE.Group;
+  readonly resource?: ResourceModel;
+}
 
 export class WorldScene {
   readonly scene = new THREE.Scene();
@@ -25,8 +52,10 @@ export class WorldScene {
   private placementGhost: THREE.Group | null = null;
   private placementGhostType: PlaceableBuildingType | null = null;
   private readonly sun: THREE.DirectionalLight;
+  private readonly cache = new ResourceCache();
   private readonly effects: EffectsManager;
   private readonly billboardQuaternion = new THREE.Quaternion();
+  private readonly parentQuaternion = new THREE.Quaternion();
 
   constructor() {
     this.scene.background = new THREE.Color(0xa8c9c5);
@@ -93,9 +122,14 @@ export class WorldScene {
     return { active: this.effects.activeCount, pooled: this.effects.pooledCount, created: this.effects.createdCount, dropped: this.effects.droppedCount };
   }
 
-  showShot(from: Vec2, to: Vec2, team: Team, targetHeight = 0.9): void {
+  showShot(from: Vec2, to: Vec2, team: Team, targetHeight = 0.9, attacker?: EntityId): void {
     this.effects.spawnShot(from, to, team, 1.05, targetHeight);
     this.effects.spawnImpact(to, team, targetHeight);
+    const visual = attacker ? this.units.get(attacker) : undefined;
+    if (!visual) return;
+    // Kick the barrel and point the shooter at what it just hit.
+    visual.recoil = 1;
+    visual.aimYaw = Math.atan2(to.x - from.x, to.z - from.z) + Math.PI;
   }
 
   showDestruction(at: Vec2, team: Team, scale = 1): void {
@@ -103,114 +137,105 @@ export class WorldScene {
   }
 
   addUnit(unit: UnitEntity): void {
-    const group = new THREE.Group();
+    const model = buildUnitModel(this.cache, unit.kind, unit.team, unit.id);
+    const group = model.group;
     group.position.set(unit.position.x, 0, unit.position.z);
-    const bodyMaterial = new THREE.MeshStandardMaterial({ color: unit.team === 'player' ? 0x20a9b7 : 0xc94c40, roughness: 0.48, metalness: 0.32 });
-    const darkMaterial = new THREE.MeshStandardMaterial({ color: 0x24353a, roughness: 0.68, metalness: 0.48 });
-    const body = new THREE.Mesh(unit.kind === 'striker' ? new THREE.BoxGeometry(1.15, 0.5, 1.35) : new THREE.CylinderGeometry(0.46, 0.56, 0.65, 6), bodyMaterial);
-    body.position.y = unit.kind === 'striker' ? 0.55 : 0.62; body.castShadow = true; body.userData.entityId = unit.id;
-    const head = new THREE.Mesh(unit.kind === 'striker' ? new THREE.CylinderGeometry(0.28, 0.42, 0.42, 6) : new THREE.BoxGeometry(0.58, 0.38, 0.48), darkMaterial);
-    head.position.y = unit.kind === 'striker' ? 1.02 : 1.08; head.castShadow = true; head.userData.entityId = unit.id;
-    const eye = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.08, 0.03), new THREE.MeshBasicMaterial({ color: unit.team === 'player' ? 0xbafff2 : 0xffd18c }));
-    eye.position.set(0, unit.kind === 'striker' ? 1.04 : 1.1, unit.kind === 'striker' ? -0.7 : -0.25); eye.userData.entityId = unit.id;
-    group.add(body, head, eye);
-    [-0.32, 0.32].forEach((x) => {
-      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.42, 0.18), darkMaterial);
-      leg.position.set(unit.kind === 'striker' ? x * 1.55 : x, 0.24, 0); leg.castShadow = true; leg.userData.entityId = unit.id; group.add(leg);
-    });
-    const ring = new THREE.Mesh(new THREE.RingGeometry(0.67, 0.76, 24), new THREE.MeshBasicMaterial({ color: 0x80ffe5, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthWrite: false }));
-    ring.rotation.x = -Math.PI / 2; ring.position.y = 0.045; ring.visible = false; group.add(ring);
+
+    const ring = new THREE.Mesh(
+      this.cache.geometry('select-ring-unit', () => new THREE.RingGeometry(0.72, 0.82, 24)),
+      this.cache.basic('select-ring-mat', { color: 0x80ffe5, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthWrite: false }),
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.045;
+    ring.visible = false;
     const orderBeacon = this.createOrderBeacon();
-    group.add(orderBeacon);
-    const health = this.createHealthBar(1.15, 1.55);
-    group.add(health.group);
+    const health = this.createHealthBar(1.15, 1.75);
+    group.add(ring, orderBeacon, health.group);
+
     this.scene.add(group);
-    this.selectableMeshes.push(body, head, eye, ...group.children.filter((child) => child !== ring && child !== body && child !== head && child !== eye && child !== health.group && child !== orderBeacon));
-    this.units.set(unit.id, { group, ring, orderBeacon, health });
+    this.selectableMeshes.push(...model.pickable);
+    this.units.set(unit.id, { group, ring, orderBeacon, health, model, phase: 0, yaw: unit.team === 'player' ? 0 : Math.PI, aimYaw: null, recoil: 0 });
   }
 
   addBuilding(building: BuildingEntity): void {
     const group = new THREE.Group();
-    const model = new THREE.Group();
     group.position.set(building.position.x, 0, building.position.z);
-    const teamColor = building.team === 'player' ? 0x1d8f9c : 0xb94b3d;
-    const shell = new THREE.MeshStandardMaterial({ color: 0xd7d2b9, roughness: 0.62, metalness: 0.18, flatShading: true });
-    const metal = new THREE.MeshStandardMaterial({ color: teamColor, roughness: 0.4, metalness: 0.5, flatShading: true });
-    const baseGeometry = building.kind === 'fabricator' ? new THREE.BoxGeometry(3.8, 0.8, 2.8) : building.kind === 'relay' ? new THREE.CylinderGeometry(0.95, 1.2, 0.7, 6) : new THREE.CylinderGeometry(2.35, 2.7, 1.1, 8);
-    const towerGeometry = building.kind === 'fabricator' ? new THREE.BoxGeometry(2.8, 1.7, 2.1) : building.kind === 'relay' ? new THREE.CylinderGeometry(0.22, 0.38, 2.7, 6) : new THREE.CylinderGeometry(1.25, 1.75, 3.1, 8);
-    const base = new THREE.Mesh(baseGeometry, metal);
-    base.position.y = 0.55; base.castShadow = true; base.receiveShadow = true; base.userData.entityId = building.id;
-    const tower = new THREE.Mesh(towerGeometry, shell);
-    tower.position.y = building.kind === 'relay' ? 1.75 : building.kind === 'fabricator' ? 1.5 : 2.05; tower.castShadow = true; tower.userData.entityId = building.id;
-    const crown = new THREE.Mesh(building.kind === 'fabricator' ? new THREE.CylinderGeometry(0.65, 0.85, 0.7, 6) : new THREE.OctahedronGeometry(building.kind === 'relay' ? 0.62 : 1.05, 0), metal);
-    crown.position.y = building.kind === 'relay' ? 3.25 : building.kind === 'fabricator' ? 2.75 : 4.05; crown.rotation.y = Math.PI / 4; crown.castShadow = true; crown.userData.entityId = building.id;
-    const glow = new THREE.Mesh(new THREE.CylinderGeometry(building.kind === 'relay' ? 0.18 : 0.48, building.kind === 'relay' ? 0.18 : 0.48, building.kind === 'relay' ? 1.8 : 2.2, 8), new THREE.MeshStandardMaterial({ color: teamColor, emissive: teamColor, emissiveIntensity: 1.4 }));
-    glow.position.y = building.kind === 'relay' ? 1.8 : 2.2; glow.userData.entityId = building.id;
+    const parts = buildBuildingModel(this.cache, building.kind, building.team, building.id);
+    const model = new THREE.Group();
+    model.add(parts.group);
+
+    const scaffold = buildConstructionScaffold(this.cache, building.kind, building.team);
+    scaffold.visible = !building.operational;
+
     const radius = Math.max(building.footprint.x, building.footprint.z) / 2 + 0.4;
-    const ring = new THREE.Mesh(new THREE.RingGeometry(radius, radius + 0.2, 40), new THREE.MeshBasicMaterial({ color: 0x80ffe5, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthWrite: false }));
-    ring.rotation.x = -Math.PI / 2; ring.position.y = 0.06; ring.visible = false;
-    model.add(base, tower, crown, glow);
-    const progress = new THREE.Mesh(new THREE.BoxGeometry(Math.max(1.4, building.footprint.x), 0.1, 0.18), new THREE.MeshBasicMaterial({ color: 0x62efbd, depthTest: false }));
+    const ring = new THREE.Mesh(
+      this.cache.geometry(`select-ring-building-${radius.toFixed(1)}`, () => new THREE.RingGeometry(radius, radius + 0.2, 40)),
+      this.cache.basic('select-ring-mat', { color: 0x80ffe5, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthWrite: false }),
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.06;
+    ring.visible = false;
+
+    const progress = new THREE.Mesh(
+      this.cache.geometry(`progress-${building.footprint.x}`, () => new THREE.BoxGeometry(Math.max(1.4, building.footprint.x), 0.1, 0.18)),
+      this.cache.basic('progress-mat', { color: 0x62efbd, depthTest: false }),
+    );
     progress.position.set(0, 0.18, building.footprint.z / 2 + 0.35);
     progress.visible = !building.operational;
     progress.scale.x = Math.max(0.02, building.constructionProgress);
-    const health = this.createHealthBar(Math.max(2, building.footprint.x), building.kind === 'core' ? 5.2 : building.kind === 'fabricator' ? 3.6 : 4);
-    group.add(model, ring, progress, health.group);
+
+    const health = this.createHealthBar(Math.max(2, building.footprint.x), building.kind === 'core' ? 6 : building.kind === 'fabricator' ? 3.6 : 4.2);
+    group.add(model, scaffold, ring, progress, health.group);
     this.scene.add(group);
-    this.selectableMeshes.push(base, tower, crown, glow);
-    this.buildings.set(building.id, { group, ring, model, progress, health });
+    this.selectableMeshes.push(...parts.pickable);
+    this.buildings.set(building.id, { group, ring, model, progress, health, parts, scaffold });
   }
 
   addResource(node: ResourceNodeEntity): void {
-    const group = new THREE.Group();
+    const resource = buildResourceModel(this.cache, node.resourceType, node.id);
+    const group = resource.group;
     group.position.set(node.position.x, 0, node.position.z);
     const isMatter = node.resourceType === 'matter';
-    const material = new THREE.MeshStandardMaterial({
-      color: isMatter ? 0xc49a54 : 0x4cc7b8,
-      emissive: isMatter ? 0x4e3210 : 0x0d5853,
-      emissiveIntensity: isMatter ? 0.12 : 0.65,
-      roughness: isMatter ? 0.78 : 0.28,
-      metalness: isMatter ? 0.32 : 0.12,
-      flatShading: true,
-    });
-    const count = isMatter ? 6 : 5;
-    for (let index = 0; index < count; index += 1) {
-      const mesh = new THREE.Mesh(
-        isMatter ? new THREE.DodecahedronGeometry(0.72 + (index % 3) * 0.18, 0) : new THREE.ConeGeometry(0.5, 2 + index * 0.22, 5),
-        material,
-      );
-      const angle = (index / count) * Math.PI * 2;
-      mesh.position.set(Math.cos(angle) * 0.9, isMatter ? 0.55 : 0.9 + index * 0.08, Math.sin(angle) * 0.9);
-      mesh.rotation.set(index * 0.13, angle, isMatter ? index * 0.08 : (index - 2) * 0.08);
-      mesh.castShadow = true; mesh.userData.entityId = node.id; group.add(mesh); this.selectableMeshes.push(mesh);
-    }
-    const ring = new THREE.Mesh(new THREE.RingGeometry(1.55, 1.72, 32), new THREE.MeshBasicMaterial({ color: isMatter ? 0xffd783 : 0x79ffe8, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthWrite: false }));
-    ring.rotation.x = -Math.PI / 2; ring.position.y = 0.05; ring.visible = false; group.add(ring);
+    const ring = new THREE.Mesh(
+      this.cache.geometry('select-ring-resource', () => new THREE.RingGeometry(2.05, 2.25, 32)),
+      this.cache.basic(isMatter ? 'select-ring-matter' : 'select-ring-energy', {
+        color: isMatter ? 0xffd783 : 0x79ffe8, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthWrite: false,
+      }),
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.05;
+    ring.visible = false;
+    group.add(ring);
     this.scene.add(group);
-    this.resources.set(node.id, { group, ring });
+    this.selectableMeshes.push(...resource.pickable);
+    this.resources.set(node.id, { group, ring, resource });
   }
 
   syncUnits(units: readonly UnitEntity[], alpha: number): void {
-    this.animationTime += 1 / 60;
+    const frame = 1 / 60;
+    this.animationTime += frame;
     for (const unit of units) {
       const visual = this.units.get(unit.id);
       if (!visual) continue;
-      visual.group.position.x = THREE.MathUtils.lerp(unit.previousPosition.x, unit.position.x, alpha);
-      visual.group.position.z = THREE.MathUtils.lerp(unit.previousPosition.z, unit.position.z, alpha);
+      const x = THREE.MathUtils.lerp(unit.previousPosition.x, unit.position.x, alpha);
+      const z = THREE.MathUtils.lerp(unit.previousPosition.z, unit.position.z, alpha);
+      visual.group.position.x = x;
+      visual.group.position.z = z;
+      this.animateUnit(visual, unit, frame);
+      if (unit.combat.targetId === null) visual.aimYaw = null;
       visual.ring.visible = unit.selected;
       visual.orderBeacon.visible = Boolean(unit.gatherOrder);
       if (unit.gatherOrder) {
         const color = unit.gatherOrder.resourceType === 'matter' ? 0xffca68 : 0x61f5df;
         for (const child of visual.orderBeacon.children) ((child as THREE.Mesh).material as THREE.MeshBasicMaterial).color.setHex(color);
         visual.orderBeacon.rotation.y += 0.045;
-        const pulse = 0.92 + Math.sin(this.animationTime * 6 + unit.position.x) * 0.12;
-        visual.orderBeacon.scale.setScalar(pulse);
+        visual.orderBeacon.scale.setScalar(0.92 + Math.sin(this.animationTime * 6 + unit.position.x) * 0.12);
       }
       this.updateHealthBar(visual.health, unit.hp, unit.maxHp, unit.selected, unit.team);
       visual.group.visible = unit.alive;
     }
     if (this.markerLife > 0) {
-      this.markerLife = Math.max(0, this.markerLife - 1 / 60);
+      this.markerLife = Math.max(0, this.markerLife - frame);
       const material = this.marker.material as THREE.MeshBasicMaterial;
       material.opacity = Math.min(0.9, this.markerLife * 1.5);
       const baseScale = this.markerMode === 'move' ? 1 : 2;
@@ -220,26 +245,102 @@ export class WorldScene {
     }
   }
 
+  /** Turns simulation state into motion: facing, gait, cargo, turret tracking, and recoil. */
+  private animateUnit(visual: UnitVisual, unit: UnitEntity, frame: number): void {
+    const dx = unit.position.x - unit.previousPosition.x;
+    const dz = unit.position.z - unit.previousPosition.z;
+    const speed = Math.hypot(dx, dz) / Math.max(frame, 1e-4);
+    const moving = speed > 0.05;
+
+    // Face the direction of travel, or the current target when standing and shooting.
+    let desiredYaw = visual.yaw;
+    if (moving) desiredYaw = Math.atan2(dx, dz) + Math.PI;
+    else if (visual.aimYaw !== null) desiredYaw = visual.aimYaw;
+    visual.yaw = approachAngle(visual.yaw, desiredYaw, 7 * frame);
+    visual.group.rotation.y = visual.yaw;
+
+    // Gait: legs swing while walking, tracks bob slightly, everything settles when idle.
+    visual.phase = moving ? visual.phase + Math.min(speed, 8) * frame * 3.2 : 0;
+    visual.model.legs.forEach((leg, index) => {
+      const swing = moving ? Math.sin(visual.phase + index * Math.PI) : 0;
+      if (unit.kind === 'worker') {
+        leg.rotation.x = swing * 0.55;
+        leg.position.y = 0.5 + Math.abs(swing) * 0.05;
+      } else {
+        leg.position.y = 0.3 + swing * 0.03;
+      }
+    });
+    if (unit.kind === 'worker') visual.group.position.y = moving ? Math.abs(Math.sin(visual.phase)) * 0.045 : 0;
+
+    // Cargo pod fills with what the Worker is carrying.
+    const cargo = visual.model.cargo;
+    if (cargo) {
+      const ratio = Math.max(0, Math.min(1, unit.cargo.amount / 10));
+      cargo.visible = ratio > 0;
+      cargo.scale.set(0.4 + ratio * 0.6, 0.4 + ratio * 0.6, 0.4 + ratio * 0.6);
+      if (unit.cargo.type) {
+        const material = (cargo as THREE.Mesh).material as THREE.MeshStandardMaterial;
+        // Cargo material is shared per team, so tint a clone-free way: swap emissive intensity only.
+        material.emissiveIntensity = 0.6 + ratio * 1.4;
+      }
+    }
+
+    // Weapon recoil decays back to rest after each shot.
+    visual.recoil = Math.max(0, visual.recoil - frame * 4);
+    if (visual.model.barrel) visual.model.barrel.position.z = -0.3 + visual.recoil * 0.28;
+    if (visual.model.optic) {
+      const optic = (visual.model.optic as THREE.Mesh).material as THREE.MeshStandardMaterial;
+      optic.emissiveIntensity = 1.6 + visual.recoil * 2.4;
+    }
+  }
+
   syncStructures(buildings: readonly BuildingEntity[], resources: readonly ResourceNodeEntity[]): void {
+    const frame = 1 / 60;
     for (const building of buildings) {
       const visual = this.buildings.get(building.id);
       if (!visual) continue;
       visual.group.visible = building.alive;
       visual.ring.visible = building.selected;
       if (visual.model) visual.model.scale.y = building.operational ? 1 : 0.18 + building.constructionProgress * 0.82;
+      if (visual.scaffold) visual.scaffold.visible = !building.operational;
       if (visual.progress) {
         visual.progress.visible = !building.operational;
         visual.progress.scale.x = Math.max(0.02, building.constructionProgress);
       }
       if (visual.health) this.updateHealthBar(visual.health, building.hp, building.maxHp, building.selected && building.operational, building.team, building.operational);
+      if (!building.operational || !visual.parts) continue;
+
+      // Orbit rings and dishes turn constantly; the Fabricator gantry only runs while working.
+      visual.parts.spinners.forEach((spinner, index) => {
+        spinner.rotation.z += (index % 2 === 0 ? 0.5 : -0.34) * frame;
+        spinner.rotation.y += (index % 2 === 0 ? 0.18 : -0.26) * frame;
+      });
+      if (visual.parts.column) {
+        const material = (visual.parts.column as THREE.Mesh).material as THREE.MeshStandardMaterial;
+        material.emissiveIntensity = 1.8 + Math.sin(this.animationTime * 2.2 + building.position.x) * 0.5;
+      }
+      if (visual.parts.arm) {
+        const working = building.productionQueue.length > 0;
+        visual.parts.arm.visible = true;
+        visual.parts.arm.position.x = working ? Math.sin(this.animationTime * 2.6) * 1.1 : 0;
+        visual.parts.arm.position.y = 2.1 - (working ? Math.abs(Math.cos(this.animationTime * 2.6)) * 0.25 : 0);
+      }
     }
+
     for (const node of resources) {
       const visual = this.resources.get(node.id);
       if (!visual) continue;
       visual.group.visible = node.alive;
       visual.ring.visible = node.selected;
-      const scale = Math.max(0.35, node.remaining / node.capacity);
-      visual.group.scale.setScalar(0.72 + scale * 0.28);
+      // A depleted deposit visibly shrinks toward its bed.
+      const remaining = Math.max(0.28, node.remaining / node.capacity);
+      visual.resource?.shards.forEach((shard, index) => {
+        shard.scale.setScalar(0.55 + remaining * 0.45);
+        if (node.resourceType === 'energy') {
+          shard.position.y = (index === visual.resource!.shards.length - 1 ? 0.35 : 1.05) + Math.sin(this.animationTime * 1.6 + index) * 0.06;
+          shard.rotation.y += 0.15 * frame * (index % 2 === 0 ? 1 : -1);
+        }
+      });
     }
   }
 
@@ -318,17 +419,15 @@ export class WorldScene {
     this.buildings.delete(id);
   }
 
+  /**
+   * Removes an entity's visual. Geometry and materials belong to the shared cache and are
+   * disposed once in dispose(), never per entity, because every Agent of a kind reuses them.
+   */
   private disposeGroup(group: THREE.Group, id: EntityId): void {
     this.scene.remove(group);
     for (let index = this.selectableMeshes.length - 1; index >= 0; index -= 1) {
       if (this.selectableMeshes[index]?.userData.entityId === id) this.selectableMeshes.splice(index, 1);
     }
-    group.traverse((object) => {
-      if (!(object instanceof THREE.Mesh)) return;
-      object.geometry.dispose();
-      const materials = Array.isArray(object.material) ? object.material : [object.material];
-      materials.forEach((material) => material.dispose());
-    });
   }
 
   dispose(): void {
@@ -340,6 +439,7 @@ export class WorldScene {
         materials.forEach((material) => material.dispose());
       }
     });
+    this.cache.dispose();
     this.scene.clear();
     this.units.clear();
     this.buildings.clear();
@@ -390,7 +490,10 @@ export class WorldScene {
     const visible = allowed && (forceVisible || ratio < 0.999);
     bar.group.visible = visible;
     if (!visible) return;
-    bar.group.quaternion.copy(this.billboardQuaternion);
+    // Units now rotate to face their heading, so cancel the parent's rotation before
+    // applying the camera-facing quaternion or the bar would turn with the chassis.
+    bar.group.parent?.getWorldQuaternion(this.parentQuaternion);
+    bar.group.quaternion.copy(this.parentQuaternion.invert()).multiply(this.billboardQuaternion);
     bar.fill.scale.x = Math.max(0.001, ratio);
     bar.fill.position.x = -(bar.width * (1 - ratio)) / 2;
     const material = bar.fill.material as THREE.MeshBasicMaterial;
@@ -502,4 +605,12 @@ export class WorldScene {
     const value = Math.sin(seed * 12.9898 + 78.233) * 43_758.5453;
     return value - Math.floor(value);
   }
+}
+
+/** Shortest-path rotation toward a target angle, so units never spin the long way round. */
+function approachAngle(current: number, target: number, maxStep: number): number {
+  let delta = (target - current) % (Math.PI * 2);
+  if (delta > Math.PI) delta -= Math.PI * 2;
+  if (delta < -Math.PI) delta += Math.PI * 2;
+  return current + THREE.MathUtils.clamp(delta, -maxStep, maxStep);
 }

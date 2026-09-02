@@ -59,7 +59,7 @@ export class Game {
         onBuildingAdded: (building) => this.world.addBuilding(building),
         onBuildingRemoved: (building) => this.world.removeBuilding(building.id),
         onBuildingCompleted: this.announceBuilding,
-        onShot: (attacker, target) => this.world.showShot(attacker.position, target.position, attacker.team, 'footprint' in target ? 1.6 : 0.9),
+        onShot: (attacker, target) => this.world.showShot(attacker.position, target.position, attacker.team, 'footprint' in target ? 1.6 : 0.9, attacker.id),
         onDeath: this.announceDeath,
         onMatchEnd: this.endMatch,
       },
