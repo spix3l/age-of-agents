@@ -4,6 +4,7 @@ import { RESOURCES } from '../data/resources';
 import { UNITS } from '../data/units';
 import { useUiStore, type SelectionSnapshot } from '../ui/store';
 import { RTSCameraController } from './camera/RTSCameraController';
+import { PlacementController, validatePlacement, type PlaceableBuildingType, type PlacementFailure } from './building/PlacementController';
 import { issueGatherCommand } from './commands/GatherCommand';
 import { issueMoveCommand } from './commands/MoveCommand';
 import { Capacity } from './economy/Capacity';
@@ -37,6 +38,7 @@ export class Game {
   private readonly movement: MovementSystem;
   private readonly gathering: GatheringSystem;
   private readonly production = new ProductionSystem();
+  private readonly placement: PlacementController;
   private readonly selection: SelectionSystem;
   private readonly input: InputManager;
   private readonly loop: GameLoop;
@@ -81,6 +83,16 @@ export class Game {
       (team) => team === 'neutral' ? undefined : this.state.economies.get(team)?.ledger,
       this.navigation,
     );
+    this.placement = new PlacementController({
+      validate: (type, position) => validatePlacement(type, position, this.navigation, this.state.buildings.alive(), this.state.resources.alive()),
+      preview: (type, result) => this.world.showPlacementGhost(type, result.position.x, result.position.z, result.valid),
+      hide: () => this.world.hidePlacementGhost(),
+      confirmed: (type) => {
+        useUiStore.getState().setPlacementMode(null);
+        useUiStore.getState().setLastOrder(`${BUILDINGS[type].label.toUpperCase()} PLACEMENT VALIDATED`);
+      },
+      rejected: (failure) => useUiStore.getState().setLastOrder(`PLACEMENT REJECTED // ${this.placementFailure(failure)}`),
+    });
     this.selection = new SelectionSystem(
       this.allSelectable,
       this.getSelectable,
@@ -94,8 +106,12 @@ export class Game {
       selectBox: (rect, additive) => this.selection.selectBox(rect, additive),
       move: this.issueContextOrder,
       selectionBox: (rect) => useUiStore.getState().setSelectionBox(rect),
+      hover: this.updatePlacement,
+      primaryAction: this.confirmPlacement,
+      cancelAction: this.cancelPlacement,
     });
     useUiStore.getState().setProductionRequest(this.enqueueWorker);
+    useUiStore.getState().setBuildRequest(this.beginPlacement);
     this.loop = new GameLoop(this.update, this.render);
     this.publishUi();
   }
@@ -115,6 +131,8 @@ export class Game {
     this.state.reset();
     useUiStore.getState().setSelectionBox(null);
     useUiStore.getState().setProductionRequest(null);
+    useUiStore.getState().setBuildRequest(null);
+    useUiStore.getState().setPlacementMode(null);
   }
 
   private readonly allSelectable = (): readonly SelectableEntity[] => [
@@ -179,6 +197,34 @@ export class Game {
     }
   };
 
+  private readonly beginPlacement = (type: PlaceableBuildingType): void => {
+    const workers = this.selection.selected().filter(isUnit).filter((unit) => unit.kind === 'worker');
+    if (workers.length === 0) return;
+    this.placement.begin(type);
+    this.placement.update(workers[0]!.position);
+    useUiStore.getState().setPlacementMode(type);
+    useUiStore.getState().setLastOrder(`PLACE ${BUILDINGS[type].label.toUpperCase()} // CLICK TERRAIN`);
+  };
+
+  private readonly updatePlacement = (point: ScreenPoint): void => {
+    if (!this.placement.active) return;
+    const world = this.groundPoint(point);
+    if (world) this.placement.update(world);
+  };
+
+  private readonly confirmPlacement = (point: ScreenPoint): boolean => {
+    if (!this.placement.active) return false;
+    const world = this.groundPoint(point);
+    return world ? this.placement.confirm(world) : true;
+  };
+
+  private readonly cancelPlacement = (): boolean => {
+    if (!this.placement.cancel()) return false;
+    useUiStore.getState().setPlacementMode(null);
+    useUiStore.getState().setLastOrder('PLACEMENT CANCELLED');
+    return true;
+  };
+
   private readonly enqueueWorker = (): void => {
     const core = this.selection.selected().find((entity): entity is BuildingEntity => isBuilding(entity) && entity.kind === 'core' && entity.team === 'player');
     const economy = this.state.economies.get('player');
@@ -204,6 +250,12 @@ export class Game {
     const bounds = this.renderer.instance.domElement.getBoundingClientRect();
     this.pointer.set(((point.x - bounds.left) / bounds.width) * 2 - 1, -((point.y - bounds.top) / bounds.height) * 2 + 1);
     this.raycaster.setFromCamera(this.pointer, this.camera.camera);
+  }
+
+  private groundPoint(point: ScreenPoint): { x: number; z: number } | null {
+    this.setRay(point);
+    const hit = this.raycaster.intersectObject(this.world.ground, false)[0];
+    return hit ? { x: hit.point.x, z: hit.point.z } : null;
   }
 
   private publishUi(): void {
@@ -232,16 +284,23 @@ export class Game {
   }
 
   private selectionSnapshot(selected: readonly SelectableEntity[]): SelectionSnapshot {
-    if (selected.length === 0) return { type: 'none', name: 'NO SELECTION', activity: 'Select a Worker, Core, or resource node', isPlayerCore: false };
+    if (selected.length === 0) return { type: 'none', name: 'NO SELECTION', activity: 'Select a Worker, Core, or resource node', isPlayerCore: false, canBuild: false };
     if (selected.length > 1) {
       const workers = selected.filter(isUnit);
       const active = workers.find((worker) => worker.activity !== 'Idle')?.activity ?? 'Idle';
-      return { type: 'group', name: `${workers.length} WORKER AGENTS`, activity: active, detail: `${workers.reduce((sum, worker) => sum + worker.cargo.amount, 0)} cargo`, isPlayerCore: false };
+      return { type: 'group', name: `${workers.length} WORKER AGENTS`, activity: active, detail: `${workers.reduce((sum, worker) => sum + worker.cargo.amount, 0)} cargo`, isPlayerCore: false, canBuild: workers.some((worker) => worker.kind === 'worker') };
     }
     const entity = selected[0]!;
-    if (isUnit(entity)) return { type: 'unit', name: UNITS[entity.kind].label, hp: entity.hp, maxHp: entity.maxHp, activity: entity.activity, detail: entity.cargo.amount > 0 ? `${entity.cargo.amount} ${entity.cargo.type}` : undefined, isPlayerCore: false };
-    if (isBuilding(entity)) return { type: 'building', name: BUILDINGS[entity.kind].label, hp: entity.hp, maxHp: entity.maxHp, activity: entity.productionQueue.length ? 'Fabricating' : 'Operational', detail: `${entity.productionQueue.length} queued`, isPlayerCore: entity.team === 'player' && entity.kind === 'core' };
-    return { type: 'resource', name: RESOURCES[entity.resourceType].label, activity: `${entity.remaining} remaining`, detail: `${Math.round((entity.remaining / entity.capacity) * 100)}% integrity`, isPlayerCore: false };
+    if (isUnit(entity)) return { type: 'unit', name: UNITS[entity.kind].label, hp: entity.hp, maxHp: entity.maxHp, activity: entity.activity, detail: entity.cargo.amount > 0 ? `${entity.cargo.amount} ${entity.cargo.type}` : undefined, isPlayerCore: false, canBuild: entity.kind === 'worker' };
+    if (isBuilding(entity)) return { type: 'building', name: BUILDINGS[entity.kind].label, hp: entity.hp, maxHp: entity.maxHp, activity: entity.productionQueue.length ? 'Fabricating' : 'Operational', detail: `${entity.productionQueue.length} queued`, isPlayerCore: entity.team === 'player' && entity.kind === 'core', canBuild: false };
+    return { type: 'resource', name: RESOURCES[entity.resourceType].label, activity: `${entity.remaining} remaining`, detail: `${Math.round((entity.remaining / entity.capacity) * 100)}% integrity`, isPlayerCore: false, canBuild: false };
+  }
+
+  private placementFailure(failure: PlacementFailure): string {
+    if (failure === 'OUT_OF_BOUNDS') return 'OUTSIDE MAP';
+    if (failure === 'RESOURCE_OVERLAP') return 'RESOURCE IN FOOTPRINT';
+    if (failure === 'BUILDING_OVERLAP') return 'BUILDING IN FOOTPRINT';
+    return 'TERRAIN BLOCKED';
   }
 
   private rejectionMessage(reason: ProductionRejection): string {

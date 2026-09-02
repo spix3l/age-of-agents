@@ -8,7 +8,7 @@ This is the portfolio view for the file-backed backlog derived from [`PRD.md`](P
 |---|---|---|---:|---|
 | [EPIC-01](backlog/epics/EPIC-01-world.md) | Day 1 | The World | 9 | DONE |
 | [EPIC-02](backlog/epics/EPIC-02-economy.md) | Day 2 | The Machine Economy | 7 | DONE |
-| [EPIC-03](backlog/epics/EPIC-03-colony.md) | Day 3 | Build the Colony | 8 | TODO |
+| [EPIC-03](backlog/epics/EPIC-03-colony.md) | Day 3 | Build the Colony | 8 | IN PROGRESS |
 | [EPIC-04](backlog/epics/EPIC-04-war.md) | Day 4 | War | 7 | TODO |
 | [EPIC-05](backlog/epics/EPIC-05-opponent.md) | Day 5 | The Other Intelligence | 7 | TODO |
 | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Day 6 | Evolution | 11 | TODO |
@@ -34,7 +34,7 @@ This is the portfolio view for the file-backed backlog derived from [`PRD.md`](P
 | [D2-05](backlog/tasks/D2-05.md) | [EPIC-02](backlog/epics/EPIC-02-economy.md) | Implement production queues and Worker spawning | P0 | M | D2-03, D2-04 | DONE |
 | [D2-06](backlog/tasks/D2-06.md) | [EPIC-02](backlog/epics/EPIC-02-economy.md) | Build resource, selection, and Core action HUD | P0 | L | D2-01, D2-05 | DONE |
 | [D2-07](backlog/tasks/D2-07.md) | [EPIC-02](backlog/epics/EPIC-02-economy.md) | Create fair starting state and economy tests | P0 | M | D2-02, D2-05, D2-06 | DONE |
-| [D3-01](backlog/tasks/D3-01.md) | [EPIC-03](backlog/epics/EPIC-03-colony.md) | Implement placement validation and building ghosts | P0 | L | D1-06, D2-01 | TODO |
+| [D3-01](backlog/tasks/D3-01.md) | [EPIC-03](backlog/epics/EPIC-03-colony.md) | Implement placement validation and building ghosts | P0 | L | D1-06, D2-01 | REVIEW |
 | [D3-02](backlog/tasks/D3-02.md) | [EPIC-03](backlog/epics/EPIC-03-colony.md) | Implement construction sites and Worker building | P0 | L | D2-02, D3-01 | TODO |
 | [D3-03](backlog/tasks/D3-03.md) | [EPIC-03](backlog/epics/EPIC-03-colony.md) | Add Relay Node capacity integration | P0 | S | D2-04, D3-02 | TODO |
 | [D3-04](backlog/tasks/D3-04.md) | [EPIC-03](backlog/epics/EPIC-03-colony.md) | Add Fabricator and Striker production | P0 | M | D2-05, D3-02 | TODO |

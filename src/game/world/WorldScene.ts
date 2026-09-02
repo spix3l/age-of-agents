@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import type { EntityId } from '../types/ids';
 import type { ResourceNodeEntity } from '../entities/resources/ResourceNode';
 import type { BuildingEntity, UnitEntity } from '../types/simulation';
+import { BUILDINGS } from '../../data/buildings';
+import type { PlaceableBuildingType } from '../building/PlacementController';
 import { MAP_BOUNDS, WORLD_OBSTACLES } from './map';
 
 interface UnitVisual { readonly group: THREE.Group; readonly ring: THREE.Mesh; readonly orderBeacon: THREE.Group }
@@ -18,6 +20,8 @@ export class WorldScene {
   private markerLife = 0;
   private markerMode: 'move' | 'gather' | 'rejected' = 'move';
   private animationTime = 0;
+  private placementGhost: THREE.Group | null = null;
+  private placementGhostType: PlaceableBuildingType | null = null;
 
   constructor() {
     this.scene.background = new THREE.Color(0xa8c9c5);
@@ -212,6 +216,35 @@ export class WorldScene {
     this.markerLife = 1.25;
   }
 
+  showPlacementGhost(type: PlaceableBuildingType, x: number, z: number, valid: boolean): void {
+    if (!this.placementGhost || this.placementGhostType !== type) {
+      this.removePlacementGhost();
+      const config = BUILDINGS[type];
+      const group = new THREE.Group();
+      const material = new THREE.MeshBasicMaterial({ color: 0x63efbd, transparent: true, opacity: 0.38, depthWrite: false });
+      const footprint = new THREE.Mesh(new THREE.BoxGeometry(config.footprint[0], 0.08, config.footprint[1]), material);
+      footprint.position.y = 0.07;
+      const mass = new THREE.Mesh(new THREE.BoxGeometry(config.footprint[0] * 0.72, type === 'relay' ? 2.2 : 2.8, config.footprint[1] * 0.7), material);
+      mass.position.y = type === 'relay' ? 1.15 : 1.45;
+      const crown = new THREE.Mesh(type === 'relay' ? new THREE.OctahedronGeometry(0.55, 0) : new THREE.CylinderGeometry(0.7, 0.95, 0.7, 6), material);
+      crown.position.y = type === 'relay' ? 2.65 : 3.05;
+      group.add(footprint, mass, crown);
+      this.scene.add(group);
+      this.placementGhost = group;
+      this.placementGhostType = type;
+    }
+    this.placementGhost.position.set(x, 0, z);
+    for (const child of this.placementGhost.children) {
+      const material = (child as THREE.Mesh).material as THREE.MeshBasicMaterial;
+      material.color.setHex(valid ? 0x63efbd : 0xff665c);
+      material.opacity = valid ? 0.42 : 0.58;
+      material.wireframe = !valid;
+    }
+    this.placementGhost.visible = true;
+  }
+
+  hidePlacementGhost(): void { if (this.placementGhost) this.placementGhost.visible = false; }
+
   dispose(): void {
     this.scene.traverse((object) => {
       if (object instanceof THREE.Mesh) {
@@ -224,6 +257,8 @@ export class WorldScene {
     this.units.clear();
     this.buildings.clear();
     this.resources.clear();
+    this.placementGhost = null;
+    this.placementGhostType = null;
   }
 
   private addObstacle(obstacle: (typeof WORLD_OBSTACLES)[number], index: number): void {
@@ -254,6 +289,18 @@ export class WorldScene {
     halo.rotation.x = Math.PI / 2;
     group.add(diamond, halo);
     return group;
+  }
+
+  private removePlacementGhost(): void {
+    if (!this.placementGhost) return;
+    this.scene.remove(this.placementGhost);
+    this.placementGhost.traverse((object) => {
+      if (!(object instanceof THREE.Mesh)) return;
+      object.geometry.dispose();
+      const materials = Array.isArray(object.material) ? object.material : [object.material];
+      materials.forEach((material) => material.dispose());
+    });
+    this.placementGhost = null;
   }
 
   private addTerrainDetails(): void {

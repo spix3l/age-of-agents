@@ -16,6 +16,7 @@ npm run build
 ## Architecture map
 
 - `src/game/Game.ts` is the composition root and the human command adapter. Keep it thin.
+- `src/game/building/PlacementController.ts` owns snapped placement state and authoritative validation. Confirmation does not spend until D3-02 creates a construction site.
 - `src/game/GameState.ts` owns separate unit, building, and resource registries plus faction economies.
 - `src/game/economy/` owns atomic ledgers and used/reserved/max Agent Capacity. Extend these instead of storing balances on UI objects.
 - `src/game/entities/resources/` owns finite resource-node state; `src/game/entities/buildings/Core.ts` owns the first building contract.
@@ -47,4 +48,4 @@ The shipping scenario starts each faction with one Core, three Workers, 25 Matte
 
 Camera input remains layout-aware ZQSD on AZERTY plus arrow keys; two-finger trackpad scrolling pans and pinching zooms.
 
-Epic 02 and its interaction gate are complete. Start Epic 03 from D3-01; D3-06 may proceed independently once the construction foundation is stable.
+Epic 02 and its interaction gate are complete. Epic 03 is active; D3-01 is in review with placement-rule tests green. Manually check ghosts against edges, ridges, resources, and the Core, then mark it done and continue with D3-02 construction sites. D3-06 may proceed independently once construction is stable.

@@ -2,7 +2,7 @@
 id: EPIC-03
 title: "Build the Colony"
 day: 3
-status: TODO
+status: IN PROGRESS
 ---
 
 # EPIC-03 — Build the Colony

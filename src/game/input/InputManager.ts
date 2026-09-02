@@ -5,6 +5,9 @@ interface InputCallbacks {
   readonly selectBox: (rect: ScreenRect, additive: boolean) => void;
   readonly move: (point: ScreenPoint) => void;
   readonly selectionBox: (rect: ScreenRect | null) => void;
+  readonly hover?: (point: ScreenPoint) => void;
+  readonly primaryAction?: (point: ScreenPoint) => boolean;
+  readonly cancelAction?: () => boolean;
 }
 
 export class InputManager {
@@ -18,6 +21,7 @@ export class InputManager {
     canvas.addEventListener('pointerup', this.onPointerUp);
     canvas.addEventListener('pointercancel', this.onPointerCancel);
     canvas.addEventListener('contextmenu', this.onContextMenu);
+    globalThis.addEventListener('keydown', this.onKeyDown);
   }
 
   dispose(): void {
@@ -26,6 +30,7 @@ export class InputManager {
     this.canvas.removeEventListener('pointerup', this.onPointerUp);
     this.canvas.removeEventListener('pointercancel', this.onPointerCancel);
     this.canvas.removeEventListener('contextmenu', this.onContextMenu);
+    globalThis.removeEventListener('keydown', this.onKeyDown);
   }
 
   private readonly onPointerDown = (event: PointerEvent): void => {
@@ -36,6 +41,7 @@ export class InputManager {
   };
 
   private readonly onPointerMove = (event: PointerEvent): void => {
+    this.callbacks.hover?.({ x: event.clientX, y: event.clientY });
     if (!this.dragStart) return;
     this.dragCurrent = { x: event.clientX, y: event.clientY };
     if (this.distance() >= this.dragThreshold) this.callbacks.selectionBox(this.rect());
@@ -44,7 +50,8 @@ export class InputManager {
   private readonly onPointerUp = (event: PointerEvent): void => {
     if (event.button !== 0 || !this.dragStart) return;
     this.dragCurrent = { x: event.clientX, y: event.clientY };
-    if (this.distance() >= this.dragThreshold) this.callbacks.selectBox(this.rect(), event.shiftKey);
+    if (this.callbacks.primaryAction?.(this.dragCurrent)) { /* placement handled */ }
+    else if (this.distance() >= this.dragThreshold) this.callbacks.selectBox(this.rect(), event.shiftKey);
     else this.callbacks.selectPoint(this.dragCurrent, event.shiftKey);
     this.dragStart = null; this.dragCurrent = null;
     this.callbacks.selectionBox(null);
@@ -53,7 +60,12 @@ export class InputManager {
 
   private readonly onContextMenu = (event: MouseEvent): void => {
     event.preventDefault();
+    if (this.callbacks.cancelAction?.()) return;
     this.callbacks.move({ x: event.clientX, y: event.clientY });
+  };
+
+  private readonly onKeyDown = (event: KeyboardEvent): void => {
+    if (event.key === 'Escape' && this.callbacks.cancelAction?.()) event.preventDefault();
   };
 
   private readonly onPointerCancel = (): void => {

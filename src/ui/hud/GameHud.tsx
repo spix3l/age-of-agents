@@ -3,6 +3,7 @@ import { CoreActions } from '../actions/CoreActions';
 import { SelectionPanel } from '../selection/SelectionPanel';
 import { SelectionBox } from '../selection/SelectionBox';
 import { useUiStore } from '../store';
+import { WorkerActions } from '../actions/WorkerActions';
 
 export function GameHud() {
   const matter = useUiStore((state) => state.matter);
@@ -16,7 +17,7 @@ export function GameHud() {
   return (
     <div className="hud" aria-live="polite">
       <header className="hud-top">
-        <div className="brand"><span className="brand-mark">A</span><div><strong>AGE OF AGENTS</strong><small>ECONOMY PROTOCOL // 02</small></div></div>
+        <div className="brand"><span className="brand-mark">A</span><div><strong>AGE OF AGENTS</strong><small>COLONY PROTOCOL // 03</small></div></div>
         <div className="resource-bar" aria-label="Player economy">
           <div className="resource matter"><span className="resource-glyph">◆</span><small>MATTER</small><strong>{Math.floor(matter)}</strong></div>
           <div className="resource energy"><span className="resource-glyph">ϟ</span><small>ENERGY</small><strong>{Math.floor(energy)}</strong></div>
@@ -26,16 +27,16 @@ export function GameHud() {
       </header>
 
       <aside className="objective-panel">
-        <span className="eyebrow">OPENING DIRECTIVE</span>
-        <strong>Expand the machine mind</strong>
-        <p>Select Workers, then right-click a Matter or Energy node. Select your Core to fabricate another Worker.</p>
+        <span className="eyebrow">COLONY DIRECTIVE</span>
+        <strong>Establish infrastructure</strong>
+        <p>Gather reserves, then select Workers to place Relay Nodes and Fabricators.</p>
         <div className="cost-row"><span>WORKER COST</span><b>{UNITS.worker.cost.matter} MATTER</b></div>
       </aside>
 
       <footer className="command-deck">
         <SelectionPanel />
         <div className="order-readout"><small>LAST DIRECTIVE</small><span>{lastOrder}</span></div>
-        {selection.isPlayerCore ? <CoreActions /> : <div className="controls"><kbd>ZQSD / ↑↓←→</kbd><span>MOVE VIEW</span><kbd>2 FINGERS</kbd><span>PAN · PINCH ZOOM</span><kbd>RMB</kbd><span>MOVE / GATHER</span></div>}
+        {selection.isPlayerCore ? <CoreActions /> : selection.canBuild ? <WorkerActions /> : <div className="controls"><kbd>ZQSD / ↑↓←→</kbd><span>MOVE VIEW</span><kbd>2 FINGERS</kbd><span>PAN · PINCH ZOOM</span><kbd>RMB</kbd><span>MOVE / GATHER</span></div>}
       </footer>
       <SelectionBox />
     </div>

@@ -4,6 +4,10 @@ Last updated: 2026-09-02
 
 ## Current milestone
 
+Epic 03 is `IN PROGRESS`. D3-01 is in `REVIEW`: selected Workers expose Relay/Fabricator placement, placement ghosts snap to the navigation grid, valid/invalid states are visually distinct, authoritative rules reject map boundaries, blockers, live resources, and existing buildings, and Escape/right-click cancels without spending. Construction sites begin in D3-02 after the manual placement edge-case pass.
+
+## Completed milestone — Epic 02
+
 Epic 02 is `DONE`. The Day 2 build starts two equivalent factions with one Core, three Workers, equal reserves/capacity, and nearby finite Matter/Energy deposits. Player Workers can receive contextual gather orders, carry capped cargo to the Core, deposit it, and repeat. Selecting the Core exposes a paid, capacity-aware Worker queue with visible simulation-time progress and nearby spawning.
 
 The user confirmed gathering, finite depletion, and the Core economy and accepted the Day 2 ship gate on 2026-09-02. Automated coverage and the production build are green.
@@ -14,7 +18,7 @@ The user confirmed gathering, finite depletion, and the Core economy and accepte
 |---|---|
 | `npm run typecheck` | PASS |
 | `npm run lint` | PASS |
-| `npm test -- --run` | PASS — 15 files, 29 tests |
+| `npm test -- --run` | PASS — 16 files, 31 tests |
 | `npm run build` | PASS |
 | Dev server HTTP boot | PASS — `/` returned HTTP 200 |
 | Interactive Day 2 gate | PASS — user accepted |
