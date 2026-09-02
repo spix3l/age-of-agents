@@ -1,5 +1,6 @@
 import { UNITS } from '../../data/units';
-import { CoreActions } from '../actions/CoreActions';
+import { ProductionActions } from '../actions/ProductionActions';
+import { ConstructionActions } from '../actions/ConstructionActions';
 import { SelectionPanel } from '../selection/SelectionPanel';
 import { SelectionBox } from '../selection/SelectionBox';
 import { useUiStore } from '../store';
@@ -36,7 +37,7 @@ export function GameHud() {
       <footer className="command-deck">
         <SelectionPanel />
         <div className="order-readout"><small>LAST DIRECTIVE</small><span>{lastOrder}</span></div>
-        {selection.isPlayerCore ? <CoreActions /> : selection.canBuild ? <WorkerActions /> : <div className="controls"><kbd>ZQSD / ↑↓←→</kbd><span>MOVE VIEW</span><kbd>2 FINGERS</kbd><span>PAN · PINCH ZOOM</span><kbd>RMB</kbd><span>MOVE / GATHER</span></div>}
+        {selection.constructionSite ? <ConstructionActions /> : selection.producer ? <ProductionActions unitType={selection.producer} /> : selection.canBuild ? <WorkerActions /> : <div className="controls"><kbd>ZQSD / ↑↓←→</kbd><span>MOVE VIEW</span><kbd>2 FINGERS</kbd><span>PAN · PINCH ZOOM</span><kbd>RMB</kbd><span>MOVE / GATHER</span></div>}
       </footer>
       <SelectionBox />
     </div>

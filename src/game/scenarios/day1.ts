@@ -29,6 +29,8 @@ export function createDay1Units(): UnitEntity[] {
       activity: 'Idle',
       cargo: { type: null, amount: 0 },
       gatherOrder: null,
+      buildOrder: null,
+      automation: null,
     };
   });
 }

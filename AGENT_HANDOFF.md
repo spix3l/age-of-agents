@@ -16,12 +16,13 @@ npm run build
 ## Architecture map
 
 - `src/game/Game.ts` is the composition root and the human command adapter. Keep it thin.
-- `src/game/building/PlacementController.ts` owns snapped placement state and authoritative validation. Confirmation does not spend until D3-02 creates a construction site.
+- `src/game/building/PlacementController.ts` owns snapped placement state and authoritative validation. `Game.ts` confirms placement by spending, creating the site, blocking its footprint, and assigning a builder as one rollback-safe transaction.
 - `src/game/GameState.ts` owns separate unit, building, and resource registries plus faction economies.
 - `src/game/economy/` owns atomic ledgers and used/reserved/max Agent Capacity. Extend these instead of storing balances on UI objects.
 - `src/game/entities/resources/` owns finite resource-node state; `src/game/entities/buildings/Core.ts` owns the first building contract.
-- `src/game/commands/GatherCommand.ts` and `MoveCommand.ts` are player/AI-safe command boundaries.
-- `src/game/systems/GatheringSystem.ts` and `ProductionSystem.ts` advance only from fixed simulation delta time.
+- `src/game/commands/GatherCommand.ts`, `MoveCommand.ts`, and `AutomateCommand.ts` are player/AI-safe command boundaries.
+- `src/game/systems/GatheringSystem.ts`, `ConstructionSystem.ts`, `AutomationSystem.ts`, and `ProductionSystem.ts` advance only from fixed simulation delta time.
+- `src/game/economy/CapacityProviders.ts` applies and removes completed-building capacity without coupling it to rendering or destruction effects.
 - `src/game/scenarios/economy.ts` is the shipping opening scenario; `day1.ts` remains the 30-unit navigation fixture.
 - `src/game/world/createMatch.ts` is the seeded match entrypoint; `WorldScene.ts` is presentation only.
 - `src/game/input/InputManager.ts` is the only raw pointer-event adapter. Right-click is contextual in `Game.ts`.
@@ -37,15 +38,20 @@ npm run build
 - A destroyed provider lowers maximum capacity without deleting already-used slots. Unit destruction callers must release used capacity.
 - Gather orders survive normal repathing. A manual move explicitly cancels gathering.
 - Buildings update navigation occupancy through `NavigationGrid`; its reference counts must remain balanced.
+- A construction site is non-operational until complete. Cancelling one unblocks its footprint, clears its builder order, and refunds 75%.
+- Automation persists through normal gather/deposit cycles; explicit move, gather, or build orders cancel the automation mode.
+- Core and Fabricator production share one FIFO queue. Costs and capacity are reserved on enqueue; user cancellation refunds both in full.
 - Selection may include player units/buildings and neutral resources, never enemy entities.
 - React receives UI snapshots at 10 Hz. Simulation code cannot import React.
 - New browser listeners, animation frames, Three.js resources, and observers must be disposed on remount.
 - Human and future AI actions should converge on the same command/system boundaries.
 
-## Day 2 controls and review state
+## Day 3 controls and completion state
 
-The shipping scenario starts each faction with one Core, three Workers, 25 Matter, 20 Energy, and 8 Agent Capacity. Left-click selects a Worker, Core, or resource; Shift and drag-box operate on friendly Workers. Right-clicking terrain moves selected Workers and cancels gathering. Right-clicking a live Matter/Energy node issues a repeating gather order. Select the player Core to expose **Fabricate Worker** (45 Matter, six seconds, one capacity).
+The shipping scenario starts each faction with one Core, three Workers, 25 Matter, 20 Energy, and 8 Agent Capacity. Left-click selects a Worker, building, or resource; Shift and drag-box operate on friendly Workers. Right-click terrain moves selected units. Right-click a live resource to gather, or an unfinished friendly site to reassign a selected Worker as builder.
+
+Selected Workers expose Relay/Fabricator placement and persistent **Auto Matter** / **Auto Energy** modes. Relay placement costs 80 Matter and 20 Energy; completion adds five capacity. Fabricator placement costs 160 Matter and 80 Energy; once complete it fabricates Strikers through the visible FIFO queue. Click a construction site's cancel control for a 75% refund or a queued production row for a full refund.
 
 Camera input remains layout-aware ZQSD on AZERTY plus arrow keys; two-finger trackpad scrolling pans and pinching zooms.
 
-Epic 02 and its interaction gate are complete. Epic 03 is active; D3-01 is in review with placement-rule tests green. Manually check ghosts against edges, ridges, resources, and the Core, then mark it done and continue with D3-02 construction sites. D3-06 may proceed independently once construction is stable.
+Epics 01 through 03 are complete. The user accepted Epic 03's colony gate on 2026-09-02, and its automated checks are green. D3-07 rally points were intentionally cut as optional P1 scope. Begin Epic 04 with D4-01 and preserve the economy, construction, capacity, and production boundaries above while adding destruction lifecycle behavior.

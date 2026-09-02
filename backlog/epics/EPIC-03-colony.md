@@ -2,7 +2,7 @@
 id: EPIC-03
 title: "Build the Colony"
 day: 3
-status: IN PROGRESS
+status: DONE
 ---
 
 # EPIC-03 — Build the Colony
@@ -19,14 +19,14 @@ status: IN PROGRESS
 
 ## Tasks
 
-- [ ] [D3-01 — Implement placement validation and building ghosts](../tasks/D3-01.md) — P0 / L — depends on D1-06, D2-01
-- [ ] [D3-02 — Implement construction sites and Worker building](../tasks/D3-02.md) — P0 / L — depends on D2-02, D3-01
-- [ ] [D3-03 — Add Relay Node capacity integration](../tasks/D3-03.md) — P0 / S — depends on D2-04, D3-02
-- [ ] [D3-04 — Add Fabricator and Striker production](../tasks/D3-04.md) — P0 / M — depends on D2-05, D3-02
-- [ ] [D3-05 — Add queue UI and cancel/refund behavior](../tasks/D3-05.md) — P0 / M — depends on D2-06, D3-04
-- [ ] [D3-06 — Implement persistent economic automation](../tasks/D3-06.md) — P0 / M — depends on D2-02
-- [ ] [D3-07 — Implement rally points](../tasks/D3-07.md) — P1 / S — depends on D3-04
-- [ ] [D3-08 — Integrate and prove the Day 3 colony gate](../tasks/D3-08.md) — P0 / M — depends on D3-03, D3-04, D3-05, D3-06
+- [x] [D3-01 — Implement placement validation and building ghosts](../tasks/D3-01.md) — P0 / L — depends on D1-06, D2-01
+- [x] [D3-02 — Implement construction sites and Worker building](../tasks/D3-02.md) — P0 / L — depends on D2-02, D3-01
+- [x] [D3-03 — Add Relay Node capacity integration](../tasks/D3-03.md) — P0 / S — depends on D2-04, D3-02
+- [x] [D3-04 — Add Fabricator and Striker production](../tasks/D3-04.md) — P0 / M — depends on D2-05, D3-02
+- [x] [D3-05 — Add queue UI and cancel/refund behavior](../tasks/D3-05.md) — P0 / M — depends on D2-06, D3-04
+- [x] [D3-06 — Implement persistent economic automation](../tasks/D3-06.md) — P0 / M — depends on D2-02
+- [x] [D3-07 — Implement rally points](../tasks/D3-07.md) — P1 / S — depends on D3-04 — CUT
+- [x] [D3-08 — Integrate and prove the Day 3 colony gate](../tasks/D3-08.md) — P0 / M — depends on D3-03, D3-04, D3-05, D3-06
 
 ## Epic completion
 

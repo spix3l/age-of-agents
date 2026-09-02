@@ -22,5 +22,10 @@ export function createCore(id: EntityId, team: Exclude<Team, 'neutral'>, positio
     capacityContribution: CORE_CAPACITY,
     selected: false,
     productionQueue: [],
+    operational: true,
+    constructionProgress: 1,
+    constructionTime: 0,
+    builderId: null,
+    capacityApplied: true,
   };
 }

@@ -7,7 +7,7 @@ import type { PlaceableBuildingType } from '../building/PlacementController';
 import { MAP_BOUNDS, WORLD_OBSTACLES } from './map';
 
 interface UnitVisual { readonly group: THREE.Group; readonly ring: THREE.Mesh; readonly orderBeacon: THREE.Group }
-interface StaticVisual { readonly group: THREE.Group; readonly ring: THREE.Mesh }
+interface StaticVisual { readonly group: THREE.Group; readonly ring: THREE.Mesh; readonly model?: THREE.Group; readonly progress?: THREE.Mesh }
 
 export class WorldScene {
   readonly scene = new THREE.Scene();
@@ -75,16 +75,16 @@ export class WorldScene {
     group.position.set(unit.position.x, 0, unit.position.z);
     const bodyMaterial = new THREE.MeshStandardMaterial({ color: unit.team === 'player' ? 0x20a9b7 : 0xc94c40, roughness: 0.48, metalness: 0.32 });
     const darkMaterial = new THREE.MeshStandardMaterial({ color: 0x24353a, roughness: 0.68, metalness: 0.48 });
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.56, 0.65, 6), bodyMaterial);
-    body.position.y = 0.62; body.castShadow = true; body.userData.entityId = unit.id;
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.38, 0.48), darkMaterial);
-    head.position.y = 1.08; head.castShadow = true; head.userData.entityId = unit.id;
+    const body = new THREE.Mesh(unit.kind === 'striker' ? new THREE.BoxGeometry(1.15, 0.5, 1.35) : new THREE.CylinderGeometry(0.46, 0.56, 0.65, 6), bodyMaterial);
+    body.position.y = unit.kind === 'striker' ? 0.55 : 0.62; body.castShadow = true; body.userData.entityId = unit.id;
+    const head = new THREE.Mesh(unit.kind === 'striker' ? new THREE.CylinderGeometry(0.28, 0.42, 0.42, 6) : new THREE.BoxGeometry(0.58, 0.38, 0.48), darkMaterial);
+    head.position.y = unit.kind === 'striker' ? 1.02 : 1.08; head.castShadow = true; head.userData.entityId = unit.id;
     const eye = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.08, 0.03), new THREE.MeshBasicMaterial({ color: unit.team === 'player' ? 0xbafff2 : 0xffd18c }));
-    eye.position.set(0, 1.1, -0.25); eye.userData.entityId = unit.id;
+    eye.position.set(0, unit.kind === 'striker' ? 1.04 : 1.1, unit.kind === 'striker' ? -0.7 : -0.25); eye.userData.entityId = unit.id;
     group.add(body, head, eye);
     [-0.32, 0.32].forEach((x) => {
       const leg = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.42, 0.18), darkMaterial);
-      leg.position.set(x, 0.24, 0); leg.castShadow = true; leg.userData.entityId = unit.id; group.add(leg);
+      leg.position.set(unit.kind === 'striker' ? x * 1.55 : x, 0.24, 0); leg.castShadow = true; leg.userData.entityId = unit.id; group.add(leg);
     });
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.67, 0.76, 24), new THREE.MeshBasicMaterial({ color: 0x80ffe5, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthWrite: false }));
     ring.rotation.x = -Math.PI / 2; ring.position.y = 0.045; ring.visible = false; group.add(ring);
@@ -97,24 +97,33 @@ export class WorldScene {
 
   addBuilding(building: BuildingEntity): void {
     const group = new THREE.Group();
+    const model = new THREE.Group();
     group.position.set(building.position.x, 0, building.position.z);
     const teamColor = building.team === 'player' ? 0x1d8f9c : 0xb94b3d;
     const shell = new THREE.MeshStandardMaterial({ color: 0xd7d2b9, roughness: 0.62, metalness: 0.18, flatShading: true });
     const metal = new THREE.MeshStandardMaterial({ color: teamColor, roughness: 0.4, metalness: 0.5, flatShading: true });
-    const base = new THREE.Mesh(new THREE.CylinderGeometry(2.35, 2.7, 1.1, 8), metal);
+    const baseGeometry = building.kind === 'fabricator' ? new THREE.BoxGeometry(3.8, 0.8, 2.8) : building.kind === 'relay' ? new THREE.CylinderGeometry(0.95, 1.2, 0.7, 6) : new THREE.CylinderGeometry(2.35, 2.7, 1.1, 8);
+    const towerGeometry = building.kind === 'fabricator' ? new THREE.BoxGeometry(2.8, 1.7, 2.1) : building.kind === 'relay' ? new THREE.CylinderGeometry(0.22, 0.38, 2.7, 6) : new THREE.CylinderGeometry(1.25, 1.75, 3.1, 8);
+    const base = new THREE.Mesh(baseGeometry, metal);
     base.position.y = 0.55; base.castShadow = true; base.receiveShadow = true; base.userData.entityId = building.id;
-    const tower = new THREE.Mesh(new THREE.CylinderGeometry(1.25, 1.75, 3.1, 8), shell);
-    tower.position.y = 2.05; tower.castShadow = true; tower.userData.entityId = building.id;
-    const crown = new THREE.Mesh(new THREE.OctahedronGeometry(1.05, 0), metal);
-    crown.position.y = 4.05; crown.rotation.y = Math.PI / 4; crown.castShadow = true; crown.userData.entityId = building.id;
-    const glow = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.48, 2.2, 8), new THREE.MeshStandardMaterial({ color: teamColor, emissive: teamColor, emissiveIntensity: 1.4 }));
-    glow.position.y = 2.2; glow.userData.entityId = building.id;
-    const ring = new THREE.Mesh(new THREE.RingGeometry(2.8, 3.02, 40), new THREE.MeshBasicMaterial({ color: 0x80ffe5, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthWrite: false }));
+    const tower = new THREE.Mesh(towerGeometry, shell);
+    tower.position.y = building.kind === 'relay' ? 1.75 : building.kind === 'fabricator' ? 1.5 : 2.05; tower.castShadow = true; tower.userData.entityId = building.id;
+    const crown = new THREE.Mesh(building.kind === 'fabricator' ? new THREE.CylinderGeometry(0.65, 0.85, 0.7, 6) : new THREE.OctahedronGeometry(building.kind === 'relay' ? 0.62 : 1.05, 0), metal);
+    crown.position.y = building.kind === 'relay' ? 3.25 : building.kind === 'fabricator' ? 2.75 : 4.05; crown.rotation.y = Math.PI / 4; crown.castShadow = true; crown.userData.entityId = building.id;
+    const glow = new THREE.Mesh(new THREE.CylinderGeometry(building.kind === 'relay' ? 0.18 : 0.48, building.kind === 'relay' ? 0.18 : 0.48, building.kind === 'relay' ? 1.8 : 2.2, 8), new THREE.MeshStandardMaterial({ color: teamColor, emissive: teamColor, emissiveIntensity: 1.4 }));
+    glow.position.y = building.kind === 'relay' ? 1.8 : 2.2; glow.userData.entityId = building.id;
+    const radius = Math.max(building.footprint.x, building.footprint.z) / 2 + 0.4;
+    const ring = new THREE.Mesh(new THREE.RingGeometry(radius, radius + 0.2, 40), new THREE.MeshBasicMaterial({ color: 0x80ffe5, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthWrite: false }));
     ring.rotation.x = -Math.PI / 2; ring.position.y = 0.06; ring.visible = false;
-    group.add(base, tower, crown, glow, ring);
+    model.add(base, tower, crown, glow);
+    const progress = new THREE.Mesh(new THREE.BoxGeometry(Math.max(1.4, building.footprint.x), 0.1, 0.18), new THREE.MeshBasicMaterial({ color: 0x62efbd, depthTest: false }));
+    progress.position.set(0, 0.18, building.footprint.z / 2 + 0.35);
+    progress.visible = !building.operational;
+    progress.scale.x = Math.max(0.02, building.constructionProgress);
+    group.add(model, ring, progress);
     this.scene.add(group);
     this.selectableMeshes.push(base, tower, crown, glow);
-    this.buildings.set(building.id, { group, ring });
+    this.buildings.set(building.id, { group, ring, model, progress });
   }
 
   addResource(node: ResourceNodeEntity): void {
@@ -181,6 +190,11 @@ export class WorldScene {
       if (!visual) continue;
       visual.group.visible = building.alive;
       visual.ring.visible = building.selected;
+      if (visual.model) visual.model.scale.y = building.operational ? 1 : 0.18 + building.constructionProgress * 0.82;
+      if (visual.progress) {
+        visual.progress.visible = !building.operational;
+        visual.progress.scale.x = Math.max(0.02, building.constructionProgress);
+      }
     }
     for (const node of resources) {
       const visual = this.resources.get(node.id);
@@ -244,6 +258,22 @@ export class WorldScene {
   }
 
   hidePlacementGhost(): void { if (this.placementGhost) this.placementGhost.visible = false; }
+
+  removeBuilding(id: EntityId): void {
+    const visual = this.buildings.get(id);
+    if (!visual) return;
+    this.scene.remove(visual.group);
+    for (let index = this.selectableMeshes.length - 1; index >= 0; index -= 1) {
+      if (this.selectableMeshes[index]?.userData.entityId === id) this.selectableMeshes.splice(index, 1);
+    }
+    visual.group.traverse((object) => {
+      if (!(object instanceof THREE.Mesh)) return;
+      object.geometry.dispose();
+      const materials = Array.isArray(object.material) ? object.material : [object.material];
+      materials.forEach((material) => material.dispose());
+    });
+    this.buildings.delete(id);
+  }
 
   dispose(): void {
     this.scene.traverse((object) => {

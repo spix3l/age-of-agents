@@ -6,7 +6,7 @@ import { issueMoveCommand } from '../commands/MoveCommand';
 import { MovementSystem } from './MovementSystem';
 
 function unit(index: number): UnitEntity {
-  return { id: entityId(`worker-${index}`), kind: 'worker', team: 'player', alive: true, position: { x: 1.5 + index % 5, z: 1.5 + Math.floor(index / 5) }, previousPosition: { x: 0, z: 0 }, hp: 70, maxHp: 70, radius: 0.45, movementSpeed: 5, path: [], pathIndex: 0, destination: null, stuckSeconds: 0, repathCount: 0, selected: false, activity: 'Idle', cargo: { type: null, amount: 0 }, gatherOrder: null };
+  return { id: entityId(`worker-${index}`), kind: 'worker', team: 'player', alive: true, position: { x: 1.5 + index % 5, z: 1.5 + Math.floor(index / 5) }, previousPosition: { x: 0, z: 0 }, hp: 70, maxHp: 70, radius: 0.45, movementSpeed: 5, path: [], pathIndex: 0, destination: null, stuckSeconds: 0, repathCount: 0, selected: false, activity: 'Idle', cargo: { type: null, amount: 0 }, gatherOrder: null, buildOrder: null, automation: null };
 }
 
 describe('group movement', () => {

@@ -13,15 +13,19 @@ export interface EconomyScenario {
   readonly startingBalances: typeof STARTING_ECONOMY;
 }
 
-export function createWorkerEntity(id: string, team: Exclude<Team, 'neutral'>, position: Vec2): UnitEntity {
-  const config = UNITS.worker;
+export function createUnitEntity(id: string, kind: UnitEntity['kind'], team: Exclude<Team, 'neutral'>, position: Vec2): UnitEntity {
+  const config = UNITS[kind];
   return {
-    id: entityId(id), kind: 'worker', team, alive: true,
+    id: entityId(id), kind, team, alive: true,
     position: { ...position }, previousPosition: { ...position },
     hp: config.maxHp, maxHp: config.maxHp, radius: config.radius, movementSpeed: config.movementSpeed,
     path: [], pathIndex: 0, destination: null, stuckSeconds: 0, repathCount: 0, selected: false,
-    activity: 'Idle', cargo: { type: null, amount: 0 }, gatherOrder: null,
+    activity: 'Idle', cargo: { type: null, amount: 0 }, gatherOrder: null, buildOrder: null, automation: null,
   };
+}
+
+export function createWorkerEntity(id: string, team: Exclude<Team, 'neutral'>, position: Vec2): UnitEntity {
+  return createUnitEntity(id, 'worker', team, position);
 }
 
 export function createEconomyScenario(seed = 20_260_902): EconomyScenario {

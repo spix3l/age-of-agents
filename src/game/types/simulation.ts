@@ -29,11 +29,13 @@ export interface UnitEntity extends SimEntity {
   activity: WorkerActivity;
   cargo: { type: HarvestableResourceType | null; amount: number };
   gatherOrder: { resourceId: EntityId; resourceType: HarvestableResourceType; state: GatherState; workSeconds: number } | null;
+  buildOrder: { buildingId: EntityId } | null;
+  automation: { resourceType: HarvestableResourceType; searchCooldown: number } | null;
 }
 
 export type HarvestableResourceType = Exclude<ResourceType, 'data'>;
 export type GatherState = 'moving-to-node' | 'extracting' | 'returning' | 'depositing';
-export type WorkerActivity = 'Idle' | 'Moving' | 'Gathering Matter' | 'Gathering Energy' | 'Returning cargo';
+export type WorkerActivity = 'Idle' | 'Moving' | 'Gathering Matter' | 'Gathering Energy' | 'Returning cargo' | 'Building' | 'Automating Matter' | 'Automating Energy';
 
 export interface ProductionOrder {
   readonly id: EntityId;
@@ -53,4 +55,9 @@ export interface BuildingEntity extends SimEntity {
   readonly capacityContribution: number;
   selected: boolean;
   productionQueue: ProductionOrder[];
+  operational: boolean;
+  constructionProgress: number;
+  readonly constructionTime: number;
+  builderId: EntityId | null;
+  capacityApplied: boolean;
 }

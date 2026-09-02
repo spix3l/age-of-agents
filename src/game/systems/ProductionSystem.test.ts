@@ -31,7 +31,7 @@ describe('Core production', () => {
     const core = createCore(entityId('rejection-core'), 'player', { x: 0, z: 0 });
     const poorLedger = new EconomyLedger({ matter: 0 });
     const capacity = new Capacity(4, 3);
-    expect(system.enqueueWorker(core, poorLedger, capacity)).toEqual({ ok: false, reason: 'INSUFFICIENT_MATTER' });
+    expect(system.enqueueWorker(core, poorLedger, capacity)).toEqual({ ok: false, reason: 'INSUFFICIENT_RESOURCES' });
     poorLedger.deposit('matter', 45);
     expect(system.enqueueWorker(core, poorLedger, capacity)).toEqual({ ok: true });
     for (let tick = 0; tick < 181; tick += 1) system.update([core], 1 / 30, () => ({ ledger: poorLedger, capacity }), () => null);

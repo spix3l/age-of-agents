@@ -10,6 +10,7 @@ const ACTIONS: readonly { readonly type: PlaceableBuildingType; readonly glyph: 
 export function WorkerActions() {
   const beginBuild = useUiStore((state) => state.beginBuild);
   const placementMode = useUiStore((state) => state.placementMode);
+  const automate = useUiStore((state) => state.automate);
   return (
     <section className="worker-actions" aria-label="Worker construction">
       {ACTIONS.map(({ type, glyph }) => {
@@ -19,6 +20,8 @@ export function WorkerActions() {
           <span>{glyph}</span><span><strong>{config.label.toUpperCase()}</strong><small>{config.cost.matter}M · {config.cost.energy}E</small></span>
         </button>;
       })}
+      <button type="button" className="automation-button matter" onClick={() => automate('matter')}>AUTO · MATTER</button>
+      <button type="button" className="automation-button energy" onClick={() => automate('energy')}>AUTO · ENERGY</button>
       <small className="placement-hint">CLICK TO PLACE · ESC / RMB CANCEL</small>
     </section>
   );
