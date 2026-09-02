@@ -22,7 +22,10 @@ export class MovementSystem {
         unit.position.z = waypoint.z;
         unit.pathIndex += 1;
         unit.stuckSeconds = 0;
-        if (unit.pathIndex >= unit.path.length) unit.destination = null;
+        if (unit.pathIndex >= unit.path.length) {
+          unit.destination = null;
+          if (!unit.gatherOrder) unit.activity = 'Idle';
+        }
       } else {
         unit.position.x += (dx / distance) * travel;
         unit.position.z += (dz / distance) * travel;

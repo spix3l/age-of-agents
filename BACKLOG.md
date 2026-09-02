@@ -7,7 +7,7 @@ This is the portfolio view for the file-backed backlog derived from [`PRD.md`](P
 | Epic | Schedule | Outcome | Tasks | Status |
 |---|---|---|---:|---|
 | [EPIC-01](backlog/epics/EPIC-01-world.md) | Day 1 | The World | 9 | DONE |
-| [EPIC-02](backlog/epics/EPIC-02-economy.md) | Day 2 | The Machine Economy | 7 | TODO |
+| [EPIC-02](backlog/epics/EPIC-02-economy.md) | Day 2 | The Machine Economy | 7 | DONE |
 | [EPIC-03](backlog/epics/EPIC-03-colony.md) | Day 3 | Build the Colony | 8 | TODO |
 | [EPIC-04](backlog/epics/EPIC-04-war.md) | Day 4 | War | 7 | TODO |
 | [EPIC-05](backlog/epics/EPIC-05-opponent.md) | Day 5 | The Other Intelligence | 7 | TODO |
@@ -27,13 +27,13 @@ This is the portfolio view for the file-backed backlog derived from [`PRD.md`](P
 | [D1-07](backlog/tasks/D1-07.md) | [EPIC-01](backlog/epics/EPIC-01-world.md) | Implement unit movement and group destination slots | P0 | L | D1-04, D1-06 | DONE |
 | [D1-08](backlog/tasks/D1-08.md) | [EPIC-01](backlog/epics/EPIC-01-world.md) | Implement click and drag-box selection | P0 | M | D1-04, D1-05 | DONE |
 | [D1-09](backlog/tasks/D1-09.md) | [EPIC-01](backlog/epics/EPIC-01-world.md) | Integrate and prove the Day 1 world gate | P0 | M | D1-07, D1-08 | DONE |
-| [D2-01](backlog/tasks/D2-01.md) | [EPIC-02](backlog/epics/EPIC-02-economy.md) | Add player economy and resource-node model | P0 | M | D1-04 | TODO |
-| [D2-02](backlog/tasks/D2-02.md) | [EPIC-02](backlog/epics/EPIC-02-economy.md) | Implement Worker gathering state machine | P0 | L | D1-07, D2-01 | TODO |
-| [D2-03](backlog/tasks/D2-03.md) | [EPIC-02](backlog/epics/EPIC-02-economy.md) | Add Core, ownership, and deposits | P0 | M | D1-04, D2-01 | TODO |
-| [D2-04](backlog/tasks/D2-04.md) | [EPIC-02](backlog/epics/EPIC-02-economy.md) | Implement Agent Capacity rules | P0 | S | D1-02, D2-03 | TODO |
-| [D2-05](backlog/tasks/D2-05.md) | [EPIC-02](backlog/epics/EPIC-02-economy.md) | Implement production queues and Worker spawning | P0 | M | D2-03, D2-04 | TODO |
-| [D2-06](backlog/tasks/D2-06.md) | [EPIC-02](backlog/epics/EPIC-02-economy.md) | Build resource, selection, and Core action HUD | P0 | L | D2-01, D2-05 | TODO |
-| [D2-07](backlog/tasks/D2-07.md) | [EPIC-02](backlog/epics/EPIC-02-economy.md) | Create fair starting state and economy tests | P0 | M | D2-02, D2-05, D2-06 | TODO |
+| [D2-01](backlog/tasks/D2-01.md) | [EPIC-02](backlog/epics/EPIC-02-economy.md) | Add player economy and resource-node model | P0 | M | D1-04 | DONE |
+| [D2-02](backlog/tasks/D2-02.md) | [EPIC-02](backlog/epics/EPIC-02-economy.md) | Implement Worker gathering state machine | P0 | L | D1-07, D2-01 | DONE |
+| [D2-03](backlog/tasks/D2-03.md) | [EPIC-02](backlog/epics/EPIC-02-economy.md) | Add Core, ownership, and deposits | P0 | M | D1-04, D2-01 | DONE |
+| [D2-04](backlog/tasks/D2-04.md) | [EPIC-02](backlog/epics/EPIC-02-economy.md) | Implement Agent Capacity rules | P0 | S | D1-02, D2-03 | DONE |
+| [D2-05](backlog/tasks/D2-05.md) | [EPIC-02](backlog/epics/EPIC-02-economy.md) | Implement production queues and Worker spawning | P0 | M | D2-03, D2-04 | DONE |
+| [D2-06](backlog/tasks/D2-06.md) | [EPIC-02](backlog/epics/EPIC-02-economy.md) | Build resource, selection, and Core action HUD | P0 | L | D2-01, D2-05 | DONE |
+| [D2-07](backlog/tasks/D2-07.md) | [EPIC-02](backlog/epics/EPIC-02-economy.md) | Create fair starting state and economy tests | P0 | M | D2-02, D2-05, D2-06 | DONE |
 | [D3-01](backlog/tasks/D3-01.md) | [EPIC-03](backlog/epics/EPIC-03-colony.md) | Implement placement validation and building ghosts | P0 | L | D1-06, D2-01 | TODO |
 | [D3-02](backlog/tasks/D3-02.md) | [EPIC-03](backlog/epics/EPIC-03-colony.md) | Implement construction sites and Worker building | P0 | L | D2-02, D3-01 | TODO |
 | [D3-03](backlog/tasks/D3-03.md) | [EPIC-03](backlog/epics/EPIC-03-colony.md) | Add Relay Node capacity integration | P0 | S | D2-04, D3-02 | TODO |

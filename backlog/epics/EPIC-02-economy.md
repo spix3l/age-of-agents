@@ -2,7 +2,7 @@
 id: EPIC-02
 title: "The Machine Economy"
 day: 2
-status: TODO
+status: DONE
 ---
 
 # EPIC-02 — The Machine Economy
@@ -19,13 +19,13 @@ status: TODO
 
 ## Tasks
 
-- [ ] [D2-01 — Add player economy and resource-node model](../tasks/D2-01.md) — P0 / M — depends on D1-04
-- [ ] [D2-02 — Implement Worker gathering state machine](../tasks/D2-02.md) — P0 / L — depends on D1-07, D2-01
-- [ ] [D2-03 — Add Core, ownership, and deposits](../tasks/D2-03.md) — P0 / M — depends on D1-04, D2-01
-- [ ] [D2-04 — Implement Agent Capacity rules](../tasks/D2-04.md) — P0 / S — depends on D1-02, D2-03
-- [ ] [D2-05 — Implement production queues and Worker spawning](../tasks/D2-05.md) — P0 / M — depends on D2-03, D2-04
-- [ ] [D2-06 — Build resource, selection, and Core action HUD](../tasks/D2-06.md) — P0 / L — depends on D2-01, D2-05
-- [ ] [D2-07 — Create fair starting state and economy tests](../tasks/D2-07.md) — P0 / M — depends on D2-02, D2-05, D2-06
+- [x] [D2-01 — Add player economy and resource-node model](../tasks/D2-01.md) — P0 / M — depends on D1-04
+- [x] [D2-02 — Implement Worker gathering state machine](../tasks/D2-02.md) — P0 / L — depends on D1-07, D2-01
+- [x] [D2-03 — Add Core, ownership, and deposits](../tasks/D2-03.md) — P0 / M — depends on D1-04, D2-01
+- [x] [D2-04 — Implement Agent Capacity rules](../tasks/D2-04.md) — P0 / S — depends on D1-02, D2-03
+- [x] [D2-05 — Implement production queues and Worker spawning](../tasks/D2-05.md) — P0 / M — depends on D2-03, D2-04
+- [x] [D2-06 — Build resource, selection, and Core action HUD](../tasks/D2-06.md) — P0 / L — depends on D2-01, D2-05
+- [x] [D2-07 — Create fair starting state and economy tests](../tasks/D2-07.md) — P0 / M — depends on D2-02, D2-05, D2-06
 
 ## Epic completion
 

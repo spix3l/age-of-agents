@@ -1,27 +1,41 @@
+import { UNITS } from '../../data/units';
+import { CoreActions } from '../actions/CoreActions';
+import { SelectionPanel } from '../selection/SelectionPanel';
 import { SelectionBox } from '../selection/SelectionBox';
 import { useUiStore } from '../store';
 
 export function GameHud() {
-  const selected = useUiStore((state) => state.selectedCount);
-  const total = useUiStore((state) => state.totalUnits);
+  const matter = useUiStore((state) => state.matter);
+  const energy = useUiStore((state) => state.energy);
+  const used = useUiStore((state) => state.capacityUsed);
+  const reserved = useUiStore((state) => state.capacityReserved);
+  const max = useUiStore((state) => state.capacityMax);
+  const selection = useUiStore((state) => state.selection);
   const lastOrder = useUiStore((state) => state.lastOrder);
 
   return (
     <div className="hud" aria-live="polite">
       <header className="hud-top">
-        <div className="brand"><span className="brand-mark">A</span><div><strong>AGE OF AGENTS</strong><small>WORLD PROTOCOL // 01</small></div></div>
-        <div className="status-chip"><i /> SIMULATION ONLINE</div>
+        <div className="brand"><span className="brand-mark">A</span><div><strong>AGE OF AGENTS</strong><small>ECONOMY PROTOCOL // 02</small></div></div>
+        <div className="resource-bar" aria-label="Player economy">
+          <div className="resource matter"><span className="resource-glyph">◆</span><small>MATTER</small><strong>{Math.floor(matter)}</strong></div>
+          <div className="resource energy"><span className="resource-glyph">ϟ</span><small>ENERGY</small><strong>{Math.floor(energy)}</strong></div>
+          <div className="resource agents"><span className="resource-glyph">⬡</span><small>AGENTS</small><strong>{used}{reserved > 0 ? `+${reserved}` : ''} / {max}</strong></div>
+        </div>
+        <div className="status-chip"><i /> ECONOMY ONLINE</div>
       </header>
+
       <aside className="objective-panel">
-        <span className="eyebrow">FIELD TEST</span>
-        <strong>Route the worker swarm</strong>
-        <p>Select all 30 agents and move them through the stone ridges.</p>
-        <div className="progress-row"><span>ACTIVE AGENTS</span><b>{total} / 30</b></div>
+        <span className="eyebrow">OPENING DIRECTIVE</span>
+        <strong>Expand the machine mind</strong>
+        <p>Select Workers, then right-click a Matter or Energy node. Select your Core to fabricate another Worker.</p>
+        <div className="cost-row"><span>WORKER COST</span><b>{UNITS.worker.cost.matter} MATTER</b></div>
       </aside>
-      <footer className="command-bar">
-        <div className="unit-readout"><span className="unit-icon">⬡</span><div><small>SELECTION</small><strong>{selected > 0 ? `${selected} WORKER${selected === 1 ? '' : 'S'}` : 'NO AGENTS'}</strong></div></div>
+
+      <footer className="command-deck">
+        <SelectionPanel />
         <div className="order-readout"><small>LAST DIRECTIVE</small><span>{lastOrder}</span></div>
-        <div className="controls"><kbd>ZQSD / ↑</kbd><span>MOVE VIEW</span><kbd>2 FINGERS</kbd><span>PAN · PINCH ZOOM</span><kbd>RMB</kbd><span>MOVE UNITS</span></div>
+        {selection.isPlayerCore ? <CoreActions /> : <div className="controls"><kbd>ZQSD / ↑↓←→</kbd><span>MOVE VIEW</span><kbd>2 FINGERS</kbd><span>PAN · PINCH ZOOM</span><kbd>RMB</kbd><span>MOVE / GATHER</span></div>}
       </footer>
       <SelectionBox />
     </div>

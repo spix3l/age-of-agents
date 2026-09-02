@@ -16,6 +16,8 @@ export function createDay1Units(): UnitEntity[] {
       alive: true,
       position: { x, z },
       previousPosition: { x, z },
+      hp: config.maxHp,
+      maxHp: config.maxHp,
       radius: config.radius,
       movementSpeed: config.movementSpeed,
       path: [],
@@ -24,6 +26,9 @@ export function createDay1Units(): UnitEntity[] {
       stuckSeconds: 0,
       repathCount: 0,
       selected: false,
+      activity: 'Idle',
+      cargo: { type: null, amount: 0 },
+      gatherOrder: null,
     };
   });
 }

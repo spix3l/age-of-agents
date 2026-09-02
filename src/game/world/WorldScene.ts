@@ -1,17 +1,23 @@
 import * as THREE from 'three';
 import type { EntityId } from '../types/ids';
-import type { UnitEntity } from '../types/simulation';
+import type { ResourceNodeEntity } from '../entities/resources/ResourceNode';
+import type { BuildingEntity, UnitEntity } from '../types/simulation';
 import { MAP_BOUNDS, WORLD_OBSTACLES } from './map';
 
-interface UnitVisual { readonly group: THREE.Group; readonly ring: THREE.Mesh }
+interface UnitVisual { readonly group: THREE.Group; readonly ring: THREE.Mesh; readonly orderBeacon: THREE.Group }
+interface StaticVisual { readonly group: THREE.Group; readonly ring: THREE.Mesh }
 
 export class WorldScene {
   readonly scene = new THREE.Scene();
   readonly ground: THREE.Mesh;
   readonly selectableMeshes: THREE.Object3D[] = [];
   private readonly units = new Map<EntityId, UnitVisual>();
+  private readonly buildings = new Map<EntityId, StaticVisual>();
+  private readonly resources = new Map<EntityId, StaticVisual>();
   private readonly marker: THREE.Mesh;
   private markerLife = 0;
+  private markerMode: 'move' | 'gather' | 'rejected' = 'move';
+  private animationTime = 0;
 
   constructor() {
     this.scene.background = new THREE.Color(0xa8c9c5);
@@ -78,33 +84,132 @@ export class WorldScene {
     });
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.67, 0.76, 24), new THREE.MeshBasicMaterial({ color: 0x80ffe5, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthWrite: false }));
     ring.rotation.x = -Math.PI / 2; ring.position.y = 0.045; ring.visible = false; group.add(ring);
+    const orderBeacon = this.createOrderBeacon();
+    group.add(orderBeacon);
     this.scene.add(group);
     this.selectableMeshes.push(body, head, eye, ...group.children.filter((child) => child !== ring && child !== body && child !== head && child !== eye));
-    this.units.set(unit.id, { group, ring });
+    this.units.set(unit.id, { group, ring, orderBeacon });
+  }
+
+  addBuilding(building: BuildingEntity): void {
+    const group = new THREE.Group();
+    group.position.set(building.position.x, 0, building.position.z);
+    const teamColor = building.team === 'player' ? 0x1d8f9c : 0xb94b3d;
+    const shell = new THREE.MeshStandardMaterial({ color: 0xd7d2b9, roughness: 0.62, metalness: 0.18, flatShading: true });
+    const metal = new THREE.MeshStandardMaterial({ color: teamColor, roughness: 0.4, metalness: 0.5, flatShading: true });
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(2.35, 2.7, 1.1, 8), metal);
+    base.position.y = 0.55; base.castShadow = true; base.receiveShadow = true; base.userData.entityId = building.id;
+    const tower = new THREE.Mesh(new THREE.CylinderGeometry(1.25, 1.75, 3.1, 8), shell);
+    tower.position.y = 2.05; tower.castShadow = true; tower.userData.entityId = building.id;
+    const crown = new THREE.Mesh(new THREE.OctahedronGeometry(1.05, 0), metal);
+    crown.position.y = 4.05; crown.rotation.y = Math.PI / 4; crown.castShadow = true; crown.userData.entityId = building.id;
+    const glow = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.48, 2.2, 8), new THREE.MeshStandardMaterial({ color: teamColor, emissive: teamColor, emissiveIntensity: 1.4 }));
+    glow.position.y = 2.2; glow.userData.entityId = building.id;
+    const ring = new THREE.Mesh(new THREE.RingGeometry(2.8, 3.02, 40), new THREE.MeshBasicMaterial({ color: 0x80ffe5, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthWrite: false }));
+    ring.rotation.x = -Math.PI / 2; ring.position.y = 0.06; ring.visible = false;
+    group.add(base, tower, crown, glow, ring);
+    this.scene.add(group);
+    this.selectableMeshes.push(base, tower, crown, glow);
+    this.buildings.set(building.id, { group, ring });
+  }
+
+  addResource(node: ResourceNodeEntity): void {
+    const group = new THREE.Group();
+    group.position.set(node.position.x, 0, node.position.z);
+    const isMatter = node.resourceType === 'matter';
+    const material = new THREE.MeshStandardMaterial({
+      color: isMatter ? 0xc49a54 : 0x4cc7b8,
+      emissive: isMatter ? 0x4e3210 : 0x0d5853,
+      emissiveIntensity: isMatter ? 0.12 : 0.65,
+      roughness: isMatter ? 0.78 : 0.28,
+      metalness: isMatter ? 0.32 : 0.12,
+      flatShading: true,
+    });
+    const count = isMatter ? 6 : 5;
+    for (let index = 0; index < count; index += 1) {
+      const mesh = new THREE.Mesh(
+        isMatter ? new THREE.DodecahedronGeometry(0.72 + (index % 3) * 0.18, 0) : new THREE.ConeGeometry(0.5, 2 + index * 0.22, 5),
+        material,
+      );
+      const angle = (index / count) * Math.PI * 2;
+      mesh.position.set(Math.cos(angle) * 0.9, isMatter ? 0.55 : 0.9 + index * 0.08, Math.sin(angle) * 0.9);
+      mesh.rotation.set(index * 0.13, angle, isMatter ? index * 0.08 : (index - 2) * 0.08);
+      mesh.castShadow = true; mesh.userData.entityId = node.id; group.add(mesh); this.selectableMeshes.push(mesh);
+    }
+    const ring = new THREE.Mesh(new THREE.RingGeometry(1.55, 1.72, 32), new THREE.MeshBasicMaterial({ color: isMatter ? 0xffd783 : 0x79ffe8, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthWrite: false }));
+    ring.rotation.x = -Math.PI / 2; ring.position.y = 0.05; ring.visible = false; group.add(ring);
+    this.scene.add(group);
+    this.resources.set(node.id, { group, ring });
   }
 
   syncUnits(units: readonly UnitEntity[], alpha: number): void {
+    this.animationTime += 1 / 60;
     for (const unit of units) {
       const visual = this.units.get(unit.id);
       if (!visual) continue;
       visual.group.position.x = THREE.MathUtils.lerp(unit.previousPosition.x, unit.position.x, alpha);
       visual.group.position.z = THREE.MathUtils.lerp(unit.previousPosition.z, unit.position.z, alpha);
       visual.ring.visible = unit.selected;
+      visual.orderBeacon.visible = Boolean(unit.gatherOrder);
+      if (unit.gatherOrder) {
+        const color = unit.gatherOrder.resourceType === 'matter' ? 0xffca68 : 0x61f5df;
+        for (const child of visual.orderBeacon.children) ((child as THREE.Mesh).material as THREE.MeshBasicMaterial).color.setHex(color);
+        visual.orderBeacon.rotation.y += 0.045;
+        const pulse = 0.92 + Math.sin(this.animationTime * 6 + unit.position.x) * 0.12;
+        visual.orderBeacon.scale.setScalar(pulse);
+      }
       visual.group.visible = unit.alive;
     }
     if (this.markerLife > 0) {
       this.markerLife = Math.max(0, this.markerLife - 1 / 60);
       const material = this.marker.material as THREE.MeshBasicMaterial;
       material.opacity = Math.min(0.9, this.markerLife * 1.5);
-      const scale = 1 + (0.8 - this.markerLife) * 0.7;
+      const baseScale = this.markerMode === 'move' ? 1 : 2;
+      const duration = this.markerMode === 'move' ? 0.8 : 1.25;
+      const scale = baseScale + (duration - this.markerLife) * (this.markerMode === 'rejected' ? 0.35 : 0.7);
       this.marker.scale.setScalar(scale);
     }
   }
 
+  syncStructures(buildings: readonly BuildingEntity[], resources: readonly ResourceNodeEntity[]): void {
+    for (const building of buildings) {
+      const visual = this.buildings.get(building.id);
+      if (!visual) continue;
+      visual.group.visible = building.alive;
+      visual.ring.visible = building.selected;
+    }
+    for (const node of resources) {
+      const visual = this.resources.get(node.id);
+      if (!visual) continue;
+      visual.group.visible = node.alive;
+      visual.ring.visible = node.selected;
+      const scale = Math.max(0.35, node.remaining / node.capacity);
+      visual.group.scale.setScalar(0.72 + scale * 0.28);
+    }
+  }
+
   showMoveMarker(x: number, z: number): void {
+    this.markerMode = 'move';
+    (this.marker.material as THREE.MeshBasicMaterial).color.setHex(0x73f7d3);
     this.marker.position.set(x, 0.08, z);
     this.marker.scale.setScalar(1);
     this.markerLife = 0.8;
+  }
+
+  showGatherMarker(x: number, z: number, type: ResourceNodeEntity['resourceType']): void {
+    this.markerMode = 'gather';
+    (this.marker.material as THREE.MeshBasicMaterial).color.setHex(type === 'matter' ? 0xffca68 : 0x61f5df);
+    this.marker.position.set(x, 0.1, z);
+    this.marker.scale.setScalar(2);
+    this.markerLife = 1.25;
+  }
+
+  showRejectedMarker(x: number, z: number): void {
+    this.markerMode = 'rejected';
+    (this.marker.material as THREE.MeshBasicMaterial).color.setHex(0xff665c);
+    this.marker.position.set(x, 0.1, z);
+    this.marker.scale.setScalar(2);
+    this.markerLife = 1.25;
   }
 
   dispose(): void {
@@ -117,6 +222,8 @@ export class WorldScene {
     });
     this.scene.clear();
     this.units.clear();
+    this.buildings.clear();
+    this.resources.clear();
   }
 
   private addObstacle(obstacle: (typeof WORLD_OBSTACLES)[number], index: number): void {
@@ -137,18 +244,19 @@ export class WorldScene {
     this.scene.add(group);
   }
 
+  private createOrderBeacon(): THREE.Group {
+    const group = new THREE.Group();
+    group.position.y = 1.72;
+    group.visible = false;
+    const material = new THREE.MeshBasicMaterial({ color: 0xffca68, transparent: true, opacity: 0.95, depthTest: false });
+    const diamond = new THREE.Mesh(new THREE.OctahedronGeometry(0.22, 0), material);
+    const halo = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.035, 5, 16), material);
+    halo.rotation.x = Math.PI / 2;
+    group.add(diamond, halo);
+    return group;
+  }
+
   private addTerrainDetails(): void {
-    const crystals = new THREE.Group();
-    const material = new THREE.MeshStandardMaterial({ color: 0x42c5be, emissive: 0x0b5653, emissiveIntensity: 0.6, roughness: 0.32, flatShading: true });
-    const locations = [[-29, -17], [27, 17], [-28, 19], [29, -18]] as const;
-    for (const [x, z] of locations) {
-      for (let index = 0; index < 3; index += 1) {
-        const crystal = new THREE.Mesh(new THREE.ConeGeometry(0.45, 1.8 + index * 0.45, 5), material);
-        crystal.position.set(x + index * 0.55, 0.8 + index * 0.2, z + (index % 2) * 0.5);
-        crystal.rotation.z = (index - 1) * 0.18; crystal.castShadow = true; crystals.add(crystal);
-      }
-    }
-    this.scene.add(crystals);
     this.addMachineRuins();
   }
 
