@@ -114,6 +114,14 @@ kbd { min-width: 42px; padding: 3px 5px; color: #bddbd5; text-align: center; bor
 .construction-actions small { color: #809f99; font-size: 8px; }
 .construction-actions button { grid-column: 2; grid-row: 1 / 3; min-height: 42px; color: #f2bbb1; border: 1px solid #85554d; background: #3b2422; cursor: pointer; font: 700 8px 'Arial Narrow', sans-serif; }
 
+.debug-panel { position: fixed; top: 96px; right: 18px; width: 268px; padding: 12px 14px; border: 1px solid #2c524d; background: rgba(8,22,21,.88); pointer-events: none; }
+.debug-panel header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; color: #7ee5ca; font: 700 8px 'Arial Narrow', sans-serif; letter-spacing: .18em; }
+.debug-panel header small { color: #5e837c; font-size: 7px; }
+.debug-panel dl { display: grid; gap: 3px; margin: 0; }
+.debug-panel dl > div { display: grid; grid-template-columns: 84px 1fr; gap: 8px; }
+.debug-panel dt { color: #6e918b; font: 600 7px 'Arial Narrow', sans-serif; letter-spacing: .1em; }
+.debug-panel dd { margin: 0; color: #cfe7e1; font: 600 8px 'Arial Narrow', sans-serif; overflow-wrap: anywhere; }
+
 .end-screen { position: fixed; inset: 0; display: grid; place-items: center; pointer-events: auto; background: radial-gradient(circle at 50% 42%, rgba(8,26,26,.72), rgba(4,12,13,.94)); backdrop-filter: blur(3px); }
 .end-card { display: flex; flex-direction: column; gap: 12px; min-width: 320px; max-width: 460px; padding: 26px 30px; border: 1px solid #2f5a55; background: linear-gradient(180deg, #0e2523, #081716); box-shadow: 0 24px 60px rgba(0,0,0,.55); text-align: center; }
 .end-card small { color: #7fa39c; font: 600 8px 'Arial Narrow', sans-serif; letter-spacing: .22em; }

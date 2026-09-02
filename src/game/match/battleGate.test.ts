@@ -3,7 +3,7 @@ import { createUnitEntity, type EconomyScenario } from '../scenarios/economy';
 import { createBattleScenario } from '../scenarios/battle';
 import { entityId } from '../types/ids';
 import type { BuildingEntity, UnitEntity } from '../types/simulation';
-import { BattleSimulation } from './BattleSimulation';
+import { MatchSimulation } from './MatchSimulation';
 
 /** One-sided fixture: only the named team keeps its army, so a Core siege is decisive. */
 function undefendedScenario(attacker: 'player' | 'enemy'): EconomyScenario {
@@ -11,15 +11,15 @@ function undefendedScenario(attacker: 'player' | 'enemy'): EconomyScenario {
   return { ...scenario, units: scenario.units.filter((unit) => unit.team === attacker) };
 }
 
-function coreOf(simulation: BattleSimulation, team: 'player' | 'enemy'): BuildingEntity {
-  const core = simulation.state.buildings.alive().find((building) => building.team === team && building.kind === 'core');
+function coreOf(simulation: MatchSimulation, team: 'player' | 'enemy'): BuildingEntity {
+  const core = simulation.coreOf(team);
   if (!core) throw new Error(`Missing ${team} Core`);
   return core;
 }
 
 describe('Day 4 battle gate', () => {
   it('produces Victory when the player army destroys the enemy Core', () => {
-    const simulation = new BattleSimulation({ scenario: undefendedScenario('player') });
+    const simulation = new MatchSimulation({ fixture: undefendedScenario('player') });
     const core = coreOf(simulation, 'enemy');
     expect(simulation.attack(simulation.unitsOf('player'), core)).toBeGreaterThan(0);
     simulation.run(600);
@@ -29,7 +29,7 @@ describe('Day 4 battle gate', () => {
   });
 
   it('produces Defeat when the enemy army destroys the player Core', () => {
-    const simulation = new BattleSimulation({ scenario: undefendedScenario('enemy') });
+    const simulation = new MatchSimulation({ fixture: undefendedScenario('enemy') });
     const core = coreOf(simulation, 'player');
     expect(simulation.attack(simulation.unitsOf('enemy'), core)).toBeGreaterThan(0);
     simulation.run(600);
@@ -38,7 +38,7 @@ describe('Day 4 battle gate', () => {
   });
 
   it('freezes the simulation once a result is produced', () => {
-    const simulation = new BattleSimulation({ scenario: undefendedScenario('player') });
+    const simulation = new MatchSimulation({ fixture: undefendedScenario('player') });
     simulation.attack(simulation.unitsOf('player'), coreOf(simulation, 'enemy'));
     simulation.run(600);
     const elapsed = simulation.state.elapsedSeconds;
@@ -50,7 +50,8 @@ describe('Day 4 battle gate', () => {
 
   it('leaves no ghost entities, orphaned targets, or capacity leaks after 100 sequential deaths', () => {
     const scenario = createBattleScenario();
-    const simulation = new BattleSimulation({ scenario });
+    const removed: string[] = [];
+    const simulation = new MatchSimulation({ fixture: scenario, hooks: { onDeath: (record) => removed.push(record.entity.id) } });
     const economy = simulation.state.economies.get('enemy')!;
     economy.capacity.addProvider(200);
     const executioner = simulation.unitsOf('player')[0]!;
@@ -70,7 +71,7 @@ describe('Day 4 battle gate', () => {
       simulation.step();
     }
 
-    expect(simulation.removed.length).toBe(100);
+    expect(removed.length).toBe(100);
     expect(simulation.state.units.alive().some((unit) => unit.id.startsWith('fodder'))).toBe(false);
     expect(simulation.state.units.all().some((unit) => !unit.alive)).toBe(false);
     expect(simulation.targets.has(entityId('fodder-0'))).toBe(false);
@@ -82,7 +83,7 @@ describe('Day 4 battle gate', () => {
   });
 
   it('lets two mirrored armies fight to a decision without stalling', () => {
-    const simulation = new BattleSimulation();
+    const simulation = new MatchSimulation({ scenario: 'battle' });
     const playerSquad = simulation.unitsOf('player').filter((unit) => unit.kind === 'striker');
     const enemySquad = simulation.unitsOf('enemy').filter((unit) => unit.kind === 'striker');
     simulation.attack(playerSquad, enemySquad[0]!);

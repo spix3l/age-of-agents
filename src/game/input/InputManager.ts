@@ -8,6 +8,7 @@ interface InputCallbacks {
   readonly hover?: (point: ScreenPoint) => void;
   readonly primaryAction?: (point: ScreenPoint) => boolean;
   readonly cancelAction?: () => boolean;
+  readonly toggleDebug?: () => void;
 }
 
 export class InputManager {
@@ -66,6 +67,10 @@ export class InputManager {
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
     if (event.key === 'Escape' && this.callbacks.cancelAction?.()) event.preventDefault();
+    if (event.key === 'F3') {
+      event.preventDefault();
+      this.callbacks.toggleDebug?.();
+    }
   };
 
   private readonly onPointerCancel = (): void => {

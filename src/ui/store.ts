@@ -16,6 +16,30 @@ export interface MatchSummary {
   readonly buildingsLost: number;
 }
 
+export interface DebugSnapshot {
+  readonly fps: number;
+  readonly units: number;
+  readonly buildings: number;
+  readonly elapsedSeconds: number;
+  readonly aiState: string;
+  readonly aiReason: string;
+  readonly aiWorkers: number;
+  readonly aiArmy: number;
+  readonly aiAssault: number;
+  readonly aiMatter: number;
+  readonly aiEnergy: number;
+  readonly aiCapacity: string;
+  readonly aiCoreKnown: boolean;
+  readonly effectsActive: number;
+  readonly effectsPooled: number;
+}
+
+export const EMPTY_DEBUG: DebugSnapshot = {
+  fps: 0, units: 0, buildings: 0, elapsedSeconds: 0, aiState: 'OFFLINE', aiReason: '—',
+  aiWorkers: 0, aiArmy: 0, aiAssault: 0, aiMatter: 0, aiEnergy: 0, aiCapacity: '0/0',
+  aiCoreKnown: false, effectsActive: 0, effectsPooled: 0,
+};
+
 export const EMPTY_MATCH_SUMMARY: MatchSummary = {
   durationSeconds: 0, matterCollected: 0, energyCollected: 0, agentsCreated: 0,
   agentsKilled: 0, agentsLost: 0, buildingsDestroyed: 0, buildingsLost: 0,
@@ -58,6 +82,10 @@ interface UiState {
   matchResult: MatchResult | null;
   matchSummary: MatchSummary;
   matchNonce: number;
+  debugVisible: boolean;
+  debug: DebugSnapshot;
+  setDebugSnapshot: (debug: DebugSnapshot) => void;
+  toggleDebug: () => void;
   setMatchOutcome: (result: MatchResult, summary: MatchSummary) => void;
   restartMatch: () => void;
   setEconomySnapshot: (snapshot: Pick<UiState, 'matter' | 'energy' | 'capacityUsed' | 'capacityReserved' | 'capacityMax' | 'totalUnits' | 'selection' | 'selectedCount' | 'queue'>) => void;
@@ -84,8 +112,10 @@ export const useUiStore = create<UiState>((set, get) => ({
   matter: 0, energy: 0, capacityUsed: 0, capacityReserved: 0, capacityMax: 0,
   selectedCount: 0, totalUnits: 0, selection: EMPTY_SELECTION,
   queue: { count: 0, progress: 0, label: 'QUEUE EMPTY', items: [] },
-  selectionBox: null, lastOrder: 'AWAITING COMMAND', matchResult: null, matchSummary: EMPTY_MATCH_SUMMARY, matchNonce: 0, productionRequest: null, buildRequest: null, automationRequest: null, unitProductionRequest: null, cancelProductionRequest: null, cancelConstructionRequest: null, placementMode: null,
+  selectionBox: null, lastOrder: 'AWAITING COMMAND', matchResult: null, matchSummary: EMPTY_MATCH_SUMMARY, matchNonce: 0, debugVisible: false, debug: EMPTY_DEBUG, productionRequest: null, buildRequest: null, automationRequest: null, unitProductionRequest: null, cancelProductionRequest: null, cancelConstructionRequest: null, placementMode: null,
   setEconomySnapshot: (snapshot) => set(snapshot),
+  setDebugSnapshot: (debug) => set({ debug }),
+  toggleDebug: () => set((state) => ({ debugVisible: !state.debugVisible })),
   setMatchOutcome: (matchResult, matchSummary) => set({ matchResult, matchSummary }),
   restartMatch: () => set((state) => ({
     matchResult: null, matchSummary: EMPTY_MATCH_SUMMARY, matchNonce: state.matchNonce + 1,

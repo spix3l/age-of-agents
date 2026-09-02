@@ -10,7 +10,7 @@ This is the portfolio view for the file-backed backlog derived from [`PRD.md`](P
 | [EPIC-02](backlog/epics/EPIC-02-economy.md) | Day 2 | The Machine Economy | 7 | DONE |
 | [EPIC-03](backlog/epics/EPIC-03-colony.md) | Day 3 | Build the Colony | 8 | DONE |
 | [EPIC-04](backlog/epics/EPIC-04-war.md) | Day 4 | War | 7 | DONE |
-| [EPIC-05](backlog/epics/EPIC-05-opponent.md) | Day 5 | The Other Intelligence | 7 | TODO |
+| [EPIC-05](backlog/epics/EPIC-05-opponent.md) | Day 5 | The Other Intelligence | 7 | REVIEW |
 | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Day 6 | Evolution | 11 | TODO |
 | [EPIC-07](backlog/epics/EPIC-07-release.md) | Day 7 | Survive and Ship | 9 | TODO |
 
@@ -49,13 +49,13 @@ This is the portfolio view for the file-backed backlog derived from [`PRD.md`](P
 | [D4-05](backlog/tasks/D4-05.md) | [EPIC-04](backlog/epics/EPIC-04-war.md) | Add health bars, command markers, and death feedback | P0 | M | D4-01, D4-03 | DONE |
 | [D4-06](backlog/tasks/D4-06.md) | [EPIC-04](backlog/epics/EPIC-04-war.md) | Implement Core destruction and match end | P0 | M | D4-01, D2-06 | DONE |
 | [D4-07](backlog/tasks/D4-07.md) | [EPIC-04](backlog/epics/EPIC-04-war.md) | Integrate and prove the Day 4 battle gate | P0 | M | D4-04, D4-05, D4-06 | DONE |
-| [D5-01](backlog/tasks/D5-01.md) | [EPIC-05](backlog/epics/EPIC-05-opponent.md) | Create AI controller, utility states, and command adapter | P0 | M | D3-08, D4-07 | TODO |
-| [D5-02](backlog/tasks/D5-02.md) | [EPIC-05](backlog/epics/EPIC-05-opponent.md) | Implement AI gathering and Worker production | P0 | L | D5-01 | TODO |
-| [D5-03](backlog/tasks/D5-03.md) | [EPIC-05](backlog/epics/EPIC-05-opponent.md) | Implement AI building and capacity management | P0 | L | D5-01, D5-02 | TODO |
-| [D5-04](backlog/tasks/D5-04.md) | [EPIC-05](backlog/epics/EPIC-05-opponent.md) | Implement AI military production and army assembly | P0 | M | D5-03 | TODO |
-| [D5-05](backlog/tasks/D5-05.md) | [EPIC-05](backlog/epics/EPIC-05-opponent.md) | Implement AI scouting, defense, attack, and recovery | P0 | L | D5-04 | TODO |
-| [D5-06](backlog/tasks/D5-06.md) | [EPIC-05](backlog/epics/EPIC-05-opponent.md) | Add AI observability and deterministic soak scenario | P0 | M | D5-05 | TODO |
-| [D5-07](backlog/tasks/D5-07.md) | [EPIC-05](backlog/epics/EPIC-05-opponent.md) | Balance and prove the Day 5 opponent gate | P0 | L | D5-06 | TODO |
+| [D5-01](backlog/tasks/D5-01.md) | [EPIC-05](backlog/epics/EPIC-05-opponent.md) | Create AI controller, utility states, and command adapter | P0 | M | D3-08, D4-07 | DONE |
+| [D5-02](backlog/tasks/D5-02.md) | [EPIC-05](backlog/epics/EPIC-05-opponent.md) | Implement AI gathering and Worker production | P0 | L | D5-01 | DONE |
+| [D5-03](backlog/tasks/D5-03.md) | [EPIC-05](backlog/epics/EPIC-05-opponent.md) | Implement AI building and capacity management | P0 | L | D5-01, D5-02 | DONE |
+| [D5-04](backlog/tasks/D5-04.md) | [EPIC-05](backlog/epics/EPIC-05-opponent.md) | Implement AI military production and army assembly | P0 | M | D5-03 | DONE |
+| [D5-05](backlog/tasks/D5-05.md) | [EPIC-05](backlog/epics/EPIC-05-opponent.md) | Implement AI scouting, defense, attack, and recovery | P0 | L | D5-04 | DONE |
+| [D5-06](backlog/tasks/D5-06.md) | [EPIC-05](backlog/epics/EPIC-05-opponent.md) | Add AI observability and deterministic soak scenario | P0 | M | D5-05 | DONE |
+| [D5-07](backlog/tasks/D5-07.md) | [EPIC-05](backlog/epics/EPIC-05-opponent.md) | Balance and prove the Day 5 opponent gate | P0 | L | D5-06 | REVIEW |
 | [D6-01](backlog/tasks/D6-01.md) | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Add main menu, how-to-play, and match restart | P0 | M | D4-06 | TODO |
 | [D6-02](backlog/tasks/D6-02.md) | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Add Data and three-Generation progression | P1 | L | D5-07 | TODO |
 | [D6-03](backlog/tasks/D6-03.md) | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Implement grid Fog of War | P1 | L | D4-02, D5-07 | TODO |

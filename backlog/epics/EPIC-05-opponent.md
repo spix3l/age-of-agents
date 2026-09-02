@@ -2,7 +2,7 @@
 id: EPIC-05
 title: "The Other Intelligence"
 day: 5
-status: TODO
+status: REVIEW
 ---
 
 # EPIC-05 — The Other Intelligence
@@ -19,13 +19,17 @@ status: TODO
 
 ## Tasks
 
-- [ ] [D5-01 — Create AI controller, utility states, and command adapter](../tasks/D5-01.md) — P0 / M — depends on D3-08, D4-07
-- [ ] [D5-02 — Implement AI gathering and Worker production](../tasks/D5-02.md) — P0 / L — depends on D5-01
-- [ ] [D5-03 — Implement AI building and capacity management](../tasks/D5-03.md) — P0 / L — depends on D5-01, D5-02
-- [ ] [D5-04 — Implement AI military production and army assembly](../tasks/D5-04.md) — P0 / M — depends on D5-03
-- [ ] [D5-05 — Implement AI scouting, defense, attack, and recovery](../tasks/D5-05.md) — P0 / L — depends on D5-04
-- [ ] [D5-06 — Add AI observability and deterministic soak scenario](../tasks/D5-06.md) — P0 / M — depends on D5-05
+- [x] [D5-01 — Create AI controller, utility states, and command adapter](../tasks/D5-01.md) — P0 / M — depends on D3-08, D4-07
+- [x] [D5-02 — Implement AI gathering and Worker production](../tasks/D5-02.md) — P0 / L — depends on D5-01
+- [x] [D5-03 — Implement AI building and capacity management](../tasks/D5-03.md) — P0 / L — depends on D5-01, D5-02
+- [x] [D5-04 — Implement AI military production and army assembly](../tasks/D5-04.md) — P0 / M — depends on D5-03
+- [x] [D5-05 — Implement AI scouting, defense, attack, and recovery](../tasks/D5-05.md) — P0 / L — depends on D5-04
+- [x] [D5-06 — Add AI observability and deterministic soak scenario](../tasks/D5-06.md) — P0 / M — depends on D5-05
 - [ ] [D5-07 — Balance and prove the Day 5 opponent gate](../tasks/D5-07.md) — P0 / L — depends on D5-06
+
+## Gate status
+
+Every P0 implementation task is `DONE` and the automated Day 5 checks are green: five fixed seeds all end in an AI victory over an idle player, median 8.5 minutes, no invariant failures. D5-07 stays in `REVIEW` until the user watches an unattended match and accepts the opponent gate recorded in `PROJECT_STATUS.md`.
 
 ## Epic completion
 

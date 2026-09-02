@@ -4,6 +4,14 @@ Last updated: 2026-09-02
 
 ## Current milestone
 
+Epic 05 — The Other Intelligence is implemented and in `REVIEW`. A deterministic local AI runs the whole loop: it gathers with automated Workers, grows to a phase Worker target, builds Relays and Fabricators on validated sites, produces and assembles Strikers, scouts until it observes the player Core, defends its base, launches grouped assaults, and recovers after heavy losses. F3 opens a diagnostics overlay and `runSoak` produces reproducible unattended reports.
+
+Across five fixed seeds the AI destroys an idle player's Core in **5 of 5 runs**, median **8.5 minutes**, with zero invariant failures. D5-01 through D5-06 are `DONE`. **D5-07 stays `REVIEW` until the user watches an unattended match and accepts the Day 5 opponent gate below.**
+
+Getting here required one architectural change: `src/game/match/MatchSimulation.ts` now owns the authoritative match (entities, systems, destruction, match end) with no Three.js, DOM, or React, and `Game.ts` is a presentation/input shell around it. Human and AI actions run the exact same code.
+
+## Completed milestone — Epic 04
+
 Epic 04 is `DONE`. Units and buildings share hostility, damage, and destruction rules; a spatial hash backs 5 Hz target acquisition; Strikers acquire, pursue, attack, and retarget; pooled lasers, impacts, and collapse effects make fights readable; health bars and attack markers show combat state; and destroying either Core ends the match in Victory or Defeat with an end screen and a clean Play Again.
 
 The user accepted the Day 4 battle gate on 2026-09-02 and every automated check is green. Epic 05 — The Other Intelligence is next.
@@ -24,12 +32,40 @@ The user confirmed gathering, finite depletion, and the Core economy and accepte
 |---|---|
 | `npm run typecheck` | PASS |
 | `npm run lint` | PASS |
-| `npm test -- --run` | PASS — 30 files, 77 tests |
+| `npm test -- --run` | PASS — 36 files, 109 tests |
 | `npm run build` | PASS |
 | Dev server HTTP boot | PASS — `/` returned HTTP 200 |
 | Interactive Day 2 gate | PASS — user accepted |
 | Interactive Day 3 gate | PASS — user accepted |
 | Interactive Day 4 gate | PASS — user accepted |
+| Automated Day 5 soak | PASS — 5/5 AI wins, 0 invariant failures |
+| Interactive Day 5 gate | PENDING — awaiting user |
+
+## Day 5 opponent soak record
+
+Fixed-seed unattended runs against an idle player (`runSoak`, 22-minute budget, 30 Hz):
+
+| Seed | Result | Duration | Invariant failures |
+|---|---|---:|---:|
+| 10 | AI victory | 8m 31s | 0 |
+| 20 | AI victory | 8m 37s | 0 |
+| 30 | AI victory | 8m 24s | 0 |
+| 40 | AI victory | 8m 31s | 0 |
+| 50 | AI victory | 8m 30s | 0 |
+
+Median 8m 31s, inside the 8–20 minute target. Every run passes through EXPAND_ECONOMY → SCOUT → BUILD_ARMY → ATTACK. These numbers are asserted in `src/game/ai/opponentGate.test.ts`, so a regression fails the suite.
+
+## Manual Day 5 gate checklist
+
+Run `npm run dev` and open `/`. Do nothing with your own colony except watch.
+
+1. Press **F3** and confirm the overlay shows FPS, entity counts, AI state, AI goal, AI economy, forces, and intel.
+2. Watch the AI state progress from EXPAND_ECONOMY through SCOUT to BUILD_ARMY. Confirm rust Workers gather and rust structures appear near the enemy Core.
+3. Confirm the AI's scout physically travels to your base before its intel line changes to "player core known" — it must see you, not know you.
+4. Let the match run and confirm the AI assault arrives as a group, destroys your Core, and produces **DEFEAT** in roughly 8–10 minutes.
+5. Press **Play Again**, then this time attack the AI base with a few Strikers and confirm it switches to DEFEND and fights back.
+6. Wipe out an AI assault and confirm it enters RECOVER, rebuilds, and attacks again rather than trickling units in.
+7. Confirm your own economy, construction, production, and combat controls all still behave as they did on Day 4.
 
 ## Manual Day 4 gate record
 
@@ -72,6 +108,18 @@ Accepted by the user on 2026-09-02 against this checklist:
 6. Try queueing without enough Matter and at full capacity; confirm the last-directive readout explains the rejection.
 7. Confirm ZQSD, arrow keys, two-finger pan, pinch zoom, box selection, and terrain move orders still work.
 
+## Shipped decisions — Epic 05
+
+- `MatchSimulation` is the authoritative headless match; `Game.ts` is a presentation shell that supplies hooks for visuals, HUD, selection, and input. The rendered game and the soak harness advance identical code.
+- `BuildCommand` is the single build transaction for players and AI: validate, spend, block navigation, assign a builder, roll back on failure.
+- The AI mutates nothing directly. `AIContext` gives it a read-only view plus a command adapter limited to gather, automate, move, attack, build, assign-builder, and produce.
+- Strategy is a pure utility function over a snapshot, evaluated at 3 Hz. Seeds are reproducible, and `Random` (mulberry32) is the only source of variation.
+- The AI must observe the player Core before it can be targeted; resource locations may be assumed, per the backlog's scope decisions.
+- TECH exists as a scored placeholder pinned at zero until D6-02 introduces Generations.
+- A sustained reinforcement stall lets the AI commit a smaller force, which removed a genuine deadlock where a fully mined map could never reach the attack threshold.
+- Balance constants live only in `src/data/ai.ts`; the gate seeds are asserted in tests so tuning regressions fail loudly.
+- Produced entity IDs are namespaced (`-u`/`-b` suffixes) so they can never collide with scenario-authored IDs.
+
 ## Shipped decisions — Epic 04
 
 - Combat stats (`attackDamage`, `attackRange`, `attackCooldown`, `vision`, `autoAcquires`) live in `src/data/units.ts`; pacing constants live in `src/data/combat.ts`.
@@ -111,6 +159,8 @@ Accepted by the user on 2026-09-02 against this checklist:
 
 ## Known follow-ups
 
+- The AI's median win lands near the low end of the 8–20 minute target because the handcrafted map's finite deposits cap how large an army either side can field. Revisit alongside D7-05 pacing.
+- The AI does not yet respect Fog of War (D6-03) beyond the Core-discovery rule, and has no Generation progression until D6-02.
 - Buildings cannot fight back; the automatic Defense Turret remains D6-07 scope.
 - Worker repair of damaged friendly buildings is specified in the PRD but is not Day 4 scope.
 - Three.js keeps the main production JavaScript chunk above Vite's advisory 500 kB threshold. This remains non-blocking until the performance epic.
