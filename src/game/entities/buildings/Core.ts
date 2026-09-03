@@ -17,8 +17,8 @@ export function createCore(id: EntityId, team: Exclude<Team, 'neutral'>, positio
     hp: config.maxHp,
     maxHp: config.maxHp,
     footprint: { x: config.footprint[0], z: config.footprint[1] },
-    vision: CORE_VISION,
-    acceptsDeposits: true,
+    vision: config.vision,
+    acceptsDeposits: config.acceptsDeposits,
     capacityContribution: CORE_CAPACITY,
     selected: false,
     productionQueue: [],
@@ -27,5 +27,6 @@ export function createCore(id: EntityId, team: Exclude<Team, 'neutral'>, positio
     constructionTime: 0,
     builderId: null,
     capacityApplied: true,
+    combat: null,
   };
 }

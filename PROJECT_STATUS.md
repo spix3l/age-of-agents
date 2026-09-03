@@ -1,14 +1,20 @@
 # Age of Agents — Project Status
 
-Last updated: 2026-09-02
+Last updated: 2026-09-03
 
 ## Current milestone
 
-Epic 05 — The Other Intelligence is implemented and in `REVIEW`. A deterministic local AI runs the whole loop: it gathers with automated Workers, grows to a phase Worker target, builds Relays and Fabricators on validated sites, produces and assembles Strikers, scouts until it observes the player Core, defends its base, launches grouped assaults, and recovers after heavy losses. F3 opens a diagnostics overlay and `runSoak` produces reproducible unattended reports.
+Epic 06 — Evolution is implemented and in `REVIEW`. The Core now advances Awakening → Autonomy → Singularity by spending Matter, Energy, and gathered Data. Progression unlocks Ranger and Scout production, Zap Turrets, then the Heavy Foundry and Titan. Existing structures gain visible Generation attachments instead of being replaced.
 
-Across five fixed seeds the AI destroys an idle player's Core in **5 of 5 runs**, median **8.5 minutes**, with zero invariant failures. D5-01 through D5-06 are `DONE`. **D5-07 stays `REVIEW` until the user watches an unattended match and accepts the Day 5 opponent gate below.**
+Fog of War hides unseen entities and retains explored terrain; the AI gathers Data and advances naturally while still discovering the player through physical vision. Essential procedural audio, persistent sound controls, expanded end statistics, Barrier Walls, Field Outposts, a bright toybox visual pass, and an updated onboarding/menu flow are also present.
 
-Getting here required one architectural change: `src/game/match/MatchSimulation.ts` now owns the authoritative match (entities, systems, destruction, match end) with no Three.js, DOM, or React, and `Game.ts` is a presentation/input shell around it. Human and AI actions run the exact same code.
+D6-01 through D6-10 plus the user-requested D6-12/D6-13 are code-complete but remain `REVIEW` until the user accepts the Day 6 playtest. D6-11 is deliberately not marked done: its unfamiliar-tester timing table remains open in `QA.md`.
+
+## Previous milestone — Epic 05
+
+Epic 05 — The Other Intelligence remains in `REVIEW`. A deterministic local AI runs the whole loop: it gathers with automated Workers, grows to a phase Worker target, builds Relays and Fabricators on validated sites, produces and assembles an army, scouts until it observes the player Core, defends its base, launches grouped assaults, and recovers after heavy losses. F3 opens diagnostics and `runSoak` produces reproducible unattended reports.
+
+Across five fixed seeds the AI destroys an idle player's Core in **5 of 5 runs**, median **8.5 minutes**, with zero invariant failures. D5-01 through D5-06 are `DONE`; D5-07 still awaits the recorded interactive gate.
 
 ## Completed milestone — Epic 04
 
@@ -32,14 +38,39 @@ The user confirmed gathering, finite depletion, and the Core economy and accepte
 |---|---|
 | `npm run typecheck` | PASS |
 | `npm run lint` | PASS |
-| `npm test -- --run` | PASS — 36 files, 109 tests |
+| `npm test -- --run` | PASS — 43 files, 130 tests |
 | `npm run build` | PASS |
 | Dev server HTTP boot | PASS — `/` returned HTTP 200 |
+| Clean-browser Epic 6 render | PASS — no runtime console errors; menu, Core evolution UI, and corrected fog visually inspected |
 | Interactive Day 2 gate | PASS — user accepted |
 | Interactive Day 3 gate | PASS — user accepted |
 | Interactive Day 4 gate | PASS — user accepted |
 | Automated Day 5 soak | PASS — 5/5 AI wins, 0 invariant failures |
 | Interactive Day 5 gate | PENDING — awaiting user |
+| Interactive Day 6 gate | PENDING — awaiting user |
+
+## Epic 06 review pass — 2026-09-03
+
+An integration review of the whole Epic 6 diff re-ran every check (typecheck, lint, 130 tests, production build) and fixed three defects before handoff:
+
+- **Turret target lock (correctness).** `TurretSystem` retained a target that had left its range, so one surviving hostile could keep a Zap Turret permanently silent while other enemies stood inside its arc. Retention now requires hostility *and* range; covered by a new regression test.
+- **AI military production stall (correctness).** `MilitaryAI` picked one preferred unit type and returned when it was unaffordable or had no producer, so reaching Generation III without a Foundry — or losing one — stopped all military production. Production now walks a preference list and falls back to the first affordable, producible type. `EconomyAI` also keeps a Data worker at Generation III, because Rangers and Titans still consume Data.
+- **Selection lookup regression (efficiency).** `Game.getSelectable` had become a linear scan that rebuilt and filtered every unit, building, and resource per lookup, making `SelectionSystem.selected()` quadratic in the 10 Hz HUD path. Restored to registry lookups behind a shared `isRevealed` vision predicate; behavior is unchanged.
+
+`destroyEntity` now also clears building combat targets, matching the module's documented contract that no reference to a dead ID survives.
+
+## Manual Day 6 gate checklist
+
+Run `npm run dev`, open `/`, choose a difficulty, and press **Play**.
+
+1. Confirm the starting Core, three Workers, nearby Matter/Energy, and bright terrain are visible while distant terrain and hostile entities remain concealed by Fog of War.
+2. Gather or automate violet **Data**. Select the Core and confirm **Evolve to Autonomy** clearly shows and spends 180 Matter, 100 Energy, and 40 Data.
+3. At Generation II, select a Fabricator and produce both a long-range **Ranger** and high-vision **Scout Drone**. Move the Scout outward and confirm it materially expands the revealed area.
+4. Build a **Barrier Wall**, **Field Outpost**, and **Zap Turret**. Confirm the wall blocks travel, workers can deposit at the outpost, and the turret automatically shoots nearby hostiles.
+5. Return to the Core and evolve to **Singularity**. Confirm existing buildings gain another visible attachment, then build a **Heavy Foundry** and produce a three-capacity **Titan**.
+6. Confirm selection, orders, construction, shots, destruction, evolution, and match outcome have audio cues; mute and volume survive a page reload.
+7. Finish a match. Confirm the end screen reports all three gathered resources, Agents and buildings created/destroyed/lost, final Generation, and duration; test **Play Again** and **Main Menu**.
+8. Record unfamiliar-player milestone timings and confusion in `QA.md`. Epic 6 stays in `REVIEW` until this item is accepted.
 
 ## Day 5 opponent soak record
 
@@ -108,6 +139,19 @@ Accepted by the user on 2026-09-02 against this checklist:
 6. Try queueing without enough Matter and at full capacity; confirm the last-directive readout explains the rejection.
 7. Confirm ZQSD, arrow keys, two-finger pan, pinch zoom, box selection, and terrain move orders still work.
 
+## Shipped decisions — Epic 06
+
+- `TechnologySystem` is the sole Generation gate. It spends centralized costs atomically and controls both building and production unlocks for players and AI.
+- Data is a normal finite resource: Workers use the existing gather, cargo, deposit, depletion, and automation lifecycle rather than a parallel research currency path.
+- Generation II unlocks Rangers, Scout Drones, and Zap Turrets; Generation III unlocks the Heavy Foundry and Titan. The Fabricator remains the compact-unit producer and the Foundry exclusively produces Titans.
+- Fog runs on a 4-unit grid at roughly 6.7 Hz with unknown/explored/visible states. Player selection and rendering exclude unseen hostiles; the corrected texture orientation maps simulation Z to the ground plane correctly.
+- AI scouting still uses physical observation. Once unlocked it produces and prefers a Scout for sweeps, gathers Data, chooses upgrades, limits defensive Turrets, and can complete the Foundry-to-Titan path.
+- Barrier Walls and Field Outposts were added as separate D6-12/D6-13 slices in response to the user playtest. Outposts are allied deposit targets with expanded vision; walls use the normal construction, navigation, health, and destruction paths.
+- All visuals remain procedural low-poly geometry. Faction color, silhouettes, warm UI surfaces, bright terrain, and additive Generation ornaments provide identity without an asset-loading dependency.
+- Audio uses a bounded procedural Web Audio palette with gesture unlock and no file requests. Muting and volume persist in local storage, and missing audio support is a no-op.
+- `MatchSummary` now includes Data, structures constructed, and final Generation alongside the existing duration, combat, and loss counters. New-match store actions reset it to zero.
+- D6-11 remains a human gate; internal clean-browser evidence and unresolved timing fields live in `QA.md`.
+
 ## Shipped decisions — Epic 05
 
 - `MatchSimulation` is the authoritative headless match; `Game.ts` is a presentation shell that supplies hooks for visuals, HUD, selection, and input. The rendered game and the soak harness advance identical code.
@@ -115,7 +159,7 @@ Accepted by the user on 2026-09-02 against this checklist:
 - The AI mutates nothing directly. `AIContext` gives it a read-only view plus a command adapter limited to gather, automate, move, attack, build, assign-builder, and produce.
 - Strategy is a pure utility function over a snapshot, evaluated at 3 Hz. Seeds are reproducible, and `Random` (mulberry32) is the only source of variation.
 - The AI must observe the player Core before it can be targeted; resource locations may be assumed, per the backlog's scope decisions.
-- TECH exists as a scored placeholder pinned at zero until D6-02 introduces Generations.
+- TECH now scores an affordable next Generation and executes through the same `TechnologySystem` used by the player.
 - A sustained reinforcement stall lets the AI commit a smaller force, which removed a genuine deadlock where a fully mined map could never reach the attack threshold.
 - Balance constants live only in `src/data/ai.ts`; the gate seeds are asserted in tests so tuning regressions fail loudly.
 - Produced entity IDs are namespaced (`-u`/`-b` suffixes) so they can never collide with scenario-authored IDs.
@@ -160,8 +204,6 @@ Accepted by the user on 2026-09-02 against this checklist:
 ## Known follow-ups
 
 - The AI's median win lands near the low end of the 8–20 minute target because the handcrafted map's finite deposits cap how large an army either side can field. Revisit alongside D7-05 pacing.
-- The AI does not yet respect Fog of War (D6-03) beyond the Core-discovery rule, and has no Generation progression until D6-02.
-- Buildings cannot fight back; the automatic Defense Turret remains D6-07 scope.
 - Worker repair of damaged friendly buildings is specified in the PRD but is not Day 4 scope.
 - Three.js keeps the main production JavaScript chunk above Vite's advisory 500 kB threshold. This remains non-blocking until the performance epic.
 - Rally points remain optional post-P0 scope.

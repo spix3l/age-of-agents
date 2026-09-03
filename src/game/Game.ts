@@ -3,6 +3,7 @@ import type { AIDifficulty } from '../data/ai';
 import { BUILDINGS } from '../data/buildings';
 import { RESOURCES } from '../data/resources';
 import { UNITS } from '../data/units';
+import { BUILDING_GENERATION, GENERATIONS } from '../data/technologies';
 import { useUiStore, type SelectionSnapshot } from '../ui/store';
 import { RTSCameraController } from './camera/RTSCameraController';
 import { PlacementController, validatePlacement, type PlaceableBuildingType, type PlacementFailure } from './building/PlacementController';
@@ -23,6 +24,9 @@ import { SelectionSystem, type ScreenPoint, type SelectableEntity } from './syst
 import type { EntityId, UnitTypeId } from './types/ids';
 import type { BuildingEntity, CombatTarget, HarvestableResourceType, UnitEntity } from './types/simulation';
 import { WorldScene } from './world/WorldScene';
+import { MAP_BOUNDS } from './world/map';
+import { VisionSystem } from './vision/VisionSystem';
+import { AudioManager } from '../audio/AudioManager';
 
 function isUnit(entity: SelectableEntity): entity is UnitEntity { return 'movementSpeed' in entity; }
 function isBuilding(entity: SelectableEntity): entity is BuildingEntity { return 'productionQueue' in entity; }
@@ -39,6 +43,8 @@ export class Game {
   private readonly placement: PlacementController;
   private readonly selection: SelectionSystem;
   private readonly input: InputManager;
+  private readonly vision: VisionSystem;
+  private readonly audio: AudioManager;
   private readonly loop: GameLoop;
   private readonly raycaster = new THREE.Raycaster();
   private readonly pointer = new THREE.Vector2();
@@ -51,20 +57,30 @@ export class Game {
     this.renderer = new Renderer(container);
     this.world = new WorldScene();
     this.camera = new RTSCameraController(this.renderer.instance.domElement);
+    this.audio = new AudioManager(this.renderer.instance.domElement);
     this.simulation = new MatchSimulation({
       difficulty: options.difficulty,
       hooks: {
-        onUnitAdded: (unit) => this.world.addUnit(unit),
+        onUnitAdded: (unit) => {
+          this.world.addUnit(unit);
+          if (unit.kind === 'titan') {
+            this.world.showHeavyArrival(unit.position, unit.team);
+            this.audio.play('build');
+          }
+        },
         onUnitRemoved: (unit) => this.world.removeUnit(unit.id),
         onBuildingAdded: (building) => this.world.addBuilding(building),
         onBuildingRemoved: (building) => this.world.removeBuilding(building.id),
         onBuildingCompleted: this.announceBuilding,
-        onShot: (attacker, target) => this.world.showShot(attacker.position, target.position, attacker.team, 'footprint' in target ? 1.6 : 0.9, attacker.id),
+        onShot: (attacker, target) => { this.world.showShot(attacker.position, target.position, attacker.team, 'footprint' in target ? 1.6 : 0.9, attacker.id); this.audio.play('shot'); },
         onDeath: this.announceDeath,
         onMatchEnd: this.endMatch,
+        onGeneration: this.announceGeneration,
       },
     });
+    this.vision = new VisionSystem(MAP_BOUNDS.minX, MAP_BOUNDS.minZ, MAP_BOUNDS.maxX, MAP_BOUNDS.maxZ);
     for (const resource of this.state.resources.all()) this.world.addResource(resource);
+    this.updateVision(1);
 
     this.placement = new PlacementController({
       validate: (type, position) => validatePlacement(type, position, this.navigation, this.state.buildings.alive(), this.state.resources.alive()),
@@ -82,7 +98,7 @@ export class Game {
       () => this.publishUi(),
     );
     this.input = new InputManager(this.renderer.instance.domElement, {
-      selectPoint: (point, additive) => this.selection.selectPoint(point, additive),
+      selectPoint: (point, additive) => { this.selection.selectPoint(point, additive); this.audio.play('select'); },
       selectBox: (rect, additive) => this.selection.selectBox(rect, additive),
       move: this.issueContextOrder,
       selectionBox: (rect) => useUiStore.getState().setSelectionBox(rect),
@@ -97,6 +113,9 @@ export class Game {
     useUiStore.getState().setUnitProductionRequest(this.enqueueUnit);
     useUiStore.getState().setCancelProductionRequest(this.cancelProduction);
     useUiStore.getState().setCancelConstructionRequest(this.cancelSelectedConstruction);
+    useUiStore.getState().setAdvanceGenerationRequest(this.advanceGeneration);
+    useUiStore.getState().setAudioToggleRequest(this.toggleAudio, this.audio.muted);
+    useUiStore.getState().setAudioVolumeRequest(this.setAudioVolume, this.audio.volume);
     this.loop = new GameLoop(this.update, this.render);
     this.publishUi();
   }
@@ -118,6 +137,7 @@ export class Game {
     this.world.dispose();
     this.renderer.dispose();
     this.simulation.dispose();
+    this.audio.dispose();
     useUiStore.getState().setSelectionBox(null);
     useUiStore.getState().setProductionRequest(null);
     useUiStore.getState().setBuildRequest(null);
@@ -125,22 +145,41 @@ export class Game {
     useUiStore.getState().setUnitProductionRequest(null);
     useUiStore.getState().setCancelProductionRequest(null);
     useUiStore.getState().setCancelConstructionRequest(null);
+    useUiStore.getState().setAdvanceGenerationRequest(null);
+    useUiStore.getState().setAudioToggleRequest(null);
+    useUiStore.getState().setAudioVolumeRequest(null);
     useUiStore.getState().setPlacementMode(null);
   }
 
+  /** Own entities are always selectable; anything else must be inside current vision. */
+  private readonly isRevealed = (entity: SelectableEntity): boolean => (
+    entity.team === 'player' || this.vision.stateAt(entity.position) === 2
+  );
+
   private readonly allSelectable = (): readonly SelectableEntity[] => [
     ...this.state.units.all(), ...this.state.buildings.all(), ...this.state.resources.all(),
-  ];
+  ].filter(this.isRevealed);
 
-  private readonly getSelectable = (id: EntityId): SelectableEntity | undefined => (
-    this.state.units.get(id) ?? this.state.buildings.get(id) ?? this.state.resources.get(id)
-  );
+  private readonly getSelectable = (id: EntityId): SelectableEntity | undefined => {
+    const entity = this.state.units.get(id) ?? this.state.buildings.get(id) ?? this.state.resources.get(id);
+    return entity && this.isRevealed(entity) ? entity : undefined;
+  };
 
   private readonly update = (delta: number): void => {
     this.camera.update(delta);
     this.simulation.step(delta);
+    this.updateVision(delta);
     this.publishThrottledUi(delta);
   };
+
+  private updateVision(delta: number): void {
+    const owned = [...this.state.units.alive(), ...this.state.buildings.alive()].filter((entity) => entity.team === 'player');
+    if (!this.vision.update(owned, delta)) return;
+    this.world.updateFog(this.vision.snapshot());
+    for (const entity of [...this.state.units.all(), ...this.state.buildings.all(), ...this.state.resources.all()]) {
+      this.world.setEntityVisible(entity.id, entity.team === 'player' || this.vision.stateAt(entity.position) === 2);
+    }
+  }
 
   private publishThrottledUi(delta: number): void {
     this.uiSnapshotCooldown -= delta;
@@ -177,6 +216,7 @@ export class Game {
     const entity = record.entity;
     const isBuilding = 'footprint' in entity;
     this.world.showDestruction(entity.position, entity.team, isBuilding ? Math.max(entity.footprint.x, entity.footprint.z) * 0.5 : 1);
+    this.audio.play('destroy');
     this.selection.forget(entity.id);
     if (!isBuilding || entity.kind !== 'core') {
       useUiStore.getState().setLastOrder(`${entity.team === 'player' ? 'AGENT LOST' : 'HOSTILE DESTROYED'} // ${(isBuilding ? BUILDINGS[entity.kind].label : UNITS[entity.kind].label).toUpperCase()}`);
@@ -196,12 +236,16 @@ export class Game {
       durationSeconds: this.match.endedAt,
       matterCollected: ledger?.matter ?? 0,
       energyCollected: ledger?.energy ?? 0,
+      dataCollected: ledger?.data ?? 0,
       agentsCreated: this.simulation.agentsCreated('player'),
       agentsKilled: stats.unitsKilled,
       agentsLost: stats.unitsLost,
       buildingsDestroyed: stats.buildingsDestroyed,
       buildingsLost: stats.buildingsLost,
+      buildingsConstructed: this.simulation.buildingsConstructed('player'),
+      finalGeneration: this.simulation.generation('player'),
     });
+    this.audio.play(result === 'victory' ? 'victory' : 'defeat');
   };
 
   private readonly render = (alpha: number): void => {
@@ -223,12 +267,15 @@ export class Game {
     const hitIds = this.raycaster.intersectObjects(this.world.selectableMeshes, false).map((hit) => hit.object.userData.entityId as EntityId);
     const hostileHit = hitIds
       .map((id): CombatTarget | undefined => this.state.units.get(id) ?? this.state.buildings.get(id))
-      .find((entity): entity is CombatTarget => Boolean(entity?.alive && entity.team === 'enemy'));
+      .find((entity): entity is CombatTarget => Boolean(
+        entity?.alive && entity.team === 'enemy' && this.vision.stateAt(entity.position) === 2,
+      ));
     if (hostileHit) {
       for (const attacker of selectedWorkers) this.cancelWorkerBuild(attacker);
       const issued = this.simulation.attack(selectedWorkers, hostileHit);
       if (issued > 0) {
         this.world.showAttackMarker(hostileHit.position.x, hostileHit.position.z);
+        this.audio.play('command');
         useUiStore.getState().setLastOrder(`ATTACK // ${issued} AGENTS`);
       } else {
         this.world.showRejectedMarker(hostileHit.position.x, hostileHit.position.z);
@@ -241,6 +288,7 @@ export class Game {
     if (siteHit) {
       const builder = selectedWorkers.find((unit) => unit.kind === 'worker');
       if (builder && this.simulation.construction.assign(builder, siteHit)) {
+        this.audio.play('command');
         useUiStore.getState().setLastOrder(`BUILD ${BUILDINGS[siteHit.kind].label.toUpperCase()} // WORKER ASSIGNED`);
         this.publishUi();
       }
@@ -248,12 +296,13 @@ export class Game {
     }
     const resourceHit = hitIds
       .map((id) => this.state.resources.get(id))
-      .find((node): node is ResourceNodeEntity => Boolean(node?.alive));
+      .find((node): node is ResourceNodeEntity => Boolean(node?.alive && this.vision.stateAt(node.position) === 2));
     if (resourceHit) {
       for (const worker of selectedWorkers) { this.cancelWorkerBuild(worker); worker.automation = null; }
       const result = issueGatherCommand(selectedWorkers, resourceHit, this.navigation);
       if (result.issued > 0) {
         this.world.showGatherMarker(resourceHit.position.x, resourceHit.position.z, resourceHit.resourceType);
+        this.audio.play('command');
         useUiStore.getState().setLastOrder(`GATHER ${resourceHit.resourceType.toUpperCase()} // ${result.issued} AGENTS`);
         this.publishUi();
       } else {
@@ -269,6 +318,7 @@ export class Game {
     const result = issueMoveCommand(selectedWorkers, target, this.navigation);
     if (result.issued > 0) {
       this.world.showMoveMarker(target.x, target.z);
+      this.audio.play('command');
       useUiStore.getState().setLastOrder(`MOVE // ${result.issued} AGENTS`);
       this.publishUi();
     }
@@ -278,6 +328,10 @@ export class Game {
     if (this.match.isOver) return;
     const workers = this.selection.selected().filter(isUnit).filter((unit) => unit.kind === 'worker');
     if (workers.length === 0) return;
+    if (!this.simulation.technology.canBuild('player', type)) {
+      useUiStore.getState().setLastOrder(`LOCKED // REQUIRES GENERATION ${BUILDING_GENERATION[type]}`);
+      return;
+    }
     this.placement.begin(type);
     this.placement.update(workers[0]!.position);
     useUiStore.getState().setPlacementMode(type);
@@ -338,6 +392,7 @@ export class Game {
     for (const worker of workers) this.cancelWorkerBuild(worker);
     const changed = automateWorkers(workers, resourceType);
     if (changed > 0) {
+      this.audio.play('command');
       useUiStore.getState().setLastOrder(`AUTOMATE ${resourceType.toUpperCase()} // ${changed} WORKERS`);
       this.publishUi();
     }
@@ -352,18 +407,48 @@ export class Game {
       ? `${BUILDINGS[type].label.toUpperCase()} CONSTRUCTION STARTED`
       : `CONSTRUCTION REJECTED // ${this.buildFailure(result.reason)}`);
     this.publishUi();
+    if (result.ok) this.audio.play('build');
   }
 
   private readonly announceBuilding = (building: BuildingEntity): void => {
     if (building.team !== 'player') return;
     useUiStore.getState().setLastOrder(`${BUILDINGS[building.kind].label.toUpperCase()} ONLINE`);
+    this.audio.play('build');
     this.publishUi();
+  };
+
+  private readonly announceGeneration = (team: 'player' | 'enemy', generation: 1 | 2 | 3): void => {
+    this.world.setGeneration(team, generation);
+    if (team !== 'player') return;
+    useUiStore.getState().setLastOrder(`GENERATION ${generation} // ${GENERATIONS[generation].label.toUpperCase()}`);
+    this.audio.play('evolve');
+    this.publishUi();
+  };
+
+  private readonly toggleAudio = (): void => {
+    this.audio.setMuted(!this.audio.muted);
+    useUiStore.getState().setAudioToggleRequest(this.toggleAudio, this.audio.muted);
+  };
+
+  private readonly setAudioVolume = (volume: number): void => {
+    this.audio.setVolume(volume);
+    useUiStore.getState().setAudioVolumeRequest(this.setAudioVolume, this.audio.volume);
+  };
+
+  private readonly advanceGeneration = (): void => {
+    if (this.match.isOver) return;
+    const result = this.simulation.advanceGeneration('player');
+    if (!result.ok) {
+      useUiStore.getState().setLastOrder(result.reason === 'MAX_GENERATION' ? 'SINGULARITY ALREADY ACHIEVED' : 'EVOLUTION REJECTED // INSUFFICIENT RESOURCES');
+      this.publishUi();
+    }
   };
 
   private buildFailure(reason: BuildRejection): string {
     if (reason === 'INSUFFICIENT_RESOURCES') return 'INSUFFICIENT RESOURCES';
     if (reason === 'NO_BUILD_PATH') return 'NO BUILD PATH';
     if (reason === 'INVALID_PLACEMENT') return 'INVALID SITE';
+    if (reason === 'LOCKED') return 'GENERATION LOCKED';
     return 'NO WORKER SELECTED';
   }
 
@@ -394,11 +479,13 @@ export class Game {
     const balances = economy.ledger.snapshot();
     const capacity = economy.capacity.snapshot();
     const selected = this.selection?.selected() ?? [];
-    const producer = selected.find((entity): entity is BuildingEntity => isBuilding(entity) && (entity.kind === 'core' || entity.kind === 'fabricator'));
+    const producer = selected.find((entity): entity is BuildingEntity => isBuilding(entity) && (entity.kind === 'core' || entity.kind === 'fabricator' || entity.kind === 'foundry'));
     const currentOrder = producer?.productionQueue[0];
     useUiStore.getState().setEconomySnapshot({
       matter: balances.matter,
       energy: balances.energy,
+      data: balances.data,
+      generation: this.simulation.generation('player'),
       capacityUsed: capacity.used,
       capacityReserved: capacity.reserved,
       capacityMax: capacity.max,
@@ -431,8 +518,14 @@ export class Game {
       };
     }
     const entity = selected[0]!;
-    if (isUnit(entity)) return { type: 'unit', name: UNITS[entity.kind].label, hp: entity.hp, maxHp: entity.maxHp, activity: entity.automation ? `Automating ${entity.automation.resourceType === 'matter' ? 'Matter' : 'Energy'}` : entity.activity, detail: entity.cargo.amount > 0 ? `${entity.cargo.amount} ${entity.cargo.type}` : undefined, isPlayerCore: false, canBuild: entity.kind === 'worker' };
-    if (isBuilding(entity)) return { type: 'building', name: BUILDINGS[entity.kind].label, hp: entity.hp, maxHp: entity.maxHp, activity: entity.operational ? (entity.productionQueue.length ? 'Fabricating' : 'Operational') : 'Under construction', detail: entity.operational ? `${entity.productionQueue.length} queued` : `${Math.round(entity.constructionProgress * 100)}% complete`, isPlayerCore: entity.team === 'player' && entity.kind === 'core', canBuild: false, producer: entity.team === 'player' && entity.operational ? (entity.kind === 'core' ? 'worker' : entity.kind === 'fabricator' ? 'striker' : null) : null, constructionSite: entity.team === 'player' && !entity.operational };
+    if (isUnit(entity)) return { type: 'unit', name: UNITS[entity.kind].label, hp: entity.hp, maxHp: entity.maxHp, activity: entity.automation ? `Automating ${entity.automation.resourceType === 'matter' ? 'Matter' : entity.automation.resourceType === 'energy' ? 'Energy' : 'Data'}` : entity.activity, detail: entity.cargo.amount > 0 ? `${entity.cargo.amount} ${entity.cargo.type}` : undefined, isPlayerCore: false, canBuild: entity.kind === 'worker' };
+    if (isBuilding(entity)) {
+      const generation = this.simulation.generation('player');
+      const catalog: readonly UnitTypeId[] | null = entity.kind === 'core' ? ['worker']
+        : entity.kind === 'fabricator' ? (generation >= 2 ? ['striker', 'ranger', 'scout'] : ['striker'])
+          : entity.kind === 'foundry' ? ['titan'] : null;
+      return { type: 'building', name: BUILDINGS[entity.kind].label, hp: entity.hp, maxHp: entity.maxHp, activity: entity.operational ? (entity.productionQueue.length ? 'Fabricating' : entity.combat ? 'Defending' : 'Operational') : 'Under construction', detail: entity.operational ? `${entity.productionQueue.length} queued` : `${Math.round(entity.constructionProgress * 100)}% complete`, isPlayerCore: entity.team === 'player' && entity.kind === 'core', canBuild: false, producer: entity.team === 'player' && entity.operational ? catalog : null, constructionSite: entity.team === 'player' && !entity.operational };
+    }
     return { type: 'resource', name: RESOURCES[entity.resourceType].label, activity: `${entity.remaining} remaining`, detail: `${Math.round((entity.remaining / entity.capacity) * 100)}% integrity`, isPlayerCore: false, canBuild: false };
   }
 
@@ -454,6 +547,7 @@ export class Game {
     if (reason === 'INSUFFICIENT_RESOURCES') return 'REJECTED // INSUFFICIENT RESOURCES';
     if (reason === 'CAPACITY_REACHED') return 'REJECTED // AGENT CAPACITY REACHED';
     if (reason === 'NOT_OPERATIONAL') return 'REJECTED // PRODUCER NOT OPERATIONAL';
+    if (reason === 'LOCKED') return 'REJECTED // GENERATION LOCKED';
     return 'REJECTED // INVALID PRODUCER';
   }
 }

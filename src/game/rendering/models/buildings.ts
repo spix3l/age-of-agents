@@ -11,6 +11,7 @@ export interface BuildingModel {
   readonly column: THREE.Object3D | null;
   readonly arm: THREE.Object3D | null;
   readonly pickable: THREE.Object3D[];
+  readonly generationParts: readonly { readonly part: THREE.Object3D; readonly min: 2 | 3 }[];
 }
 
 function tag(object: THREE.Object3D, id: string, pickable: THREE.Object3D[]): THREE.Object3D {
@@ -72,7 +73,17 @@ function buildCore(cache: ResourceCache, team: Team, id: string): BuildingModel 
   }
 
   group.add(base, tier, drum, cap, column, crown);
-  return { group, spinners, column, arm: null, pickable };
+  const autonomyCrown = new THREE.Mesh(cache.geometry('core-autonomy-crown', () => new THREE.TorusGeometry(1.15, 0.13, 6, 12)), cache.glow(team, 1.4));
+  autonomyCrown.position.y = 4.65;
+  autonomyCrown.rotation.x = Math.PI / 2;
+  autonomyCrown.visible = false;
+  const singularityHalo = new THREE.Mesh(cache.geometry('core-singularity-halo', () => new THREE.TorusGeometry(1.65, 0.1, 6, 18)), cache.glow(team, 2));
+  singularityHalo.position.y = 5.1;
+  singularityHalo.rotation.x = Math.PI / 2;
+  singularityHalo.visible = false;
+  group.add(autonomyCrown, singularityHalo);
+  spinners.push(autonomyCrown, singularityHalo);
+  return { group, spinners, column, arm: null, pickable, generationParts: [{ part: autonomyCrown, min: 2 }, { part: singularityHalo, min: 3 }] };
 }
 
 /** Relay Node: a mast with a rotating dish and a pulsing signal column. */
@@ -107,7 +118,7 @@ function buildRelay(cache: ResourceCache, team: Team, id: string): BuildingModel
   column.position.y = 2;
 
   group.add(pad, housing, mast, dishMount, column);
-  return { group, spinners, column, arm: null, pickable };
+  return { group, spinners, column, arm: null, pickable, generationParts: [] };
 }
 
 /** Fabricator: an assembly hall with a gantry arm that sweeps while production runs. */
@@ -146,13 +157,98 @@ function buildFabricator(cache: ResourceCache, team: Team, id: string): Building
   arm.add(rail, hoist, spark);
 
   group.add(floor, hall, roof, vent, door, arm);
-  return { group, spinners: [], column: null, arm, pickable };
+  return { group, spinners: [], column: null, arm, pickable, generationParts: [] };
+}
+
+/** Barrier Wall: chunky toy-like cover with glowing status pips. */
+function buildWall(cache: ResourceCache, team: Team, id: string): BuildingModel {
+  const group = new THREE.Group(); const pickable: THREE.Object3D[] = [];
+  const base = new THREE.Mesh(cache.geometry('wall-base', () => new THREE.BoxGeometry(1.9, 0.35, 0.9)), cache.frame(team));
+  base.position.y = 0.18; tag(base, id, pickable);
+  const slab = new THREE.Mesh(cache.geometry('wall-slab', () => new THREE.BoxGeometry(1.7, 1.25, 0.55)), cache.hull(team));
+  slab.position.y = 0.9; tag(slab, id, pickable);
+  for (const x of [-0.58, 0, 0.58]) {
+    const pip = new THREE.Mesh(cache.geometry('wall-pip', () => new THREE.SphereGeometry(0.11, 6, 4)), cache.glow(team, 1.5));
+    pip.position.set(x, 1.42, -0.3); group.add(pip);
+  }
+  group.add(base, slab);
+  return { group, spinners: [], column: null, arm: null, pickable, generationParts: [] };
+}
+
+/** Field Outpost: a cheerful rover garage with a lookout eye and resource hatch. */
+function buildOutpost(cache: ResourceCache, team: Team, id: string): BuildingModel {
+  const group = new THREE.Group(); const pickable: THREE.Object3D[] = []; const spinners: THREE.Object3D[] = [];
+  const base = new THREE.Mesh(cache.geometry('outpost-base', () => new THREE.CylinderGeometry(1.55, 1.75, 0.45, 8)), cache.frame(team));
+  base.position.y = 0.22; tag(base, id, pickable);
+  const cabin = new THREE.Mesh(cache.geometry('outpost-cabin', () => new THREE.CylinderGeometry(1.1, 1.35, 1.6, 8)), cache.hull(team));
+  cabin.position.y = 1.15; tag(cabin, id, pickable);
+  const visor = new THREE.Mesh(cache.geometry('outpost-visor', () => new THREE.BoxGeometry(1.15, 0.3, 0.12)), cache.glow(team, 1.5));
+  visor.position.set(0, 1.42, -1.04);
+  const mast = new THREE.Mesh(cache.geometry('outpost-mast', () => new THREE.CylinderGeometry(0.1, 0.14, 1.25, 6)), cache.frame(team));
+  mast.position.y = 2.55; tag(mast, id, pickable);
+  const eye = new THREE.Mesh(cache.geometry('outpost-eye', () => new THREE.SphereGeometry(0.3, 8, 6)), cache.glow(team, 2));
+  eye.position.y = 3.15; tag(eye, id, pickable); spinners.push(eye);
+  group.add(base, cabin, visor, mast, eye);
+  return { group, spinners, column: eye, arm: null, pickable, generationParts: [] };
+}
+
+/** Zap Turret: oversized swivelling head and twin antenna ears for a playful silhouette. */
+function buildTurret(cache: ResourceCache, team: Team, id: string): BuildingModel {
+  const group = new THREE.Group(); const pickable: THREE.Object3D[] = []; const spinners: THREE.Object3D[] = [];
+  const foot = new THREE.Mesh(cache.geometry('turret-foot', () => new THREE.CylinderGeometry(1, 1.2, 0.55, 8)), cache.frame(team));
+  foot.position.y = 0.28; tag(foot, id, pickable);
+  const neck = new THREE.Mesh(cache.geometry('turret-neck', () => new THREE.CylinderGeometry(0.34, 0.5, 1.25, 7)), cache.plate(team));
+  neck.position.y = 1.12; tag(neck, id, pickable);
+  const head = new THREE.Group(); head.position.y = 2;
+  const dome = new THREE.Mesh(cache.geometry('turret-dome', () => new THREE.SphereGeometry(0.72, 8, 6)), cache.hull(team)); tag(dome, id, pickable);
+  const eye = new THREE.Mesh(cache.geometry('turret-eye', () => new THREE.BoxGeometry(0.7, 0.2, 0.12)), cache.glow(team, 2.3)); eye.position.z = -0.66;
+  for (const side of [-1, 1]) {
+    const ear = new THREE.Mesh(cache.geometry('turret-ear', () => new THREE.ConeGeometry(0.16, 0.65, 5)), cache.plate(team));
+    ear.position.set(side * 0.48, 0.62, 0); ear.rotation.z = side * -0.28; head.add(ear);
+  }
+  const barrel = new THREE.Mesh(cache.geometry('turret-gun', () => new THREE.CylinderGeometry(0.12, 0.16, 1.3, 6)), cache.frame(team));
+  barrel.rotation.x = Math.PI / 2; barrel.position.set(0, 0, -1.05); tag(barrel, id, pickable);
+  head.add(dome, eye, barrel); spinners.push(head); group.add(foot, neck, head);
+  return { group, spinners, column: eye, arm: head, pickable, generationParts: [] };
+}
+
+/** Heavy Foundry: broad furnace hall with smokeless energy stacks and a stamping hammer. */
+function buildFoundry(cache: ResourceCache, team: Team, id: string): BuildingModel {
+  const group = new THREE.Group(); const pickable: THREE.Object3D[] = [];
+  const floor = new THREE.Mesh(cache.geometry('foundry-floor', () => new THREE.BoxGeometry(4.8, 0.4, 3.8)), cache.frame(team));
+  floor.position.y = 0.2; tag(floor, id, pickable);
+  const hall = new THREE.Mesh(cache.geometry('foundry-hall', () => new THREE.BoxGeometry(3.9, 2.2, 3.1)), cache.hull(team));
+  hall.position.y = 1.45; tag(hall, id, pickable);
+  const mouth = new THREE.Mesh(cache.geometry('foundry-mouth', () => new THREE.BoxGeometry(2.2, 1.35, 0.16)), cache.glow(team, 1.45));
+  mouth.position.set(0, 1.15, -1.62);
+  for (const side of [-1, 1]) {
+    const stack = new THREE.Mesh(cache.geometry('foundry-stack', () => new THREE.CylinderGeometry(0.32, 0.48, 2.5, 7)), cache.plate(team));
+    stack.position.set(side * 1.45, 3.05, 0.65); tag(stack, id, pickable); group.add(stack);
+  }
+  const hammer = new THREE.Group(); hammer.position.set(0, 3, 0);
+  const beam = new THREE.Mesh(cache.geometry('foundry-beam', () => new THREE.BoxGeometry(3.8, 0.3, 0.35)), cache.frame(team));
+  const block = new THREE.Mesh(cache.geometry('foundry-hammer', () => new THREE.BoxGeometry(0.8, 1.25, 0.8)), cache.plate(team)); block.position.y = -0.65;
+  hammer.add(beam, block); group.add(floor, hall, mouth, hammer);
+  return { group, spinners: [], column: mouth, arm: hammer, pickable, generationParts: [] };
 }
 
 export function buildBuildingModel(cache: ResourceCache, kind: BuildingTypeId, team: Team, id: string): BuildingModel {
   if (kind === 'core') return buildCore(cache, team, id);
-  if (kind === 'relay') return buildRelay(cache, team, id);
-  return buildFabricator(cache, team, id);
+  const model = kind === 'relay' ? buildRelay(cache, team, id)
+    : kind === 'fabricator' ? buildFabricator(cache, team, id)
+      : kind === 'wall' ? buildWall(cache, team, id)
+        : kind === 'outpost' ? buildOutpost(cache, team, id)
+          : kind === 'turret' ? buildTurret(cache, team, id)
+            : buildFoundry(cache, team, id);
+  const height = kind === 'wall' ? 1.65 : kind === 'foundry' ? 4.35 : kind === 'outpost' ? 3.6 : 3.2;
+  const autonomyPanel = new THREE.Group(); autonomyPanel.position.set(BUILDINGS[kind].footprint[0] * 0.32, height, 0); autonomyPanel.visible = false;
+  const stem = new THREE.Mesh(cache.geometry('generation-stem', () => new THREE.CylinderGeometry(0.05, 0.07, 0.55, 5)), cache.frame(team)); stem.position.y = 0.22;
+  const panel = new THREE.Mesh(cache.geometry('generation-panel', () => new THREE.BoxGeometry(0.7, 0.08, 0.42)), cache.glow(team, 1)); panel.position.y = 0.52; panel.rotation.z = 0.15;
+  autonomyPanel.add(stem, panel);
+  const singularityOrb = new THREE.Mesh(cache.geometry('generation-orb', () => new THREE.OctahedronGeometry(0.24, 0)), cache.glow(team, 2.4));
+  singularityOrb.position.set(-BUILDINGS[kind].footprint[0] * 0.3, height + 0.45, 0); singularityOrb.visible = false;
+  model.group.add(autonomyPanel, singularityOrb);
+  return { ...model, generationParts: [...model.generationParts, { part: autonomyPanel, min: 2 }, { part: singularityOrb, min: 3 }] };
 }
 
 /** Scaffolding shown while a site is still being assembled. */

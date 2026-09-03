@@ -30,7 +30,7 @@ export class DamageService {
     const applied = Math.min(amount, target.hp);
     target.hp = Math.max(0, target.hp - amount);
     // Remembering the attacker is what lets Workers and idle Agents defend themselves.
-    if ('combat' in target && attacker.id) target.combat.lastAttackerId = attacker.id;
+    if ('movementSpeed' in target && attacker.id) target.combat.lastAttackerId = attacker.id;
     this.stats?.recordDamage(attacker.team, applied);
     if (target.hp > 0) return { ok: true, applied, lethal: false };
     this.enqueueDeath(target, attacker.team);

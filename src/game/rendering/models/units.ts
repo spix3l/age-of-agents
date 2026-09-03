@@ -153,8 +153,72 @@ function buildStriker(cache: ResourceCache, team: Team, id: string): UnitModel {
   return { group, legs, turret, barrel, cargo: null, optic: coil, hover: null, pickable };
 }
 
+/** Ranger: stilt-legged sharpshooter with a comically long rail lance. */
+function buildRanger(cache: ResourceCache, team: Team, id: string): UnitModel {
+  const group = new THREE.Group(); const pickable: THREE.Object3D[] = []; const legs: THREE.Object3D[] = [];
+  const body = new THREE.Mesh(cache.geometry('ranger-body', () => new THREE.CylinderGeometry(0.38, 0.52, 0.75, 7)), cache.hull(team));
+  body.position.y = 1.15; tag(body, id, pickable);
+  for (const side of [-1, 1]) {
+    const leg = new THREE.Group(); leg.position.set(side * 0.3, 0.75, 0);
+    const shin = new THREE.Mesh(cache.geometry('ranger-leg', () => new THREE.BoxGeometry(0.13, 0.95, 0.18)), cache.frame(team)); shin.position.y = -0.38;
+    const foot = new THREE.Mesh(cache.geometry('ranger-foot', () => new THREE.BoxGeometry(0.25, 0.12, 0.42)), cache.plate(team)); foot.position.set(0, -0.85, -0.08);
+    leg.add(shin, foot); tag(shin, id, pickable); legs.push(leg); group.add(leg);
+  }
+  const turret = new THREE.Group(); turret.position.y = 1.5;
+  const head = new THREE.Mesh(cache.geometry('ranger-head', () => new THREE.BoxGeometry(0.58, 0.38, 0.5)), cache.plate(team)); tag(head, id, pickable);
+  const optic = new THREE.Mesh(cache.geometry('ranger-optic', () => new THREE.SphereGeometry(0.13, 7, 5)), cache.glow(team, 2.4)); optic.position.set(0.18, 0.05, -0.28);
+  const barrel = new THREE.Group(); barrel.position.set(-0.12, 0, -0.28);
+  const lance = new THREE.Mesh(cache.geometry('ranger-lance', () => new THREE.CylinderGeometry(0.055, 0.08, 1.9, 6)), cache.frame(team)); lance.rotation.x = Math.PI / 2; lance.position.z = -0.85; tag(lance, id, pickable);
+  barrel.add(lance); turret.add(head, optic, barrel); group.add(body, turret);
+  return { group, legs, turret, barrel, cargo: null, optic, hover: null, pickable };
+}
+
+/** Scout: a hovering eyeball with three antenna fins. */
+function buildScout(cache: ResourceCache, team: Team, id: string): UnitModel {
+  const group = new THREE.Group(); const pickable: THREE.Object3D[] = [];
+  const hover = new THREE.Group(); hover.position.y = 1.15;
+  const shell = new THREE.Mesh(cache.geometry('scout-shell', () => new THREE.SphereGeometry(0.52, 8, 6)), cache.hull(team)); tag(shell, id, pickable);
+  const optic = new THREE.Mesh(cache.geometry('scout-optic', () => new THREE.SphereGeometry(0.22, 8, 6)), cache.glow(team, 2.6)); optic.position.z = -0.48;
+  for (let index = 0; index < 3; index += 1) {
+    const angle = index * Math.PI * 2 / 3;
+    const fin = new THREE.Mesh(cache.geometry('scout-fin', () => new THREE.ConeGeometry(0.18, 0.75, 4)), cache.plate(team));
+    fin.position.set(Math.cos(angle) * 0.58, 0, Math.sin(angle) * 0.58); fin.rotation.z = Math.PI / 2; fin.rotation.y = -angle; hover.add(fin);
+  }
+  const ring = new THREE.Mesh(cache.geometry('scout-ring', () => new THREE.TorusGeometry(0.72, 0.06, 5, 14)), cache.glow(team, 1.2)); ring.rotation.x = Math.PI / 2;
+  hover.add(shell, optic, ring); group.add(hover);
+  return { group, legs: [ring], turret: hover, barrel: null, cargo: null, optic, hover, pickable };
+}
+
+/** Titan: a broad four-legged siege robot with a glowing reactor and twin cannons. */
+function buildTitan(cache: ResourceCache, team: Team, id: string): UnitModel {
+  const group = new THREE.Group(); const pickable: THREE.Object3D[] = []; const legs: THREE.Object3D[] = [];
+  const body = new THREE.Mesh(cache.geometry('titan-body', () => new THREE.BoxGeometry(2.2, 1.05, 2.5)), cache.hull(team)); body.position.y = 1.45; tag(body, id, pickable);
+  const armor = new THREE.Mesh(cache.geometry('titan-armor', () => new THREE.BoxGeometry(2.5, 0.38, 2.1)), cache.plate(team)); armor.position.y = 1.92; tag(armor, id, pickable);
+  for (const x of [-0.85, 0.85]) for (const z of [-0.72, 0.72]) {
+    const leg = new THREE.Group(); leg.position.set(x, 0.95, z);
+    const limb = new THREE.Mesh(cache.geometry('titan-leg', () => new THREE.BoxGeometry(0.38, 1.25, 0.42)), cache.frame(team)); limb.position.y = -0.45; tag(limb, id, pickable);
+    const foot = new THREE.Mesh(cache.geometry('titan-foot', () => new THREE.BoxGeometry(0.72, 0.2, 0.82)), cache.plate(team)); foot.position.y = -1.02;
+    leg.add(limb, foot); legs.push(leg); group.add(leg);
+  }
+  const turret = new THREE.Group(); turret.position.y = 2.35;
+  const dome = new THREE.Mesh(cache.geometry('titan-dome', () => new THREE.CylinderGeometry(0.65, 0.9, 0.62, 8)), cache.frame(team)); tag(dome, id, pickable);
+  const optic = new THREE.Mesh(cache.geometry('titan-reactor', () => new THREE.OctahedronGeometry(0.34, 0)), cache.glow(team, 2.4)); optic.position.y = 0.42;
+  const barrel = new THREE.Group(); barrel.position.z = -0.35;
+  for (const side of [-1, 1]) {
+    const cannon = new THREE.Mesh(cache.geometry('titan-cannon', () => new THREE.CylinderGeometry(0.13, 0.17, 1.5, 7)), cache.frame(team));
+    cannon.rotation.x = Math.PI / 2; cannon.position.set(side * 0.34, 0, -0.65); tag(cannon, id, pickable); barrel.add(cannon);
+  }
+  turret.add(dome, optic, barrel); group.add(body, armor, turret);
+  group.scale.setScalar(1.2);
+  return { group, legs, turret, barrel, cargo: null, optic, hover: null, pickable };
+}
+
 export function buildUnitModel(cache: ResourceCache, kind: UnitTypeId, team: Team, id: string): UnitModel {
-  return kind === 'striker' ? buildStriker(cache, team, id) : buildWorker(cache, team, id);
+  if (kind === 'worker') return buildWorker(cache, team, id);
+  if (kind === 'striker') return buildStriker(cache, team, id);
+  if (kind === 'ranger') return buildRanger(cache, team, id);
+  if (kind === 'scout') return buildScout(cache, team, id);
+  return buildTitan(cache, team, id);
 }
 
 export function unitGlowColor(team: Team): number { return paletteFor(team).glow; }

@@ -17,8 +17,10 @@ import { ConstructionSystem } from '../systems/ConstructionSystem';
 import { GatheringSystem } from '../systems/GatheringSystem';
 import { MovementSystem } from '../systems/MovementSystem';
 import { ProductionSystem, type EnqueueResult } from '../systems/ProductionSystem';
+import { TechnologySystem, type AdvanceResult } from '../systems/TechnologySystem';
+import { TurretSystem } from '../systems/TurretSystem';
 import { entityId, type UnitTypeId } from '../types/ids';
-import type { BuildingEntity, CombatTarget, Team, UnitEntity, Vec2 } from '../types/simulation';
+import type { BuildingEntity, CombatTarget, Generation, Team, UnitEntity, Vec2 } from '../types/simulation';
 import type { PlaceableBuildingType } from '../building/PlacementController';
 import { createMatch, type MatchOptions } from '../world/createMatch';
 import { MAP_BOUNDS, WORLD_OBSTACLES } from '../world/map';
@@ -32,9 +34,10 @@ export interface MatchHooks {
   readonly onBuildingAdded?: (building: BuildingEntity) => void;
   readonly onBuildingRemoved?: (building: BuildingEntity) => void;
   readonly onBuildingCompleted?: (building: BuildingEntity) => void;
-  readonly onShot?: (attacker: UnitEntity, target: CombatTarget) => void;
+  readonly onShot?: (attacker: UnitEntity | BuildingEntity, target: CombatTarget) => void;
   readonly onDeath?: (record: DeathRecord) => void;
   readonly onMatchEnd?: (result: MatchResult) => void;
+  readonly onGeneration?: (team: PlayableTeam, generation: Generation) => void;
 }
 
 export interface MatchSimulationOptions extends MatchOptions {
@@ -65,10 +68,13 @@ export class MatchSimulation {
   readonly automation: AutomationSystem;
   readonly construction: ConstructionSystem;
   readonly production = new ProductionSystem();
+  readonly technology: TechnologySystem;
   readonly combat: CombatSystem;
+  readonly turrets: TurretSystem;
   readonly opponent: AIController | null;
   private readonly hooks: MatchHooks;
   private readonly agentsBuilt: Record<PlayableTeam, number> = { player: 0, enemy: 0 };
+  private readonly structuresBuilt: Record<PlayableTeam, number> = { player: 0, enemy: 0 };
   private unitSequence = 1;
   private buildingSequence = 1;
 
@@ -81,6 +87,7 @@ export class MatchSimulation {
         ledger: new EconomyLedger(scenario.startingBalances),
         capacity: new Capacity(scenario.startingBalances.capacity, scenario.units.filter((unit) => unit.team === team).length),
       });
+      this.state.generations.set(team, 1);
     }
     for (const building of scenario.buildings) {
       this.state.buildings.add(building);
@@ -109,6 +116,13 @@ export class MatchSimulation {
       grid: this.navigation,
       onShot: this.hooks.onShot,
     });
+    this.technology = new TechnologySystem(this.state.generations);
+    this.turrets = new TurretSystem({
+      targets: this.targets,
+      lookup: (id) => this.state.units.get(id) ?? this.state.buildings.get(id),
+      damage: this.damage,
+      onShot: this.hooks.onShot,
+    });
     const opponent = options.opponent ?? true;
     this.opponent = opponent === false
       ? null
@@ -126,6 +140,7 @@ export class MatchSimulation {
   }
 
   agentsCreated(team: PlayableTeam): number { return this.agentsBuilt[team]; }
+  buildingsConstructed(team: PlayableTeam): number { return this.structuresBuilt[team]; }
 
   step(delta = 1 / 30): void {
     if (this.match.isOver) return;
@@ -138,6 +153,7 @@ export class MatchSimulation {
     this.production.update(this.state.buildings.alive(), delta, (team) => this.economy(team), this.spawnUnit);
     this.targets.sync([...this.state.units.alive(), ...this.state.buildings.alive()]);
     this.combat.update(this.state.units.alive(), delta);
+    this.turrets.update(this.state.buildings.alive(), delta);
     this.damage.processDeaths(this.handleDeath);
     this.opponent?.update(delta);
   }
@@ -153,7 +169,18 @@ export class MatchSimulation {
   enqueue(producer: BuildingEntity, unitType: UnitTypeId): EnqueueResult {
     const economy = this.economy(producer.team);
     if (!economy) return { ok: false, reason: 'NOT_A_PRODUCER' };
+    if (producer.team === 'neutral' || !this.technology.canProduce(producer.team, unitType)) return { ok: false, reason: 'LOCKED' };
     return this.production.enqueue(producer, unitType, economy.ledger, economy.capacity);
+  }
+
+  generation(team: PlayableTeam): Generation { return this.technology.current(team); }
+
+  advanceGeneration(team: PlayableTeam): AdvanceResult {
+    const economy = this.economy(team);
+    if (!economy) return { ok: false, reason: 'INSUFFICIENT_RESOURCES' };
+    const result = this.technology.advance(team, economy.ledger);
+    if (result.ok) this.hooks.onGeneration?.(team, result.generation);
+    return result;
   }
 
   build(worker: UnitEntity, type: PlaceableBuildingType, position: Vec2): BuildCommandResult {
@@ -162,6 +189,7 @@ export class MatchSimulation {
       state: this.state,
       navigation: this.navigation,
       construction: this.construction,
+      canBuild: (kind, team) => this.technology.canBuild(team, kind),
       nextBuildingId: (kind, team) => entityId(`${team}-${kind}-b${this.buildingSequence++}`),
       onCreated: (site) => this.hooks.onBuildingAdded?.(site),
       onRemoved: (site) => this.hooks.onBuildingRemoved?.(site),
@@ -173,7 +201,7 @@ export class MatchSimulation {
   }
 
   /** Cancels a construction site and refunds it, unblocking its footprint and its builder. */
-  removeConstructionSite(site: BuildingEntity, refund: Readonly<Partial<Record<'matter' | 'energy', number>>>): boolean {
+  removeConstructionSite(site: BuildingEntity, refund: Readonly<Partial<Record<'matter' | 'energy' | 'data', number>>>): boolean {
     if (!this.state.buildings.has(site.id) || site.operational) return false;
     this.economy(site.team)?.ledger.refund(refund);
     this.navigation.setBlockedRect(site.position, site.footprint, false, BUILDING_FOOTPRINT_PADDING);
@@ -231,6 +259,7 @@ export class MatchSimulation {
   private readonly completeBuilding = (building: BuildingEntity): void => {
     const economy = this.economy(building.team);
     if (economy) activateCapacityProvider(building, economy.capacity);
+    if (building.team !== 'neutral') this.structuresBuilt[building.team] += 1;
     this.hooks.onBuildingCompleted?.(building);
   };
 

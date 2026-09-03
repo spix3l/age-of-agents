@@ -11,7 +11,7 @@ This is the portfolio view for the file-backed backlog derived from [`PRD.md`](P
 | [EPIC-03](backlog/epics/EPIC-03-colony.md) | Day 3 | Build the Colony | 8 | DONE |
 | [EPIC-04](backlog/epics/EPIC-04-war.md) | Day 4 | War | 7 | DONE |
 | [EPIC-05](backlog/epics/EPIC-05-opponent.md) | Day 5 | The Other Intelligence | 7 | REVIEW |
-| [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Day 6 | Evolution | 11 | TODO |
+| [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Day 6 | Evolution | 13 | REVIEW |
 | [EPIC-07](backlog/epics/EPIC-07-release.md) | Day 7 | Survive and Ship | 9 | TODO |
 
 ## Tasks
@@ -56,17 +56,19 @@ This is the portfolio view for the file-backed backlog derived from [`PRD.md`](P
 | [D5-05](backlog/tasks/D5-05.md) | [EPIC-05](backlog/epics/EPIC-05-opponent.md) | Implement AI scouting, defense, attack, and recovery | P0 | L | D5-04 | DONE |
 | [D5-06](backlog/tasks/D5-06.md) | [EPIC-05](backlog/epics/EPIC-05-opponent.md) | Add AI observability and deterministic soak scenario | P0 | M | D5-05 | DONE |
 | [D5-07](backlog/tasks/D5-07.md) | [EPIC-05](backlog/epics/EPIC-05-opponent.md) | Balance and prove the Day 5 opponent gate | P0 | L | D5-06 | REVIEW |
-| [D6-01](backlog/tasks/D6-01.md) | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Add main menu, how-to-play, and match restart | P0 | M | D4-06 | TODO |
-| [D6-02](backlog/tasks/D6-02.md) | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Add Data and three-Generation progression | P1 | L | D5-07 | TODO |
-| [D6-03](backlog/tasks/D6-03.md) | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Implement grid Fog of War | P1 | L | D4-02, D5-07 | TODO |
-| [D6-04](backlog/tasks/D6-04.md) | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Add Ranger to the Fabricator | P1 | M | D4-03, D6-02 | TODO |
-| [D6-05](backlog/tasks/D6-05.md) | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Add Scout Drone and exploration role | P1 | M | D6-03, D6-02 | TODO |
-| [D6-06](backlog/tasks/D6-06.md) | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Add Heavy Foundry and Titan | P1 | L | D3-02, D4-03, D6-02 | TODO |
-| [D6-07](backlog/tasks/D6-07.md) | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Add automatic Defense Turret | P1 | M | D3-02, D4-03, D6-02 | TODO |
-| [D6-08](backlog/tasks/D6-08.md) | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Add essential audio with safe fallbacks | P1 | M | D4-04, D6-01 | TODO |
-| [D6-09](backlog/tasks/D6-09.md) | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Establish low-poly faction identity and generation cues | P1 | M | D6-02 | TODO |
-| [D6-10](backlog/tasks/D6-10.md) | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Add end-game statistics | P1 | M | D4-06, D6-01 | TODO |
-| [D6-11](backlog/tasks/D6-11.md) | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Run external-tester usability pass and triage | P0 | M | D6-01 | TODO |
+| [D6-01](backlog/tasks/D6-01.md) | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Add main menu, how-to-play, and match restart | P0 | M | D4-06 | REVIEW |
+| [D6-02](backlog/tasks/D6-02.md) | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Add Data and three-Generation progression | P1 | L | D5-07 | REVIEW |
+| [D6-03](backlog/tasks/D6-03.md) | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Implement grid Fog of War | P1 | L | D4-02, D5-07 | REVIEW |
+| [D6-04](backlog/tasks/D6-04.md) | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Add Ranger to the Fabricator | P1 | M | D4-03, D6-02 | REVIEW |
+| [D6-05](backlog/tasks/D6-05.md) | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Add Scout Drone and exploration role | P1 | M | D6-03, D6-02 | REVIEW |
+| [D6-06](backlog/tasks/D6-06.md) | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Add Heavy Foundry and Titan | P1 | L | D3-02, D4-03, D6-02 | REVIEW |
+| [D6-07](backlog/tasks/D6-07.md) | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Add automatic Defense Turret | P1 | M | D3-02, D4-03, D6-02 | REVIEW |
+| [D6-08](backlog/tasks/D6-08.md) | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Add essential audio with safe fallbacks | P1 | M | D4-04, D6-01 | REVIEW |
+| [D6-09](backlog/tasks/D6-09.md) | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Establish low-poly faction identity and generation cues | P1 | M | D6-02 | REVIEW |
+| [D6-10](backlog/tasks/D6-10.md) | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Add end-game statistics | P1 | M | D4-06, D6-01 | REVIEW |
+| [D6-11](backlog/tasks/D6-11.md) | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Run external-tester usability pass and triage | P0 | M | D6-01 | REVIEW |
+| [D6-12](backlog/tasks/D6-12.md) | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Add modular Barrier Walls | P1 | S | D3-02, D4-01 | REVIEW |
+| [D6-13](backlog/tasks/D6-13.md) | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Add remote-deposit Field Outpost | P1 | M | D2-03, D3-02, D6-03 | REVIEW |
 | [D7-01](backlog/tasks/D7-01.md) | [EPIC-07](backlog/epics/EPIC-07-release.md) | Freeze scope and build the release bug board | P0 | S | D5-07, D6-01 | TODO |
 | [D7-02](backlog/tasks/D7-02.md) | [EPIC-07](backlog/epics/EPIC-07-release.md) | Add full-loop smoke and invariant tests | P0 | L | D7-01 | TODO |
 | [D7-03](backlog/tasks/D7-03.md) | [EPIC-07](backlog/epics/EPIC-07-release.md) | Fix navigation and stuck-unit release blockers | P0 | L | D7-01 | TODO |

@@ -40,6 +40,7 @@ export function createBattleScenario(seed = 20_260_904, strikersPerSide = 6): Ec
     createResourceNode(entityId('player-energy'), 'energy', { x: START_POSITIONS.player.x + 10, z: START_POSITIONS.player.z - 2 }, RESOURCES.energy.capacity),
     createResourceNode(entityId('enemy-matter'), 'matter', { x: START_POSITIONS.enemy.x - 7, z: START_POSITIONS.enemy.z + 7 }, RESOURCES.matter.capacity),
     createResourceNode(entityId('enemy-energy'), 'energy', { x: START_POSITIONS.enemy.x - 10, z: START_POSITIONS.enemy.z + 2 }, RESOURCES.energy.capacity),
+    createResourceNode(entityId('middle-data'), 'data', { x: 0, z: 0 }, RESOURCES.data.capacity),
   ];
   return { seed, units, buildings, resources, startingBalances: STARTING_ECONOMY };
 }

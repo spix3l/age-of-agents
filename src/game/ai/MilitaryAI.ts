@@ -2,7 +2,7 @@ import { AI, type AITuning } from '../../data/ai';
 import { UNITS } from '../../data/units';
 import { MAP_BOUNDS } from '../world/map';
 import type { Random } from '../util/Random';
-import type { EntityId } from '../types/ids';
+import type { EntityId, UnitTypeId } from '../types/ids';
 import type { CombatTarget, UnitEntity, Vec2 } from '../types/simulation';
 import type { AICommands, AIView } from './AIContext';
 import { distance, type AIKnowledge } from './AIKnowledge';
@@ -49,7 +49,7 @@ export class MilitaryAI {
     this.produce(view, commands, snapshot, state);
     this.pruneAssault(view);
 
-    const army = view.units().filter((unit) => unit.kind === 'striker');
+    const army = view.units().filter((unit) => unit.kind !== 'worker');
     if (state === 'DEFEND') return this.defend(view, commands, army);
     if (state === 'ATTACK') return this.assault(view, commands, army, knowledge);
     if (state === 'SCOUT') this.scout(view, commands, army);
@@ -73,17 +73,28 @@ export class MilitaryAI {
     // Difficulty throttles how attentively the opponent keeps its Fabricators busy.
     if (this.productionCooldown > 0) return;
     const balances = view.balances();
-    const cost = UNITS.striker.cost;
-    if (balances.matter < (cost.matter ?? 0) || balances.energy < (cost.energy ?? 0)) return;
-    const fabricators = view.buildings().filter((building) => building.kind === 'fabricator' && building.operational);
-    for (const fabricator of fabricators) {
-      if (fabricator.productionQueue.length >= 2) continue;
-      const result = commands.produce(fabricator, 'striker');
-      if (result.ok) {
-        this.productionCooldown = this.tuning.productionInterval;
-        return;
-      }
-      // Capacity or resource shortages are handled by the economy and build slices next tick.
+    const units = view.units();
+    const titanWanted = view.generation() >= 3 && units.filter((unit) => unit.kind === 'titan').length < 1;
+    const scoutWanted = view.generation() >= 2 && units.every((unit) => unit.kind !== 'scout');
+    const rangerWanted = view.generation() >= 2 && units.filter((unit) => unit.kind === 'ranger').length * 3 < units.filter((unit) => unit.kind === 'striker').length;
+    // Ordered by preference, then filtered by what is actually affordable and buildable: a
+    // missing Foundry or a Data shortage must never stall the whole military queue.
+    const wanted: UnitTypeId[] = [];
+    if (titanWanted) wanted.push('titan');
+    if (scoutWanted) wanted.push('scout');
+    if (rangerWanted) wanted.push('ranger');
+    wanted.push('striker');
+
+    for (const unitType of wanted) {
+      const cost = UNITS[unitType].cost as Readonly<Partial<Record<'matter' | 'energy' | 'data', number>>>;
+      if (balances.matter < (cost.matter ?? 0) || balances.energy < (cost.energy ?? 0) || balances.data < (cost.data ?? 0)) continue;
+      const producerKind = unitType === 'titan' ? 'foundry' : 'fabricator';
+      const producer = view.buildings()
+        .find((building) => building.kind === producerKind && building.operational && building.productionQueue.length < 2);
+      if (!producer) continue;
+      const result = commands.produce(producer, unitType);
+      if (result.ok) this.productionCooldown = this.tuning.productionInterval;
+      // Capacity shortages are handled by the economy and build slices next tick.
       return;
     }
   }
@@ -130,7 +141,11 @@ export class MilitaryAI {
       this.scoutTravelling = true;
       return;
     }
-    const candidate = scout?.alive ? scout : army.find((unit) => !this.assaultIds.has(unit.id)) ?? view.units().find((unit) => unit.kind === 'worker' && !unit.buildOrder);
+    const candidate = scout?.alive
+      ? scout
+      : army.find((unit) => unit.kind === 'scout' && !this.assaultIds.has(unit.id))
+        ?? army.find((unit) => !this.assaultIds.has(unit.id))
+        ?? view.units().find((unit) => unit.kind === 'worker' && !unit.buildOrder);
     if (!candidate) {
       this.scoutTravelling = false;
       return;

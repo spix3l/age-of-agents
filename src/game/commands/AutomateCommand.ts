@@ -7,7 +7,7 @@ export function automateWorkers(workers: readonly UnitEntity[], resourceType: Ha
     worker.automation = { resourceType, searchCooldown: 0 };
     worker.gatherOrder = null;
     worker.buildOrder = null;
-    worker.activity = resourceType === 'matter' ? 'Automating Matter' : 'Automating Energy';
+    worker.activity = resourceType === 'matter' ? 'Automating Matter' : resourceType === 'energy' ? 'Automating Energy' : 'Automating Data';
     changed += 1;
   }
   return changed;

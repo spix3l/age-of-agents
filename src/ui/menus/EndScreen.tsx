@@ -26,11 +26,14 @@ export function EndScreenCard({ result, summary, onRestart, onMainMenu }: EndScr
           <div><dt>DURATION</dt><dd>{formatDuration(summary.durationSeconds)}</dd></div>
           <div><dt>MATTER COLLECTED</dt><dd>{Math.floor(summary.matterCollected)}</dd></div>
           <div><dt>ENERGY COLLECTED</dt><dd>{Math.floor(summary.energyCollected)}</dd></div>
+          <div><dt>DATA COLLECTED</dt><dd>{Math.floor(summary.dataCollected)}</dd></div>
           <div><dt>AGENTS CREATED</dt><dd>{summary.agentsCreated}</dd></div>
           <div><dt>AGENTS DESTROYED</dt><dd>{summary.agentsKilled}</dd></div>
           <div><dt>AGENTS LOST</dt><dd>{summary.agentsLost}</dd></div>
           <div><dt>BUILDINGS DESTROYED</dt><dd>{summary.buildingsDestroyed}</dd></div>
           <div><dt>BUILDINGS LOST</dt><dd>{summary.buildingsLost}</dd></div>
+          <div><dt>BUILDINGS BUILT</dt><dd>{summary.buildingsConstructed}</dd></div>
+          <div><dt>FINAL GENERATION</dt><dd>{summary.finalGeneration}</dd></div>
         </dl>
         <div className="end-actions">
           <button type="button" className="primary" onClick={onRestart}>PLAY AGAIN</button>

@@ -1,4 +1,6 @@
 import { AI, aiPhase, desiredWorkers, type AIPhase, type AITuning } from '../../data/ai';
+import { GENERATIONS } from '../../data/technologies';
+import type { Generation } from '../types/simulation';
 
 export type AIState = 'EXPAND_ECONOMY' | 'TECH' | 'BUILD_ARMY' | 'SCOUT' | 'DEFEND' | 'ATTACK' | 'RECOVER';
 
@@ -8,6 +10,8 @@ export interface AISnapshot {
   readonly phase: AIPhase;
   readonly matter: number;
   readonly energy: number;
+  readonly data: number;
+  readonly generation: Generation;
   readonly capacityUsed: number;
   readonly capacityReserved: number;
   readonly capacityMax: number;
@@ -60,8 +64,7 @@ export function scoreStates(snapshot: AISnapshot, tuning: AITuning): Record<AISt
       ? 70
       : 0,
     BUILD_ARMY: snapshot.fabricators > 0 && capacityFree > 0 && snapshot.army < tuning.attackForce ? 55 : 0,
-    // Generations arrive with D6-02; until then TECH is a declared placeholder that never wins.
-    TECH: 0,
+    TECH: techReady(snapshot) ? 62 : 0,
     EXPAND_ECONOMY: 30 + workerDeficit * 40 + (snapshot.fabricators === 0 ? 15 : 0),
   };
 }
@@ -82,7 +85,13 @@ function reasonFor(state: AIState, snapshot: AISnapshot, tuning: AITuning): stri
       : `${snapshot.army} strikers committed, cannot reinforce`;
     case 'SCOUT': return 'enemy core undiscovered';
     case 'BUILD_ARMY': return `${snapshot.army}/${tuning.attackForce} strikers`;
-    case 'TECH': return 'placeholder until Generations ship';
+    case 'TECH': return `resources ready for Generation ${snapshot.generation + 1}`;
     default: return `${snapshot.workers}/${desiredWorkers(snapshot.elapsedSeconds, tuning)} workers, phase ${aiPhase(snapshot.elapsedSeconds)}`;
   }
+}
+
+function techReady(snapshot: AISnapshot): boolean {
+  const cost = GENERATIONS[snapshot.generation].advanceCost;
+  if (!cost) return false;
+  return snapshot.matter >= (cost.matter ?? 0) && snapshot.energy >= (cost.energy ?? 0) && snapshot.data >= (cost.data ?? 0);
 }

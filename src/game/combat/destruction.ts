@@ -76,4 +76,8 @@ function clearReferencesTo(id: CombatTarget['id'], state: GameState): void {
       unit.activity = 'Idle';
     }
   }
+  // Turrets hold a target too, and a dead ID must never survive to be re-resolved.
+  for (const building of state.buildings.alive()) {
+    if (building.combat?.targetId === id) building.combat.targetId = null;
+  }
 }

@@ -14,7 +14,7 @@ export function createResourceNode(id: EntityId, type: HarvestableResourceType, 
   if (!Number.isFinite(capacity) || capacity <= 0) throw new Error('Resource node capacity must be positive');
   return {
     id,
-    kind: type === 'matter' ? 'matter-node' : 'energy-node',
+    kind: type === 'matter' ? 'matter-node' : type === 'energy' ? 'energy-node' : 'data-node',
     team: 'neutral',
     alive: true,
     position: { ...position },

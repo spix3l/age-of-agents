@@ -7,7 +7,7 @@ import type { ConstructionSystem } from '../systems/ConstructionSystem';
 import type { EntityId } from '../types/ids';
 import type { BuildingEntity, Team, UnitEntity, Vec2 } from '../types/simulation';
 
-export type BuildRejection = 'INVALID_WORKER' | 'INVALID_PLACEMENT' | 'INSUFFICIENT_RESOURCES' | 'NO_BUILD_PATH';
+export type BuildRejection = 'INVALID_WORKER' | 'INVALID_PLACEMENT' | 'INSUFFICIENT_RESOURCES' | 'NO_BUILD_PATH' | 'LOCKED';
 export type BuildCommandResult =
   | { readonly ok: true; readonly site: BuildingEntity }
   | { readonly ok: false; readonly reason: BuildRejection; readonly failure?: PlacementFailure };
@@ -17,6 +17,7 @@ export interface BuildCommandContext {
   readonly navigation: NavigationGrid;
   readonly construction: ConstructionSystem;
   readonly nextBuildingId: (type: PlaceableBuildingType, team: Exclude<Team, 'neutral'>) => EntityId;
+  readonly canBuild?: (type: PlaceableBuildingType, team: Exclude<Team, 'neutral'>) => boolean;
   readonly onCreated?: (site: BuildingEntity) => void;
   readonly onRemoved?: (site: BuildingEntity) => void;
 }
@@ -35,6 +36,7 @@ export function issueBuildCommand(
   if (!worker.alive || worker.kind !== 'worker' || worker.team !== team) return { ok: false, reason: 'INVALID_WORKER' };
   const economy = context.state.economies.get(team);
   if (!economy) return { ok: false, reason: 'INVALID_WORKER' };
+  if (context.canBuild && !context.canBuild(type, team)) return { ok: false, reason: 'LOCKED' };
 
   const placement = validatePlacement(type, position, context.navigation, context.state.buildings.alive(), context.state.resources.alive());
   if (!placement.valid) return { ok: false, reason: 'INVALID_PLACEMENT', failure: placement.failure };

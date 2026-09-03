@@ -27,9 +27,17 @@ export class EconomyAI {
     const busy = workers.filter((worker) => !isFree(worker));
     let energyWorkers = busy.filter((worker) => automationType(worker) === 'energy').length;
     let matterWorkers = busy.filter((worker) => automationType(worker) === 'matter').length;
+    let dataWorkers = busy.filter((worker) => automationType(worker) === 'data').length;
     const hasEnergyNode = view.resources().some((node) => node.resourceType === 'energy');
+    const hasDataNode = view.resources().some((node) => node.resourceType === 'data');
 
     for (const worker of free) {
+      // Data keeps funding Rangers and Titans after the last Generation, so it never stops.
+      if (hasDataNode && dataWorkers < Math.max(1, Math.floor(workers.length / 4))) {
+        commands.automate([worker], 'data');
+        dataWorkers += 1;
+        continue;
+      }
       const total = energyWorkers + matterWorkers;
       const wantsEnergy = hasEnergyNode && (energyWorkers) < Math.round((total + 1) * AI.energyWorkerRatio);
       commands.automate([worker], wantsEnergy ? 'energy' : 'matter');
@@ -57,6 +65,6 @@ function isFree(worker: UnitEntity): boolean {
   return !worker.automation && !worker.gatherOrder && !worker.buildOrder && !worker.destination;
 }
 
-function automationType(worker: UnitEntity): 'matter' | 'energy' | null {
+function automationType(worker: UnitEntity): 'matter' | 'energy' | 'data' | null {
   return worker.automation?.resourceType ?? worker.gatherOrder?.resourceType ?? null;
 }

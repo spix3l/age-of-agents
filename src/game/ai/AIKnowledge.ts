@@ -70,7 +70,7 @@ export class AIKnowledge {
 }
 
 export function visionOf(entity: UnitEntity | BuildingEntity): number {
-  return 'combat' in entity ? entity.combat.vision : entity.vision;
+  return 'movementSpeed' in entity ? entity.combat.vision : entity.vision;
 }
 
 export function distance(a: Vec2, b: Vec2): number {

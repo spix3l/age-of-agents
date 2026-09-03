@@ -29,7 +29,10 @@ npm run build
 - `src/game/spatial/SpatialHash.ts` backs all nearby-target queries. Re-sync it once per simulation step; never scan every entity.
 - `src/game/match/MatchState.ts` owns the single Victory/Defeat transition.
 - `src/game/rendering/EffectsManager.ts` pools all combat visuals and is driven only by presentation hooks.
-- `src/game/systems/GatheringSystem.ts`, `ConstructionSystem.ts`, `AutomationSystem.ts`, `ProductionSystem.ts`, and `CombatSystem.ts` advance only from fixed simulation delta time.
+- `src/game/systems/TechnologySystem.ts` is the authoritative Awakening/Autonomy/Singularity gate; unlock tables and costs live in `src/data/technologies.ts`.
+- `src/game/vision/VisionSystem.ts` owns the low-frequency unknown/explored/visible grid; `WorldScene` only renders its texture and hides presentation objects.
+- `src/audio/AudioManager.ts` owns bounded procedural cues, gesture unlock, persistent mute/volume, and safe no-audio fallback.
+- `src/game/systems/GatheringSystem.ts`, `ConstructionSystem.ts`, `AutomationSystem.ts`, `ProductionSystem.ts`, `CombatSystem.ts`, and `TurretSystem.ts` advance only from fixed simulation delta time.
 - `src/game/economy/CapacityProviders.ts` applies and removes completed-building capacity without coupling it to rendering or destruction effects.
 - `src/game/scenarios/economy.ts` is the shipping opening scenario; `battle.ts` holds the mirrored Day 4 debug armies (`?scenario=battle`); `day1.ts` remains the 30-unit navigation fixture. Build units only through `createUnitEntity`/`createWorkerEntity`, never entity literals.
 - `src/game/world/createMatch.ts` is the seeded match entrypoint; `WorldScene.ts` is presentation only.
@@ -62,6 +65,21 @@ npm run build
 - AI planning runs at `AI.decisionsPerSecond`, never per frame, and `AIStrategy` must stay a pure function of its snapshot so seeds stay reproducible.
 - All opponent balance belongs in `src/data/ai.ts`. `src/game/ai/opponentGate.test.ts` asserts the shipped seeds, so tuning changes must be re-measured.
 - The AI may assume resource locations but must observe the player Core before targeting it.
+- Generation unlocks must go through `TechnologySystem.canBuild` / `canProduce`; hiding a UI button is never sufficient enforcement.
+- Data uses the same finite-node, cargo, ledger, deposit, and automation path as Matter and Energy.
+- Player entity visibility and selection must agree with `VisionSystem`; own entities stay visible and explored terrain never returns to unknown.
+- A Turret is a stationary building combatant. It acquires through the spatial hash and applies damage only through `DamageService`, and it drops any target that leaves its range so it can never be locked onto an unreachable enemy.
+- The AI's unit production must degrade gracefully: an unaffordable or unproducible preferred unit falls back to one it can build, never to producing nothing.
+- Barrier Walls and Field Outposts are normal constructed buildings. Walls must balance navigation occupancy on creation/destruction; Outposts accept only allied deposits.
+- Audio is presentational and optional. No gameplay action may depend on creating or resuming an `AudioContext`.
+
+## Day 6 controls and completion state
+
+Select the Core to evolve from **Awakening** to **Autonomy** and then **Singularity**. Costs are shown directly on the action. Data comes from violet archives and supports both direct gathering and **Auto Data**.
+
+Selected Workers can place Relay Nodes, Fabricators, Barrier Walls, and Field Outposts in Generation I; Zap Turrets unlock in Generation II and the Heavy Foundry in Generation III. Fabricators produce Strikers plus unlocked Rangers/Scouts; Foundries produce Titans. The top bar shows Generation and all three resources. Sound can be muted and adjusted from the top-right controls.
+
+Epic 06 and D6-01 through D6-13 are in `REVIEW`, not `DONE`. An integration review pass on 2026-09-03 re-ran every check and fixed a turret target lock, an AI production stall, and a selection-lookup regression; the findings are recorded in `QA.md` and `PROJECT_STATUS.md`. D6-11 requires the unfamiliar-player timing pass in `QA.md`; after the user accepts the manual Day 6 checklist in `PROJECT_STATUS.md`, update task checklists and roll up the epic. No Epic 6 commit has been made yet.
 
 ## Day 5 controls and completion state
 

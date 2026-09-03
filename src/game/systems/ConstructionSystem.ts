@@ -2,7 +2,7 @@ import { BUILDINGS } from '../../data/buildings';
 import type { EntityRegistry } from '../entities/core/EntityRegistry';
 import { findPath } from '../navigation/AStar';
 import type { NavigationGrid } from '../navigation/NavigationGrid';
-import type { BuildingEntity, UnitEntity, Vec2 } from '../types/simulation';
+import type { BuildingEntity, ResourceCost, ResourceType, UnitEntity, Vec2 } from '../types/simulation';
 
 export const CONSTRUCTION_REFUND_RATIO = 0.75;
 
@@ -65,10 +65,10 @@ export class ConstructionSystem {
   }
 }
 
-export function constructionRefund(site: BuildingEntity): Readonly<Record<'matter' | 'energy', number>> {
-  const cost = BUILDINGS[site.kind].cost as Readonly<Partial<Record<'matter' | 'energy', number>>>;
-  return {
-    matter: Math.floor((cost.matter ?? 0) * CONSTRUCTION_REFUND_RATIO),
-    energy: Math.floor((cost.energy ?? 0) * CONSTRUCTION_REFUND_RATIO),
-  };
+export function constructionRefund(site: BuildingEntity): ResourceCost {
+  const refund: Partial<Record<ResourceType, number>> = {};
+  for (const [type, amount] of Object.entries(BUILDINGS[site.kind].cost) as [ResourceType, number][]) {
+    refund[type] = Math.floor(amount * CONSTRUCTION_REFUND_RATIO);
+  }
+  return refund;
 }

@@ -23,7 +23,7 @@ export class AutomationSystem {
         .filter(({ pathLength }) => pathLength > 0)
         .sort((a, b) => a.pathLength - b.pathLength || a.node.id.localeCompare(b.node.id))[0]?.node;
       if (target) issueGatherCommand([worker], target, this.grid);
-      else worker.activity = automation.resourceType === 'matter' ? 'Automating Matter' : 'Automating Energy';
+      else worker.activity = automation.resourceType === 'matter' ? 'Automating Matter' : automation.resourceType === 'energy' ? 'Automating Energy' : 'Automating Data';
     }
   }
 }

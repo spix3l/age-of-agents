@@ -13,8 +13,8 @@ describe('economy match', () => {
     for (const team of ['player', 'enemy'] as const) {
       expect(ownedBy(first.buildings, team).filter((building) => building.kind === 'core')).toHaveLength(1);
       expect(ownedBy(first.units, team).filter((unit) => unit.kind === 'worker')).toHaveLength(3);
-      // Home cluster (2 Matter, 1 Energy) plus an expansion cluster (1 Matter, 1 Energy).
-      expect(first.resources.filter((node) => node.id.startsWith(team))).toHaveLength(5);
+      // Home cluster plus an expansion cluster with one scarce Data archive.
+      expect(first.resources.filter((node) => node.id.startsWith(team))).toHaveLength(6);
     }
     const grid = new NavigationGrid(MAP_BOUNDS.minX, MAP_BOUNDS.minZ, MAP_BOUNDS.maxX, MAP_BOUNDS.maxZ);
     WORLD_OBSTACLES.forEach((obstacle) => grid.setBlockedRect(obstacle.center, obstacle.size, true, 0.65));

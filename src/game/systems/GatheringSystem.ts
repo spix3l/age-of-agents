@@ -101,7 +101,7 @@ export class GatheringSystem {
     this.setPath(worker, node.position);
     if (!worker.gatherOrder) return;
     worker.gatherOrder.state = 'moving-to-node';
-    worker.activity = `Gathering ${node.resourceType === 'matter' ? 'Matter' : 'Energy'}`;
+    worker.activity = `Gathering ${node.resourceType === 'matter' ? 'Matter' : node.resourceType === 'energy' ? 'Energy' : 'Data'}`;
   }
 
   private setPath(worker: UnitEntity, target: Vec2): void {

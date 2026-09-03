@@ -11,6 +11,7 @@ export interface ResourceConfig {
 export const RESOURCES = {
   matter: { type: 'matter', label: 'Matter Deposit', capacity: 720, harvestAmount: 10, harvestSeconds: 1.2 },
   energy: { type: 'energy', label: 'Energy Vent', capacity: 560, harvestAmount: 8, harvestSeconds: 1.45 },
+  data: { type: 'data', label: 'Data Archive', capacity: 240, harvestAmount: 5, harvestSeconds: 1.8 },
 } as const satisfies Readonly<Record<HarvestableResourceType, ResourceConfig>>;
 
 export const STARTING_ECONOMY = Object.freeze({ matter: 25, energy: 20, data: 0, capacity: 8 });

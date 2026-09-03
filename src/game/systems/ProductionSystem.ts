@@ -5,7 +5,7 @@ import type { Capacity } from '../economy/Capacity';
 import type { EconomyLedger } from '../economy/EconomyLedger';
 import { entityId } from '../types/ids';
 
-export type ProductionRejection = 'NOT_A_PRODUCER' | 'NOT_OPERATIONAL' | 'INSUFFICIENT_RESOURCES' | 'CAPACITY_REACHED';
+export type ProductionRejection = 'NOT_A_PRODUCER' | 'NOT_OPERATIONAL' | 'INSUFFICIENT_RESOURCES' | 'CAPACITY_REACHED' | 'LOCKED';
 export type EnqueueResult = { readonly ok: true } | { readonly ok: false; readonly reason: ProductionRejection };
 
 export class ProductionSystem {
@@ -16,7 +16,9 @@ export class ProductionSystem {
   }
 
   enqueue(producer: BuildingEntity, unitType: UnitTypeId, ledger: EconomyLedger, capacity: Capacity): EnqueueResult {
-    const allowed = (producer.kind === 'core' && unitType === 'worker') || (producer.kind === 'fabricator' && unitType === 'striker');
+    const allowed = (producer.kind === 'core' && unitType === 'worker')
+      || (producer.kind === 'fabricator' && (unitType === 'striker' || unitType === 'ranger' || unitType === 'scout'))
+      || (producer.kind === 'foundry' && unitType === 'titan');
     if (!producer.alive || !allowed) return { ok: false, reason: 'NOT_A_PRODUCER' };
     if (!producer.operational) return { ok: false, reason: 'NOT_OPERATIONAL' };
     const config = UNITS[unitType];

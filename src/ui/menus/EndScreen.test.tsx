@@ -10,8 +10,8 @@ describe('end screen', () => {
     expect(renderToStaticMarkup(<EndScreenCard result={store.matchResult} summary={store.matchSummary} onRestart={store.restartMatch} onMainMenu={store.returnToMenu} />)).toBe('');
 
     useUiStore.getState().setMatchOutcome('victory', {
-      durationSeconds: 185, matterCollected: 640, energyCollected: 210, agentsCreated: 14,
-      agentsKilled: 9, agentsLost: 4, buildingsDestroyed: 2, buildingsLost: 1,
+      durationSeconds: 185, matterCollected: 640, energyCollected: 210, dataCollected: 80, agentsCreated: 14,
+      agentsKilled: 9, agentsLost: 4, buildingsDestroyed: 2, buildingsLost: 1, buildingsConstructed: 6, finalGeneration: 3,
     });
     const victorious = useUiStore.getState();
     expect(victorious.matchResult).toBe('victory');

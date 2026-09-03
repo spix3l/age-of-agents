@@ -1,7 +1,7 @@
 export type EntityId = string & { readonly __brand: 'EntityId' };
-export type UnitTypeId = 'worker' | 'striker';
-export type BuildingTypeId = 'core' | 'relay' | 'fabricator';
-export type ResourceNodeTypeId = 'matter-node' | 'energy-node';
+export type UnitTypeId = 'worker' | 'striker' | 'ranger' | 'scout' | 'titan';
+export type BuildingTypeId = 'core' | 'relay' | 'fabricator' | 'wall' | 'outpost' | 'turret' | 'foundry';
+export type ResourceNodeTypeId = 'matter-node' | 'energy-node' | 'data-node';
 export type EntityKind = UnitTypeId | BuildingTypeId | ResourceNodeTypeId;
 export type OrderId = 'move' | 'gather' | 'produce-worker';
 

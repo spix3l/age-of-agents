@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { EntityId } from '../types/ids';
 import type { ResourceNodeEntity } from '../entities/resources/ResourceNode';
 import type { BuildingEntity, Team, UnitEntity, Vec2 } from '../types/simulation';
+import type { Generation } from '../types/simulation';
 import { BUILDINGS } from '../../data/buildings';
 import type { PlaceableBuildingType } from '../building/PlacementController';
 import { MAP_BOUNDS, MAP_SIZE, WORLD_OBSTACLES } from './map';
@@ -10,6 +11,7 @@ import { ResourceCache } from '../rendering/models/palette';
 import { buildUnitModel, type UnitModel } from '../rendering/models/units';
 import { buildBuildingModel, buildConstructionScaffold, type BuildingModel } from '../rendering/models/buildings';
 import { buildResourceModel, type ResourceModel } from '../rendering/models/resources';
+import type { VisionSnapshot } from '../vision/VisionSystem';
 
 interface HealthBar { readonly group: THREE.Group; readonly fill: THREE.Mesh; readonly width: number }
 
@@ -56,11 +58,18 @@ export class WorldScene {
   private readonly effects: EffectsManager;
   private readonly billboardQuaternion = new THREE.Quaternion();
   private readonly parentQuaternion = new THREE.Quaternion();
+  private readonly generations = new Map<Exclude<Team, 'neutral'>, Generation>([['player', 1], ['enemy', 1]]);
+  private readonly hiddenEntities = new Set<EntityId>();
+  private readonly fogTexture: THREE.DataTexture;
+  private readonly fogPixels: Uint8Array;
 
   constructor() {
     this.scene.background = new THREE.Color(0xa8c9c5);
     this.scene.fog = new THREE.Fog(0xa8c9c5, 58, 118);
     this.scene.add(new THREE.HemisphereLight(0xe6f5dc, 0x42522d, 2.2));
+    // A broad fill keeps the toy-like palette readable even inside the long,
+    // dramatic shadows cast by cliffs and oversized colony structures.
+    this.scene.add(new THREE.AmbientLight(0xfff6d7, 1.15));
     this.sun = new THREE.DirectionalLight(0xffe5b2, 3.7);
     this.sun.position.set(-28, 42, 22);
     this.sun.castShadow = true;
@@ -82,11 +91,44 @@ export class WorldScene {
       colors.push(color.r, color.g, color.b);
     }
     terrain.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-    this.ground = new THREE.Mesh(terrain, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0, flatShading: true }));
+    this.ground = new THREE.Mesh(terrain, new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      roughness: 1,
+      metalness: 0,
+      flatShading: true,
+      emissive: 0x294018,
+      emissiveIntensity: 0.55,
+    }));
     this.ground.rotation.x = -Math.PI / 2;
     this.ground.receiveShadow = true;
     this.ground.name = 'terrain';
     this.scene.add(this.ground);
+
+    const fogWidth = Math.ceil(MAP_SIZE.width / 4);
+    const fogHeight = Math.ceil(MAP_SIZE.depth / 4);
+    this.fogPixels = new Uint8Array(fogWidth * fogHeight * 4);
+    for (let index = 0; index < fogWidth * fogHeight; index += 1) {
+      const offset = index * 4;
+      this.fogPixels[offset] = 235;
+      this.fogPixels[offset + 1] = 235;
+      this.fogPixels[offset + 2] = 235;
+      this.fogPixels[offset + 3] = 255;
+    }
+    this.fogTexture = new THREE.DataTexture(this.fogPixels, fogWidth, fogHeight, THREE.RGBAFormat);
+    // PlaneGeometry's V axis maps to negative world Z after the isometric ground rotation.
+    this.fogTexture.flipY = true;
+    this.fogTexture.magFilter = THREE.LinearFilter;
+    this.fogTexture.minFilter = THREE.LinearFilter;
+    this.fogTexture.needsUpdate = true;
+    const fogPlane = new THREE.Mesh(
+      new THREE.PlaneGeometry(MAP_SIZE.width, MAP_SIZE.depth),
+      new THREE.MeshBasicMaterial({ alphaMap: this.fogTexture, transparent: true, depthWrite: false, color: 0x172724 }),
+    );
+    fogPlane.rotation.x = -Math.PI / 2;
+    fogPlane.position.y = 0.12;
+    fogPlane.renderOrder = 1;
+    fogPlane.name = 'fog-of-war';
+    this.scene.add(fogPlane);
 
     const grid = new THREE.GridHelper(Math.max(MAP_SIZE.width, MAP_SIZE.depth), Math.max(MAP_SIZE.width, MAP_SIZE.depth), 0xbad689, 0x6f9148);
     grid.position.y = 0.015;
@@ -136,6 +178,40 @@ export class WorldScene {
     this.effects.spawnDeath(at, team, scale);
   }
 
+  /** A short pooled pulse makes a Titan rollout feel weighty without adding particles forever. */
+  showHeavyArrival(at: Vec2, team: Team): void {
+    this.effects.spawnDeath(at, team, 1.65);
+    this.effects.spawnImpact(at, team, 1.4);
+  }
+
+  setGeneration(team: Exclude<Team, 'neutral'>, generation: Generation): void {
+    this.generations.set(team, generation);
+    for (const visual of this.buildings.values()) {
+      if (visual.group.userData.team !== team || !visual.parts) continue;
+      for (const entry of visual.parts.generationParts) entry.part.visible = generation >= entry.min;
+    }
+  }
+
+  setEntityVisible(id: EntityId, visible: boolean): void {
+    if (visible) this.hiddenEntities.delete(id); else this.hiddenEntities.add(id);
+  }
+
+  updateFog(snapshot: VisionSnapshot): void {
+    const cells = Math.min(snapshot.states.length, this.fogPixels.length / 4);
+    for (let index = 0; index < cells; index += 1) {
+      const state = snapshot.states[index];
+      const offset = index * 4;
+      const opacity = state === 2 ? 0 : state === 1 ? 115 : 235;
+      // Alpha maps sample the green channel. Mirroring into RGB keeps this
+      // portable across WebGL implementations and texture swizzles.
+      this.fogPixels[offset] = opacity;
+      this.fogPixels[offset + 1] = opacity;
+      this.fogPixels[offset + 2] = opacity;
+      this.fogPixels[offset + 3] = 255;
+    }
+    this.fogTexture.needsUpdate = true;
+  }
+
   addUnit(unit: UnitEntity): void {
     const model = buildUnitModel(this.cache, unit.kind, unit.team, unit.id);
     const group = model.group;
@@ -160,7 +236,12 @@ export class WorldScene {
   addBuilding(building: BuildingEntity): void {
     const group = new THREE.Group();
     group.position.set(building.position.x, 0, building.position.z);
+    group.userData.team = building.team;
     const parts = buildBuildingModel(this.cache, building.kind, building.team, building.id);
+    if (building.team !== 'neutral') {
+      const generation = this.generations.get(building.team) ?? 1;
+      for (const entry of parts.generationParts) entry.part.visible = generation >= entry.min;
+    }
     const model = new THREE.Group();
     model.add(parts.group);
 
@@ -196,10 +277,11 @@ export class WorldScene {
     const group = resource.group;
     group.position.set(node.position.x, 0, node.position.z);
     const isMatter = node.resourceType === 'matter';
+    const isData = node.resourceType === 'data';
     const ring = new THREE.Mesh(
       this.cache.geometry('select-ring-resource', () => new THREE.RingGeometry(2.05, 2.25, 32)),
-      this.cache.basic(isMatter ? 'select-ring-matter' : 'select-ring-energy', {
-        color: isMatter ? 0xffd783 : 0x79ffe8, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthWrite: false,
+      this.cache.basic(isMatter ? 'select-ring-matter' : isData ? 'select-ring-data' : 'select-ring-energy', {
+        color: isMatter ? 0xffd783 : isData ? 0xc9a8ff : 0x79ffe8, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthWrite: false,
       }),
     );
     ring.rotation.x = -Math.PI / 2;
@@ -232,7 +314,7 @@ export class WorldScene {
         visual.orderBeacon.scale.setScalar(0.92 + Math.sin(this.animationTime * 6 + unit.position.x) * 0.12);
       }
       this.updateHealthBar(visual.health, unit.hp, unit.maxHp, unit.selected, unit.team);
-      visual.group.visible = unit.alive;
+      visual.group.visible = unit.alive && !this.hiddenEntities.has(unit.id);
     }
     if (this.markerLife > 0) {
       this.markerLife = Math.max(0, this.markerLife - frame);
@@ -266,11 +348,16 @@ export class WorldScene {
       if (unit.kind === 'worker') {
         leg.rotation.x = swing * 0.55;
         leg.position.y = 0.5 + Math.abs(swing) * 0.05;
-      } else {
+      } else if (unit.kind === 'striker') {
         leg.position.y = 0.3 + swing * 0.03;
+      } else if (unit.kind === 'ranger' || unit.kind === 'titan') {
+        leg.rotation.x = swing * (unit.kind === 'titan' ? 0.18 : 0.42);
+      } else {
+        leg.rotation.z += frame * 1.8;
       }
     });
     if (unit.kind === 'worker') visual.group.position.y = moving ? Math.abs(Math.sin(visual.phase)) * 0.045 : 0;
+    if (visual.model.hover) visual.model.hover.position.y = 1.15 + Math.sin(this.animationTime * 3 + unit.position.x) * 0.12;
 
     // Cargo pod fills with what the Worker is carrying.
     const cargo = visual.model.cargo;
@@ -299,7 +386,7 @@ export class WorldScene {
     for (const building of buildings) {
       const visual = this.buildings.get(building.id);
       if (!visual) continue;
-      visual.group.visible = building.alive;
+      visual.group.visible = building.alive && !this.hiddenEntities.has(building.id);
       visual.ring.visible = building.selected;
       if (visual.model) visual.model.scale.y = building.operational ? 1 : 0.18 + building.constructionProgress * 0.82;
       if (visual.scaffold) visual.scaffold.visible = !building.operational;
@@ -330,13 +417,13 @@ export class WorldScene {
     for (const node of resources) {
       const visual = this.resources.get(node.id);
       if (!visual) continue;
-      visual.group.visible = node.alive;
+      visual.group.visible = node.alive && !this.hiddenEntities.has(node.id);
       visual.ring.visible = node.selected;
       // A depleted deposit visibly shrinks toward its bed.
       const remaining = Math.max(0.28, node.remaining / node.capacity);
       visual.resource?.shards.forEach((shard, index) => {
         shard.scale.setScalar(0.55 + remaining * 0.45);
-        if (node.resourceType === 'energy') {
+        if (node.resourceType === 'energy' || node.resourceType === 'data') {
           shard.position.y = (index === visual.resource!.shards.length - 1 ? 0.35 : 1.05) + Math.sin(this.animationTime * 1.6 + index) * 0.06;
           shard.rotation.y += 0.15 * frame * (index % 2 === 0 ? 1 : -1);
         }
@@ -354,7 +441,7 @@ export class WorldScene {
 
   showGatherMarker(x: number, z: number, type: ResourceNodeEntity['resourceType']): void {
     this.markerMode = 'gather';
-    (this.marker.material as THREE.MeshBasicMaterial).color.setHex(type === 'matter' ? 0xffca68 : 0x61f5df);
+    (this.marker.material as THREE.MeshBasicMaterial).color.setHex(type === 'matter' ? 0xffca68 : type === 'energy' ? 0x61f5df : 0xc39cff);
     this.marker.position.set(x, 0.1, z);
     this.marker.scale.setScalar(2);
     this.markerLife = 1.25;
@@ -440,6 +527,7 @@ export class WorldScene {
       }
     });
     this.cache.dispose();
+    this.fogTexture.dispose();
     this.scene.clear();
     this.units.clear();
     this.buildings.clear();

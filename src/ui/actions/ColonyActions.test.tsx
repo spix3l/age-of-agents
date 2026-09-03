@@ -8,7 +8,7 @@ import { WorkerActions } from './WorkerActions';
 describe('colony action surfaces', () => {
   it('renders construction, automation, Striker production, and empty queue states', () => {
     const workers = renderToStaticMarkup(<WorkerActions />);
-    const production = renderToStaticMarkup(<ProductionActions unitType="striker" />);
+    const production = renderToStaticMarkup(<ProductionActions unitTypes={['striker']} />);
     expect(workers).toContain('RELAY NODE');
     expect(workers).toContain('FABRICATOR');
     expect(workers).toContain('AUTO · MATTER');

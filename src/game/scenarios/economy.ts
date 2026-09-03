@@ -64,6 +64,7 @@ export function createEconomyScenario(seed = 20_260_902): EconomyScenario {
     resources.push(
       createResourceNode(entityId(`${team}-matter-3`), 'matter', { x: origin.x + inward * 21, z: origin.z - inward * 18 }, RESOURCES.matter.capacity),
       createResourceNode(entityId(`${team}-energy-2`), 'energy', { x: origin.x + inward * 25, z: origin.z - inward * 13 + wobble }, RESOURCES.energy.capacity),
+      createResourceNode(entityId(`${team}-data-1`), 'data', { x: origin.x + inward * 29, z: origin.z - inward * 5 - wobble }, RESOURCES.data.capacity),
     );
   }
 
@@ -73,6 +74,7 @@ export function createEconomyScenario(seed = 20_260_902): EconomyScenario {
     createResourceNode(entityId('middle-matter-south'), 'matter', { x: 14, z: -25 }, RESOURCES.matter.capacity),
     createResourceNode(entityId('middle-energy-north'), 'energy', { x: 18, z: 15 }, RESOURCES.energy.capacity),
     createResourceNode(entityId('middle-energy-south'), 'energy', { x: -19, z: -16 }, RESOURCES.energy.capacity),
+    createResourceNode(entityId('middle-data'), 'data', { x: 2, z: 2 }, RESOURCES.data.capacity * 2),
   );
 
   return { seed, units, buildings, resources, startingBalances: STARTING_ECONOMY };

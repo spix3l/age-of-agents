@@ -118,6 +118,7 @@ export class AIController {
 
     const scoutId = this.military.debug.scoutId;
     this.economy.update(this.view, this.commands, snapshot, decision.state, scoutId ? new Set([scoutId]) : new Set());
+    if (decision.state === 'TECH') this.commands.advance();
     this.builder.update(this.view, this.commands, snapshot, decision.state);
     this.military.update(this.view, this.commands, snapshot, decision.state, this.knowledge, step);
     if (decision.state === 'SCOUT') this.lastScoutAt = elapsed;
@@ -135,7 +136,7 @@ export class AIController {
     const capacity = this.view.capacity();
     const core = this.view.core();
     const workers = units.filter((unit) => unit.kind === 'worker');
-    const army = units.filter((unit) => unit.kind === 'striker');
+    const army = units.filter((unit) => unit.kind !== 'worker');
     this.trackLosses(army.length, elapsed);
 
     const defended = buildings.length > 0 ? buildings : core ? [core] : [];
@@ -148,6 +149,8 @@ export class AIController {
       phase: aiPhase(elapsed),
       matter: balances.matter,
       energy: balances.energy,
+      data: balances.data,
+      generation: this.view.generation(),
       capacityUsed: capacity.used,
       capacityReserved: capacity.reserved,
       capacityMax: capacity.max,

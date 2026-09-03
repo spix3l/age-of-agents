@@ -9,8 +9,11 @@ export function createBuildingSite(id: EntityId, type: Exclude<BuildingTypeId, '
     position: { ...position }, previousPosition: { ...position },
     hp: Math.max(1, Math.round(config.maxHp * 0.05)), maxHp: config.maxHp,
     footprint: { x: config.footprint[0], z: config.footprint[1] },
-    vision: 4, acceptsDeposits: false, capacityContribution: config.capacityContribution,
+    vision: config.vision, acceptsDeposits: config.acceptsDeposits, capacityContribution: config.capacityContribution,
     selected: false, productionQueue: [], operational: false, constructionProgress: 0,
     constructionTime: config.constructionTime, builderId, capacityApplied: false,
+    combat: config.attackDamage > 0
+      ? { damage: config.attackDamage, range: config.attackRange, cooldownTime: config.attackCooldown, cooldown: 0, targetId: null }
+      : null,
   };
 }

@@ -1,6 +1,7 @@
 import type { BuildingTypeId, EntityId, EntityKind, UnitTypeId } from './ids';
 
 export type Team = 'player' | 'enemy' | 'neutral';
+export type Generation = 1 | 2 | 3;
 export type ResourceType = 'matter' | 'energy' | 'data';
 export type ResourceCost = Readonly<Partial<Record<ResourceType, number>>>;
 export type Vec2 = Readonly<{ x: number; z: number }>;
@@ -51,9 +52,9 @@ export interface CombatComponent {
   repathCooldown: number;
 }
 
-export type HarvestableResourceType = Exclude<ResourceType, 'data'>;
+export type HarvestableResourceType = ResourceType;
 export type GatherState = 'moving-to-node' | 'extracting' | 'returning' | 'depositing';
-export type WorkerActivity = 'Idle' | 'Moving' | 'Gathering Matter' | 'Gathering Energy' | 'Returning cargo' | 'Building' | 'Automating Matter' | 'Automating Energy' | 'Attacking' | 'Engaging';
+export type WorkerActivity = 'Idle' | 'Moving' | 'Gathering Matter' | 'Gathering Energy' | 'Gathering Data' | 'Returning cargo' | 'Building' | 'Automating Matter' | 'Automating Energy' | 'Automating Data' | 'Attacking' | 'Engaging';
 
 export interface ProductionOrder {
   readonly id: EntityId;
@@ -78,6 +79,7 @@ export interface BuildingEntity extends SimEntity {
   readonly constructionTime: number;
   builderId: EntityId | null;
   capacityApplied: boolean;
+  combat: { readonly damage: number; readonly range: number; readonly cooldownTime: number; cooldown: number; targetId: EntityId | null } | null;
 }
 
 export type CombatTarget = UnitEntity | BuildingEntity;

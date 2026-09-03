@@ -8,6 +8,8 @@ import type { ResourceNodeEntity } from '../entities/resources/ResourceNode';
 import type { EnqueueResult } from '../systems/ProductionSystem';
 import type { UnitTypeId } from '../types/ids';
 import type { BuildingEntity, CombatTarget, HarvestableResourceType, Team, UnitEntity, Vec2 } from '../types/simulation';
+import type { Generation } from '../types/simulation';
+import type { AdvanceResult } from '../systems/TechnologySystem';
 import type { NavigationGrid } from '../navigation/NavigationGrid';
 
 export type PlayableTeam = Exclude<Team, 'neutral'>;
@@ -24,7 +26,8 @@ export interface AIView {
   core(): BuildingEntity | undefined;
   hostiles(): readonly CombatTarget[];
   resources(): readonly ResourceNodeEntity[];
-  balances(): { readonly matter: number; readonly energy: number };
+  balances(): { readonly matter: number; readonly energy: number; readonly data: number };
+  generation(): Generation;
   capacity(): { readonly used: number; readonly reserved: number; readonly max: number };
   canAssign(building: BuildingEntity, worker: UnitEntity): boolean;
 }
@@ -41,6 +44,7 @@ export interface AICommands {
   build(worker: UnitEntity, type: PlaceableBuildingType, position: Vec2): BuildCommandResult;
   assignBuilder(worker: UnitEntity, site: BuildingEntity): boolean;
   produce(producer: BuildingEntity, unitType: UnitTypeId): EnqueueResult;
+  advance(): AdvanceResult;
 }
 
 export interface AIContext {
@@ -64,8 +68,9 @@ export function createAIContext(simulation: MatchSimulation, team: PlayableTeam)
     resources: () => simulation.state.resources.alive(),
     balances: () => {
       const snapshot = simulation.economy(team)?.ledger.snapshot();
-      return { matter: snapshot?.matter ?? 0, energy: snapshot?.energy ?? 0 };
+      return { matter: snapshot?.matter ?? 0, energy: snapshot?.energy ?? 0, data: snapshot?.data ?? 0 };
     },
+    generation: () => simulation.generation(team),
     capacity: () => simulation.economy(team)?.capacity.snapshot() ?? { used: 0, reserved: 0, max: 0 },
     canAssign: (building, worker) => building.alive && !building.operational && worker.alive && worker.kind === 'worker',
   };
@@ -78,6 +83,7 @@ export function createAIContext(simulation: MatchSimulation, team: PlayableTeam)
     build: (worker, type, position) => simulation.build(worker, type, position),
     assignBuilder: (worker, site) => simulation.construction.assign(worker, site),
     produce: (producer, unitType) => simulation.enqueue(producer, unitType),
+    advance: () => simulation.advanceGeneration(team),
   };
 
   return { view, commands };

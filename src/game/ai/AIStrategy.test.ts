@@ -8,7 +8,7 @@ const score = (input: AISnapshot) => scoreStates(input, TUNING);
 
 function snapshot(overrides: Partial<AISnapshot> = {}): AISnapshot {
   return {
-    elapsedSeconds: 600, phase: 'mid', matter: 100, energy: 50,
+    elapsedSeconds: 600, phase: 'mid', matter: 100, energy: 50, data: 0, generation: 1,
     capacityUsed: 4, capacityReserved: 0, capacityMax: 13,
     workers: 5, idleWorkers: 0, army: 0, hasCore: true,
     fabricators: 0, relays: 1, constructionSites: 0,
@@ -19,10 +19,11 @@ function snapshot(overrides: Partial<AISnapshot> = {}): AISnapshot {
 }
 
 describe('AI strategy', () => {
-  it('declares all seven strategic states, with TECH reserved until Generations ship', () => {
+  it('declares all seven strategic states and enters TECH only when an upgrade is affordable', () => {
     const states = Object.keys(score(snapshot())) as AIState[];
     expect(states.sort()).toEqual(['ATTACK', 'BUILD_ARMY', 'DEFEND', 'EXPAND_ECONOMY', 'RECOVER', 'SCOUT', 'TECH']);
     expect(score(snapshot()).TECH).toBe(0);
+    expect(score(snapshot({ matter: 180, energy: 100, data: 40 })).TECH).toBeGreaterThan(0);
   });
 
   it('expands the economy by default and grows that preference with the Worker deficit', () => {

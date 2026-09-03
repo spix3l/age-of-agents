@@ -28,7 +28,7 @@ export class BuildPlanner {
     if (!type || this.isBackedOff(type, snapshot.elapsedSeconds)) return;
     const cost = BUILDINGS[type].cost;
     const balances = view.balances();
-    if (balances.matter < (cost.matter ?? 0) || balances.energy < (cost.energy ?? 0)) return;
+    if (balances.matter < (cost.matter ?? 0) || balances.energy < ('energy' in cost ? cost.energy ?? 0 : 0)) return;
     this.place(view, commands, snapshot, type);
   }
 
@@ -50,6 +50,8 @@ export class BuildPlanner {
     const capacityFree = snapshot.capacityMax - snapshot.capacityUsed - snapshot.capacityReserved;
     if (capacityFree <= AI.capacityHeadroom && snapshot.relays < this.tuning.maxRelays) return 'relay';
     if (snapshot.fabricators < 1) return 'fabricator';
+    if (view.generation() >= 2 && view.buildings().filter((building) => building.kind === 'turret').length < 2 && view.balances().matter > 180) return 'turret';
+    if (view.generation() >= 3 && !view.buildings().some((building) => building.kind === 'foundry')) return 'foundry';
     if (snapshot.fabricators < AI.maxFabricators && view.balances().matter > 260) return 'fabricator';
     if (snapshot.relays < this.tuning.maxRelays && capacityFree <= AI.capacityHeadroom * 2) return 'relay';
     return null;

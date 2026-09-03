@@ -2,7 +2,7 @@
 id: EPIC-06
 title: "Evolution"
 day: 6
-status: TODO
+status: REVIEW
 ---
 
 # EPIC-06 — Evolution
@@ -30,6 +30,8 @@ status: TODO
 - [ ] [D6-09 — Establish low-poly faction identity and generation cues](../tasks/D6-09.md) — P1 / M — depends on D6-02
 - [ ] [D6-10 — Add end-game statistics](../tasks/D6-10.md) — P1 / M — depends on D4-06, D6-01
 - [ ] [D6-11 — Run external-tester usability pass and triage](../tasks/D6-11.md) — P0 / M — depends on D6-01
+- [ ] [D6-12 — Add modular Barrier Walls](../tasks/D6-12.md) — P1 / S — depends on D3-02, D4-01
+- [ ] [D6-13 — Add remote-deposit Field Outpost](../tasks/D6-13.md) — P1 / M — depends on D2-03, D3-02, D6-03
 
 ## Epic completion
 

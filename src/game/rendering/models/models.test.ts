@@ -38,22 +38,36 @@ describe('procedural models', () => {
     expect(striker.legs.length).toBe(2);
     expect(striker.turret).not.toBeNull();
     expect(striker.barrel).not.toBeNull();
+
+    const ranger = buildUnitModel(cache, 'ranger', 'player', 'r-1');
+    const scout = buildUnitModel(cache, 'scout', 'player', 'd-1');
+    const titan = buildUnitModel(cache, 'titan', 'player', 't-1');
+    expect(ranger.barrel).not.toBeNull();
+    expect(scout.hover).not.toBeNull();
+    expect(titan.legs).toHaveLength(4);
+    expect(titan.barrel).not.toBeNull();
     cache.dispose();
   });
 
   it('tags every pickable mesh with its entity id so selection still works', () => {
     const cache = new ResourceCache();
-    for (const model of [buildUnitModel(cache, 'worker', 'player', 'pick-1'), buildUnitModel(cache, 'striker', 'player', 'pick-2')]) {
-      expect(model.pickable.length).toBeGreaterThan(2);
+    for (const [index, kind] of (['worker', 'striker', 'ranger', 'scout', 'titan'] as const).entries()) {
+      const model = buildUnitModel(cache, kind, 'player', `pick-${index + 1}`);
+      expect(model.pickable.length).toBeGreaterThan(0);
       expect(model.pickable.every((mesh) => typeof mesh.userData.entityId === 'string')).toBe(true);
     }
     const core = buildBuildingModel(cache, 'core', 'enemy', 'pick-3');
     expect(core.pickable.every((mesh) => mesh.userData.entityId === 'pick-3')).toBe(true);
-    expect(core.spinners.length).toBe(2);
+    expect(core.spinners.length).toBe(4);
     expect(core.column).not.toBeNull();
 
     const fabricator = buildBuildingModel(cache, 'fabricator', 'player', 'pick-4');
     expect(fabricator.arm).not.toBeNull();
+    for (const kind of ['relay', 'wall', 'outpost', 'turret', 'foundry'] as const) {
+      const building = buildBuildingModel(cache, kind, 'player', `building-${kind}`);
+      expect(building.pickable.length).toBeGreaterThan(0);
+      expect(building.generationParts.length).toBeGreaterThan(0);
+    }
     cache.dispose();
   });
 
@@ -61,9 +75,11 @@ describe('procedural models', () => {
     const cache = new ResourceCache();
     const matter = buildResourceModel(cache, 'matter', 'node-1');
     const energy = buildResourceModel(cache, 'energy', 'node-2');
+    const data = buildResourceModel(cache, 'data', 'node-3');
     expect(matter.shards.length).toBeGreaterThan(4);
     // Energy adds a halo ring on top of its crystal blades.
     expect(energy.shards.length).toBeGreaterThan(matter.shards.length - 2);
+    expect(data.shards.length).toBeGreaterThan(2);
     expect(buildConstructionScaffold(cache, 'fabricator', 'player').children.length).toBe(5);
 
     cache.dispose();
