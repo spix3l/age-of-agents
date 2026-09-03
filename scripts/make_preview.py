@@ -51,9 +51,10 @@ new GLTFLoader().parse(bytes.buffer, "", (gltf) => {
   const radius = Math.max(size.x, size.y, size.z);
   const qy = new URLSearchParams(location.search).get("yaw");
   const qp = new URLSearchParams(location.search).get("pitch");
+  const qd = new URLSearchParams(location.search).get("dist");
   if (qy !== null && qp !== null) {
     const yaw = parseFloat(qy) * Math.PI / 180, pitch = parseFloat(qp) * Math.PI / 180;
-    const dist = radius * 2.2;
+    const dist = qd !== null ? parseFloat(qd) : radius * 2.2;
     camera.position.set(Math.sin(yaw) * Math.cos(pitch) * dist, Math.sin(pitch) * dist, Math.cos(yaw) * Math.cos(pitch) * dist);
     camera.lookAt(0, 0, 0);
   } else {

@@ -91,7 +91,11 @@ function sample(simulation: MatchSimulation, state: AIState): SoakSample {
   };
 }
 
-/** Cross-system invariants that no AI decision may ever break. */
+/**
+ * Cross-system invariants that nothing — an AI decision, a player order, a race between systems —
+ * may ever break. `runSoak` samples these through a whole match, and the integration suite asserts
+ * them after every scripted step, so a violation names the system and the second it appeared.
+ */
 export function checkInvariants(simulation: MatchSimulation): string[] {
   const failures: string[] = [];
   const at = round(simulation.elapsedSeconds);
@@ -99,7 +103,11 @@ export function checkInvariants(simulation: MatchSimulation): string[] {
     const economy = simulation.economy(team);
     if (!economy) continue;
     const balances = economy.ledger.snapshot();
-    if (balances.matter < 0 || balances.energy < 0) failures.push(`${at}s ${team} negative balance`);
+    for (const resource of ['matter', 'energy', 'data'] as const) {
+      const amount = balances[resource];
+      if (amount < 0) failures.push(`${at}s ${team} negative ${resource} balance`);
+      if (!Number.isFinite(amount)) failures.push(`${at}s ${team} non-finite ${resource} balance`);
+    }
     const capacity = economy.capacity.snapshot();
     if (capacity.used < 0 || capacity.reserved < 0) failures.push(`${at}s ${team} negative capacity`);
     const liveUnits = simulation.unitsOf(team).length;
@@ -111,9 +119,24 @@ export function checkInvariants(simulation: MatchSimulation): string[] {
     if (target && !simulation.state.units.has(target) && !simulation.state.buildings.has(target)) {
       failures.push(`${at}s ${unit.id} targets missing entity`);
     }
+    if (!Number.isFinite(unit.position.x) || !Number.isFinite(unit.position.z)) {
+      failures.push(`${at}s ${unit.id} has a non-finite position`);
+    }
+    if (unit.hp <= 0) failures.push(`${at}s live unit ${unit.id} has no hp`);
+    // An order that outlives the thing it points at is how units end up permanently frozen.
+    if (unit.gatherOrder && !simulation.state.resources.has(unit.gatherOrder.resourceId)) {
+      failures.push(`${at}s ${unit.id} gathers a missing node`);
+    }
+    if (unit.buildOrder && !simulation.state.buildings.has(unit.buildOrder.buildingId)) {
+      failures.push(`${at}s ${unit.id} builds a missing site`);
+    }
   }
   for (const building of simulation.state.buildings.all()) {
     if (!building.alive) failures.push(`${at}s dead building ${building.id} still registered`);
+    if (building.hp <= 0) failures.push(`${at}s live building ${building.id} has no hp`);
+  }
+  for (const node of simulation.state.resources.all()) {
+    if (node.remaining < 0) failures.push(`${at}s node ${node.id} has negative remaining`);
   }
   return failures;
 }

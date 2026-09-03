@@ -15,7 +15,18 @@ const shippingGrid = (): NavigationGrid => new MatchSimulation({ opponent: false
  * before the fix, so a regression fails here rather than in a playtest.
  */
 describe('pathing release blockers', () => {
-  it('answers a cross-map route in a fraction of one frame', () => {
+  it('answers a cross-map route without sweeping the map', () => {
+    const grid = shippingGrid();
+    resetPathMetrics();
+    const path = findPath(grid, START_POSITIONS.player, START_POSITIONS.enemy);
+    expect(path.length).toBeGreaterThan(1);
+    // Expansions, not milliseconds: the count is deterministic, so it means the same thing on
+    // every machine and under any test-suite load. A corner-to-corner route across a
+    // 42,240-cell map settles around 5,100 cells; well under a tenth of the grid.
+    expect(pathMetrics.expansions).toBeLessThan(8_000);
+  });
+
+  it('answers a cross-map route inside a frame budget', { retry: 2 }, () => {
     const grid = shippingGrid();
     // Warm the JIT and the scratch buffers: the first search of a process is not the one a
     // player ever feels, and timing it makes the check flaky rather than strict.
@@ -23,16 +34,16 @@ describe('pathing release blockers', () => {
     const samples: number[] = [];
     for (let run = 0; run < 5; run += 1) {
       const start = performance.now();
-      const path = findPath(grid, START_POSITIONS.player, START_POSITIONS.enemy);
+      findPath(grid, START_POSITIONS.player, START_POSITIONS.enemy);
       samples.push(performance.now() - start);
-      expect(path.length).toBeGreaterThan(1);
     }
     samples.sort((a, b) => a - b);
-    // The linear-scan open set took 17-24ms for exactly this search. One frame is 16.6ms.
-    expect(samples[2]).toBeLessThan(8);
+    // The linear-scan open set took 17-24ms for exactly this search on an unloaded machine, so
+    // this ceiling separates the two implementations while tolerating a busy CI box.
+    expect(samples[2]).toBeLessThan(12);
   });
 
-  it('orders a 30-unit group across the map without a visible stall', () => {
+  it('orders a 30-unit group across the map without a visible stall', { retry: 2 }, () => {
     const grid = shippingGrid();
     const units: UnitEntity[] = [];
     for (let index = 0; index < 30; index += 1) {
@@ -41,13 +52,16 @@ describe('pathing release blockers', () => {
         z: START_POSITIONS.player.z + Math.floor(index / 6),
       }));
     }
+    resetPathMetrics();
     const start = performance.now();
     const result = issueMoveCommand(units, START_POSITIONS.enemy, grid);
     const elapsed = performance.now() - start;
     expect(result.issued).toBe(30);
     expect(units.every((unit) => unit.path.length > 0)).toBe(true);
-    // This whole command used to cost 418ms — a visible freeze on every group order.
-    expect(elapsed).toBeLessThan(120);
+    expect(pathMetrics.searches).toBe(30);
+    // This whole command used to cost 418ms on an unloaded machine — a visible freeze on every
+    // group order — so the ceiling still separates the implementations under suite contention.
+    expect(elapsed).toBeLessThan(250);
   });
 
   it('fails an unreachable order quickly and leaves the unit visibly idle', () => {

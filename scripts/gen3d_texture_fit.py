@@ -79,20 +79,21 @@ def image_mask(img: Image.Image, res: int = 160):
 
 
 def mesh_silhouette(pts: np.ndarray, yaw: float, pitch: float, res: int = 160):
-    """Orthographic silhouette of the mesh from view (yaw, pitch), res:res."""
+    """Orthographic silhouette of the mesh viewed from ABOVE at azimuth yaw
+    (camera at (sin yaw, sin pitch, cos yaw) * dist, looking at the origin),
+    matching the preview page's camera convention."""
     cy, sy = np.cos(yaw), np.sin(yaw)
     cp, sp = np.cos(pitch), np.sin(pitch)
-    x = pts[:, 0] * cy + pts[:, 2] * sy
-    z = -pts[:, 0] * sy + pts[:, 2] * cy
-    y = pts[:, 1] * cp - z * sp
-    d = pts[:, 0] * (-sy) * cp + pts[:, 2] * cy * cp + pts[:, 1] * sp  # depth along view
+    sx = pts[:, 0] * cy - pts[:, 2] * sy                     # screen right
+    su = -pts[:, 0] * sy * sp + pts[:, 1] * cp - pts[:, 2] * cy * sp  # screen up
+    y = su
 
     # screen axes: x right, y down (normalized to bbox -> res grid)
     def norm(v):
         v0, v1 = v.min(), v.max()
         return (v - v0) / max(v1 - v0, 1e-9)
 
-    sx = (norm(x) * (res - 1)).astype(int)
+    sx = (norm(sx) * (res - 1)).astype(int)
     sy_ = ((1 - norm(y)) * (res - 1)).astype(int)
     grid = np.zeros((res, res), dtype=bool)
     grid[sy_, sx] = True
@@ -140,14 +141,15 @@ def bake(glb_path: Path, png_path: Path, out_path: Path):
 
     yaw, pitch, iou = fit_view(pos, mask)
 
-    # view-space basis from fitted yaw/pitch
+    # view-space basis from fitted yaw/pitch (camera above at azimuth yaw,
+    # same convention as the preview page)
     cy, sy = np.cos(yaw), np.sin(yaw)
     cp, sp = np.cos(pitch), np.sin(pitch)
-    right = np.array([cy, 0.0, sy])
-    up = np.array([sy * sp, cp, -cy * sp])
-    fwd = np.array([-sy * cp, sp, cy * cp])  # from eye towards scene
+    right = np.array([cy, 0.0, -sy])
+    up = np.array([-sy * sp, cp, -cy * sp])
+    eye = np.array([sy * cp, sp, cy * cp])  # towards camera
 
-    depth = pos @ (-fwd)
+    depth = pos @ eye
     sx = pos @ right
     sy_ = pos @ up
     d0, d1 = depth.min(), depth.max()
