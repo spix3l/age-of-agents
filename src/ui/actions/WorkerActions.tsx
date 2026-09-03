@@ -6,9 +6,12 @@ import { useUiStore } from '../store';
 const ACTIONS: readonly { readonly type: PlaceableBuildingType; readonly glyph: string }[] = [
   { type: 'relay', glyph: '⌁' },
   { type: 'fabricator', glyph: '▦' },
+  { type: 'habitat', glyph: '⌂' },
+  { type: 'depot', glyph: '▤' },
   { type: 'wall', glyph: '▰' },
-  { type: 'outpost', glyph: '⌂' },
-  { type: 'turret', glyph: '⌖' },
+  { type: 'gate', glyph: '∏' },
+  { type: 'outpost', glyph: '⌖' },
+  { type: 'turret', glyph: '⏂' },
   { type: 'foundry', glyph: '⬢' },
 ];
 
@@ -30,7 +33,7 @@ export function WorkerActions() {
       <button type="button" className="automation-button matter" onClick={() => automate('matter')}>AUTO · MATTER</button>
       <button type="button" className="automation-button energy" onClick={() => automate('energy')}>AUTO · ENERGY</button>
       <button type="button" className="automation-button data" onClick={() => automate('data')}>AUTO · DATA</button>
-      <small className="placement-hint">CLICK TO PLACE · ESC / RMB CANCEL</small>
+      <small className="placement-hint">CLICK OR DRAG TO PLACE · R ROTATES · ESC / RMB CANCEL</small>
     </section>
   );
 }

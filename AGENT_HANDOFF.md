@@ -35,7 +35,8 @@ npm run build
 - `src/game/systems/GatheringSystem.ts`, `ConstructionSystem.ts`, `AutomationSystem.ts`, `ProductionSystem.ts`, `CombatSystem.ts`, and `TurretSystem.ts` advance only from fixed simulation delta time.
 - `src/game/economy/CapacityProviders.ts` applies and removes completed-building capacity without coupling it to rendering or destruction effects.
 - `src/game/scenarios/economy.ts` is the shipping opening scenario; `battle.ts` holds the mirrored Day 4 debug armies (`?scenario=battle`); `day1.ts` remains the 30-unit navigation fixture. Build units only through `createUnitEntity`/`createWorkerEntity`, never entity literals.
-- `src/game/world/createMatch.ts` is the seeded match entrypoint; `WorldScene.ts` is presentation only.
+- `src/game/world/createMatch.ts` is the seeded match entrypoint; `WorldScene.ts` is presentation only. `src/game/world/map.ts` owns the 240 x 176 playfield, start positions, and handcrafted terrain.
+- `src/game/navigation/occupancy.ts` owns building navigation occupancy for every caller.
 - `src/game/input/InputManager.ts` is the only raw pointer-event adapter. Right-click is contextual in `Game.ts`.
 - `src/ui/store.ts` exposes throttled HUD snapshots and command callbacks; never publish per-frame transforms there.
 - `src/data/` is the only home for gameplay balance constants.
@@ -70,14 +71,18 @@ npm run build
 - Player entity visibility and selection must agree with `VisionSystem`; own entities stay visible and explored terrain never returns to unknown.
 - A Turret is a stationary building combatant. It acquires through the spatial hash and applies damage only through `DamageService`, and it drops any target that leaves its range so it can never be locked onto an unreachable enemy.
 - The AI's unit production must degrade gracefully: an unaffordable or unproducible preferred unit falls back to one it can build, never to producing nothing.
-- Barrier Walls and Field Outposts are normal constructed buildings. Walls must balance navigation occupancy on creation/destruction; Outposts accept only allied deposits.
+- Barrier Walls, Gates, Habitats, Storage Depots, and Field Outposts are normal constructed buildings. Outposts and Depots accept only allied deposits.
+- `setBuildingOccupancy` is the only way a building claims or releases navigation cells. It is where a Gate's walk-through exemption and a village piece's zero clearance live, and routing every caller through it is what keeps the grid's reference counts balanced.
+- Clearance is per building type. Village pieces use zero so walls sit edge to edge; `placementClearance` relaxes the gap whenever either side is a village piece.
+- A rotated building stores its quarter-turn on the entity and its footprint already accounts for it. Placement, navigation, and the rendered model must all read the same `rotated` flag.
+- Generation upgrades are presentation only. A structure's stats never change when the colony evolves.
 - Audio is presentational and optional. No gameplay action may depend on creating or resuming an `AudioContext`.
 
 ## Day 6 controls and completion state
 
 Select the Core to evolve from **Awakening** to **Autonomy** and then **Singularity**. Costs are shown directly on the action. Data comes from violet archives and supports both direct gathering and **Auto Data**.
 
-Selected Workers can place Relay Nodes, Fabricators, Barrier Walls, and Field Outposts in Generation I; Zap Turrets unlock in Generation II and the Heavy Foundry in Generation III. Fabricators produce Strikers plus unlocked Rangers/Scouts; Foundries produce Titans. The top bar shows Generation and all three resources. Sound can be muted and adjusted from the top-right controls.
+Selected Workers can place Relay Nodes, Fabricators, Habitats, Storage Depots, Barrier Walls, Gates, and Field Outposts in Generation I; Zap Turrets unlock in Generation II and the Heavy Foundry in Generation III. **R** quarter-turns the pending footprint, and wall, gate, and habitat placement stays armed so a run can be clicked or dragged out in one gesture. Every structure visibly rebuilds itself at each Generation. Fabricators produce Strikers plus unlocked Rangers/Scouts; Foundries produce Titans. The top bar shows Generation and all three resources. Sound can be muted and adjusted from the top-right controls.
 
 Epic 06 and D6-01 through D6-13 are in `REVIEW`, not `DONE`. An integration review pass on 2026-09-03 re-ran every check and fixed a turret target lock, an AI production stall, and a selection-lookup regression; the findings are recorded in `QA.md` and `PROJECT_STATUS.md`. D6-11 requires the unfamiliar-player timing pass in `QA.md`; after the user accepts the manual Day 6 checklist in `PROJECT_STATUS.md`, update task checklists and roll up the epic. No Epic 6 commit has been made yet.
 

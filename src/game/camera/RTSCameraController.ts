@@ -25,7 +25,7 @@ export class RTSCameraController {
   private readonly viewSize = 30;
 
   constructor(private readonly canvas: HTMLCanvasElement) {
-    this.camera = new THREE.OrthographicCamera(-20, 20, 15, -15, 0.1, 180);
+    this.camera = new THREE.OrthographicCamera(-20, 20, 15, -15, 0.1, 420);
     this.camera.position.copy(this.focus).add(CAMERA_OFFSET);
     this.camera.lookAt(this.focus);
     window.addEventListener('keydown', this.onKeyDown);
@@ -36,6 +36,9 @@ export class RTSCameraController {
     this.resize();
     this.sync();
   }
+
+  /** Current zoom factor; the shadow frustum widens with it as the view opens up. */
+  get zoomLevel(): number { return this.zoom; }
 
   /** World-space point the camera is centred on; the sun and shadows follow it. */
   get focusPoint(): THREE.Vector3 { return this.focus; }
@@ -48,7 +51,7 @@ export class RTSCameraController {
     if (this.pressed.has('right')) dx += 1;
     if (dx === 0 && dz === 0) return;
     const length = Math.hypot(dx, dz);
-    const speed = 22 / this.zoom;
+    const speed = 34 / this.zoom;
     this.focus.x += (dx / length) * speed * delta;
     this.focus.z += (dz / length) * speed * delta;
     this.clampFocus();
@@ -81,7 +84,7 @@ export class RTSCameraController {
     event.preventDefault();
     if (event.ctrlKey) {
       // macOS exposes trackpad pinch as a ctrl-modified wheel gesture.
-      this.zoom = THREE.MathUtils.clamp(this.zoom * Math.exp(-event.deltaY * 0.01), 0.42, 2.2);
+      this.zoom = THREE.MathUtils.clamp(this.zoom * Math.exp(-event.deltaY * 0.01), 0.28, 2.2);
       this.resize();
       return;
     }

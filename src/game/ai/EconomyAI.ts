@@ -23,25 +23,38 @@ export class EconomyAI {
   private assignIdleWorkers(view: AIView, commands: AICommands, reserved: ReadonlySet<EntityId>): void {
     const workers = view.units().filter((unit) => unit.kind === 'worker' && !reserved.has(unit.id));
     const free = workers.filter(isFree);
-    if (free.length === 0) return;
     const busy = workers.filter((worker) => !isFree(worker));
     let energyWorkers = busy.filter((worker) => automationType(worker) === 'energy').length;
     let matterWorkers = busy.filter((worker) => automationType(worker) === 'matter').length;
     let dataWorkers = busy.filter((worker) => automationType(worker) === 'data').length;
     const hasEnergyNode = view.resources().some((node) => node.resourceType === 'energy');
     const hasDataNode = view.resources().some((node) => node.resourceType === 'data');
+    // Almost everything the colony buys is Matter-heavy, so a large surplus of either of the
+    // other two is a signal to move gatherers back rather than keep banking what it cannot use.
+    const balances = view.balances();
+    const energySurplus = balances.energy > balances.matter + AI.surplusMargin;
+    // One dedicated archivist funds evolution and the Data-hungry roster without ever
+    // starving the Matter line that pays for everything else. The opening cannot afford one:
+    // until the colony has a working crew, every trip has to go into Matter and Energy.
+    const dataCrew = workers.length >= AI.dataCrewFrom && balances.data < AI.dataTarget ? AI.dataWorkers : 0;
 
     for (const worker of free) {
-      // Data keeps funding Rangers and Titans after the last Generation, so it never stops.
-      if (hasDataNode && dataWorkers < Math.max(1, Math.floor(workers.length / 4))) {
+      if (hasDataNode && dataWorkers < dataCrew) {
         commands.automate([worker], 'data');
         dataWorkers += 1;
         continue;
       }
       const total = energyWorkers + matterWorkers;
-      const wantsEnergy = hasEnergyNode && (energyWorkers) < Math.round((total + 1) * AI.energyWorkerRatio);
+      const wantsEnergy = hasEnergyNode && !energySurplus && energyWorkers < Math.round((total + 1) * AI.energyWorkerRatio);
       commands.automate([worker], wantsEnergy ? 'energy' : 'matter');
       if (wantsEnergy) energyWorkers += 1; else matterWorkers += 1;
+    }
+
+    // Automation is persistent, so without this the colony banks Energy it will never spend
+    // while its Matter line starves. One gatherer moves per decision, which never thrashes.
+    if (energySurplus && energyWorkers > 1) {
+      const spare = busy.find((worker) => automationType(worker) === 'energy');
+      if (spare) commands.automate([spare], 'matter');
     }
   }
 

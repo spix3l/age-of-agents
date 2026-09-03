@@ -11,8 +11,11 @@ export interface BuildingModel {
   readonly column: THREE.Object3D | null;
   readonly arm: THREE.Object3D | null;
   readonly pickable: THREE.Object3D[];
-  readonly generationParts: readonly { readonly part: THREE.Object3D; readonly min: 2 | 3 }[];
+  readonly generationParts: readonly GenerationPart[];
 }
+
+/** A block of structure that only appears once its Generation has been reached. */
+export interface GenerationPart { readonly part: THREE.Object3D; readonly min: 2 | 3 }
 
 function tag(object: THREE.Object3D, id: string, pickable: THREE.Object3D[]): THREE.Object3D {
   object.userData.entityId = id;
@@ -232,23 +235,256 @@ function buildFoundry(cache: ResourceCache, team: Team, id: string): BuildingMod
   return { group, spinners: [], column: mouth, arm: hammer, pickable, generationParts: [] };
 }
 
+/** Habitat: a stubby domed home block with lit windows and a little chimney. */
+function buildHabitat(cache: ResourceCache, team: Team, id: string): BuildingModel {
+  const group = new THREE.Group(); const pickable: THREE.Object3D[] = [];
+  const plinth = new THREE.Mesh(cache.geometry('habitat-plinth', () => new THREE.BoxGeometry(2.6, 0.3, 2.6)), cache.frame(team));
+  plinth.position.y = 0.15; tag(plinth, id, pickable);
+  const shell = new THREE.Mesh(cache.geometry('habitat-shell', () => new THREE.CylinderGeometry(1.15, 1.32, 1.5, 8)), cache.plate(team));
+  shell.position.y = 1.05; tag(shell, id, pickable);
+  const roof = new THREE.Mesh(cache.geometry('habitat-roof', () => new THREE.SphereGeometry(1.2, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2)), cache.hull(team));
+  roof.position.y = 1.78; tag(roof, id, pickable);
+  const flue = new THREE.Mesh(cache.geometry('habitat-flue', () => new THREE.CylinderGeometry(0.16, 0.2, 0.8, 6)), cache.frame(team));
+  flue.position.set(0.62, 2.25, 0.42); tag(flue, id, pickable);
+  // Lit windows are what make a colony read as inhabited rather than industrial.
+  for (const angle of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) {
+    const window = new THREE.Mesh(cache.geometry('habitat-window', () => new THREE.BoxGeometry(0.52, 0.42, 0.1)), cache.glow(team, 1.5));
+    window.position.set(Math.sin(angle) * 1.22, 1.1, Math.cos(angle) * 1.22);
+    window.rotation.y = angle; group.add(window);
+  }
+  group.add(plinth, shell, roof, flue);
+  return { group, spinners: [], column: null, arm: null, pickable, generationParts: [] };
+}
+
+/** Storage Depot: an open-sided cargo shed with stacked crates and a deposit hatch. */
+function buildDepot(cache: ResourceCache, team: Team, id: string): BuildingModel {
+  const group = new THREE.Group(); const pickable: THREE.Object3D[] = [];
+  const slab = new THREE.Mesh(cache.geometry('depot-slab', () => new THREE.BoxGeometry(2.8, 0.28, 1.8)), cache.frame(team));
+  slab.position.y = 0.14; tag(slab, id, pickable);
+  const shed = new THREE.Mesh(cache.geometry('depot-shed', () => new THREE.BoxGeometry(2.3, 1.15, 1.4)), cache.hull(team));
+  shed.position.y = 0.85; tag(shed, id, pickable);
+  const canopy = new THREE.Mesh(cache.geometry('depot-canopy', () => new THREE.CylinderGeometry(0.95, 0.95, 2.5, 6, 1, false, 0, Math.PI)), cache.plate(team));
+  canopy.rotation.z = Math.PI / 2; canopy.position.y = 1.5; tag(canopy, id, pickable);
+  const hatch = new THREE.Mesh(cache.geometry('depot-hatch', () => new THREE.BoxGeometry(1.1, 0.62, 0.1)), cache.glow(team, 1.4));
+  hatch.position.set(0, 0.72, -0.74);
+  for (const [index, offset] of [-0.75, 0.05, 0.85].entries()) {
+    const crate = new THREE.Mesh(cache.geometry(`depot-crate-${index % 2}`, () => new THREE.BoxGeometry(0.5 + (index % 2) * 0.12, 0.45, 0.5)), cache.plate(team));
+    crate.position.set(offset, 0.5, 1.05); crate.rotation.y = index * 0.4; tag(crate, id, pickable); group.add(crate);
+  }
+  group.add(slab, shed, canopy, hatch);
+  return { group, spinners: [], column: hatch, arm: null, pickable, generationParts: [] };
+}
+
+/** Gate: a wall-height doorway that units walk straight through. */
+function buildGate(cache: ResourceCache, team: Team, id: string): BuildingModel {
+  const group = new THREE.Group(); const pickable: THREE.Object3D[] = []; const spinners: THREE.Object3D[] = [];
+  for (const side of [-1, 1]) {
+    const post = new THREE.Mesh(cache.geometry('gate-post', () => new THREE.BoxGeometry(0.45, 1.8, 0.75)), cache.frame(team));
+    post.position.set(side * 0.72, 0.9, 0); tag(post, id, pickable); group.add(post);
+    const lamp = new THREE.Mesh(cache.geometry('gate-lamp', () => new THREE.SphereGeometry(0.15, 6, 5)), cache.glow(team, 2.2));
+    lamp.position.set(side * 0.72, 1.95, 0); group.add(lamp);
+  }
+  const lintel = new THREE.Mesh(cache.geometry('gate-lintel', () => new THREE.BoxGeometry(1.95, 0.4, 0.6)), cache.plate(team));
+  lintel.position.y = 2.05; tag(lintel, id, pickable);
+  // The threshold glows but never blocks: a Gate is the hole you leave in your own wall.
+  const threshold = new THREE.Mesh(cache.geometry('gate-threshold', () => new THREE.BoxGeometry(1.05, 0.06, 0.5)), cache.glow(team, 1.2));
+  threshold.position.y = 0.07; spinners.push(threshold);
+  group.add(lintel, threshold);
+  return { group, spinners, column: threshold, arm: null, pickable, generationParts: [] };
+}
+
+/**
+ * Every structure grows real mass at each Generation rather than wearing a badge: extra
+ * storeys, armour, dishes, and crowns that change the silhouette from across the map.
+ */
+function generationUpgrades(cache: ResourceCache, kind: BuildingTypeId, team: Team): GenerationPart[] {
+  const parts: GenerationPart[] = [];
+  const add = (min: 2 | 3, build: (tier: THREE.Group) => void): void => {
+    const tier = new THREE.Group();
+    tier.visible = false;
+    build(tier);
+    // Upgrades are structure, not decals: they cast and catch light like the rest of the hull.
+    tier.traverse((object) => { object.castShadow = true; object.receiveShadow = true; });
+    parts.push({ part: tier, min });
+  };
+  const box = (key: string, size: [number, number, number], material: THREE.Material, at: [number, number, number]): THREE.Mesh => {
+    const mesh = new THREE.Mesh(cache.geometry(key, () => new THREE.BoxGeometry(...size)), material);
+    mesh.position.set(...at);
+    return mesh;
+  };
+  const cylinder = (key: string, args: [number, number, number, number], material: THREE.Material, at: [number, number, number]): THREE.Mesh => {
+    const mesh = new THREE.Mesh(cache.geometry(key, () => new THREE.CylinderGeometry(...args)), material);
+    mesh.position.set(...at);
+    return mesh;
+  };
+
+  if (kind === 'core') {
+    add(2, (tier) => {
+      for (let index = 0; index < 4; index += 1) {
+        const angle = (index / 4) * Math.PI * 2;
+        const pylon = cylinder('core-g2-pylon', [0.22, 0.3, 3.4, 6], cache.plate(team), [Math.cos(angle) * 2.75, 1.7, Math.sin(angle) * 2.75]);
+        const lamp = new THREE.Mesh(cache.geometry('core-g2-lamp', () => new THREE.OctahedronGeometry(0.26, 0)), cache.glow(team, 2));
+        lamp.position.set(Math.cos(angle) * 2.75, 3.6, Math.sin(angle) * 2.75);
+        tier.add(pylon, lamp);
+      }
+      tier.add(cylinder('core-g2-gallery', [3.05, 3.05, 0.28, 8], cache.frame(team), [0, 3.5, 0]));
+    });
+    add(3, (tier) => {
+      const spire = new THREE.Mesh(cache.geometry('core-g3-spire', () => new THREE.ConeGeometry(0.75, 3.2, 8)), cache.plate(team));
+      spire.position.y = 7;
+      tier.add(spire, cylinder('core-g3-collar', [1.5, 1.9, 0.5, 8], cache.hull(team), [0, 5.3, 0]));
+      for (let index = 0; index < 3; index += 1) {
+        const angle = (index / 3) * Math.PI * 2;
+        const shard = new THREE.Mesh(cache.geometry('core-g3-shard', () => new THREE.OctahedronGeometry(0.52, 0)), cache.glow(team, 2.6));
+        shard.position.set(Math.cos(angle) * 3.3, 6.2, Math.sin(angle) * 3.3);
+        tier.add(shard);
+      }
+    });
+  } else if (kind === 'relay') {
+    add(2, (tier) => {
+      const boom = box('relay-g2-boom', [0.16, 0.16, 2.2], cache.frame(team), [0, 3.1, 0.9]);
+      const dish = new THREE.Mesh(cache.geometry('relay-g2-dish', () => new THREE.ConeGeometry(0.62, 0.42, 8, 1, true)), cache.hull(team));
+      dish.rotation.set(Math.PI * 0.72, 0, -0.4); dish.position.set(0, 3.3, 1.9);
+      tier.add(boom, dish, cylinder('relay-g2-collar', [1.15, 1.3, 0.36, 8], cache.plate(team), [0, 1.2, 0]));
+      for (const side of [-1, 1]) tier.add(cylinder('relay-g2-rod', [0.05, 0.05, 1.5, 5], cache.frame(team), [side * 0.55, 3.5, -0.2]));
+    });
+    add(3, (tier) => {
+      const ring = new THREE.Mesh(cache.geometry('relay-g3-ring', () => new THREE.TorusGeometry(1.65, 0.09, 6, 22)), cache.glow(team, 2.2));
+      ring.position.y = 4.1; ring.rotation.set(Math.PI / 2, 0, 0.3);
+      const mast = cylinder('relay-g3-mast', [0.12, 0.16, 2.4, 6], cache.plate(team), [0, 4.9, 0]);
+      const beacon = new THREE.Mesh(cache.geometry('relay-g3-beacon', () => new THREE.OctahedronGeometry(0.42, 0)), cache.glow(team, 2.8));
+      beacon.position.y = 6.2;
+      tier.add(ring, mast, beacon);
+    });
+  } else if (kind === 'fabricator') {
+    add(2, (tier) => {
+      tier.add(box('fab-g2-storey', [3, 1.1, 2], cache.plate(team), [0, 2.85, 0]));
+      tier.add(box('fab-g2-trim', [3.1, 0.14, 2.1], cache.glow(team, 1.2), [0, 3.45, 0]));
+      for (const side of [-1, 1]) tier.add(cylinder('fab-g2-stack', [0.26, 0.34, 1.5, 6], cache.frame(team), [side * 1.1, 4.1, 0.55]));
+      tier.add(cylinder('fab-g2-silo', [0.62, 0.72, 2.4, 8], cache.hull(team), [2.25, 1.2, 0]));
+    });
+    add(3, (tier) => {
+      const dome = new THREE.Mesh(cache.geometry('fab-g3-dome', () => new THREE.SphereGeometry(1.15, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2)), cache.glow(team, 1.5));
+      dome.position.y = 3.5;
+      const gantry = box('fab-g3-gantry', [4.4, 0.22, 0.3], cache.frame(team), [0, 5.1, 0]);
+      const hook = box('fab-g3-hook', [0.3, 0.7, 0.3], cache.plate(team), [1.2, 4.6, 0]);
+      for (const side of [-1, 1]) tier.add(cylinder('fab-g3-leg', [0.14, 0.18, 1.7, 6], cache.frame(team), [side * 2.1, 4.25, 0]));
+      tier.add(dome, gantry, hook);
+    });
+  } else if (kind === 'habitat') {
+    add(2, (tier) => {
+      tier.add(cylinder('habitat-g2-storey', [0.95, 1.15, 1.25, 8], cache.plate(team), [0, 2.55, 0]));
+      tier.add(cylinder('habitat-g2-balcony', [1.55, 1.55, 0.16, 8], cache.frame(team), [0, 1.95, 0]));
+      for (const angle of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) {
+        const window = new THREE.Mesh(cache.geometry('habitat-g2-window', () => new THREE.BoxGeometry(0.42, 0.36, 0.1)), cache.glow(team, 1.6));
+        window.position.set(Math.sin(angle) * 1.05, 2.6, Math.cos(angle) * 1.05); window.rotation.y = angle;
+        tier.add(window);
+      }
+    });
+    add(3, (tier) => {
+      const dome = new THREE.Mesh(cache.geometry('habitat-g3-dome', () => new THREE.SphereGeometry(1, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2)), cache.glow(team, 1.3));
+      dome.position.y = 3.2;
+      const antenna = cylinder('habitat-g3-antenna', [0.06, 0.08, 1.2, 5], cache.frame(team), [0, 4, 0]);
+      const bulb = new THREE.Mesh(cache.geometry('habitat-g3-bulb', () => new THREE.OctahedronGeometry(0.24, 0)), cache.glow(team, 2.6));
+      bulb.position.y = 4.7;
+      tier.add(dome, antenna, bulb);
+    });
+  } else if (kind === 'depot') {
+    add(2, (tier) => {
+      tier.add(cylinder('depot-g2-silo', [0.55, 0.62, 2.2, 8], cache.hull(team), [-1.55, 1.1, 0]));
+      tier.add(cylinder('depot-g2-cap', [0.62, 0.5, 0.4, 8], cache.plate(team), [-1.55, 2.35, 0]));
+      tier.add(box('depot-g2-walkway', [1.4, 0.12, 0.5], cache.frame(team), [-0.7, 2.15, 0]));
+    });
+    add(3, (tier) => {
+      tier.add(cylinder('depot-g3-silo', [0.55, 0.62, 2.6, 8], cache.hull(team), [1.6, 1.3, 0.2]));
+      const jib = box('depot-g3-jib', [2.6, 0.18, 0.22], cache.frame(team), [0.4, 3.1, 0]);
+      const load = box('depot-g3-load', [0.42, 0.5, 0.42], cache.glow(team, 1.6), [-0.7, 2.7, 0]);
+      tier.add(jib, load);
+    });
+  } else if (kind === 'wall') {
+    add(2, (tier) => {
+      tier.add(box('wall-g2-cap', [1.85, 0.55, 0.72], cache.plate(team), [0, 1.78, 0]));
+      for (const x of [-0.62, 0, 0.62]) tier.add(box('wall-g2-tooth', [0.34, 0.4, 0.34], cache.frame(team), [x, 2.2, 0]));
+    });
+    add(3, (tier) => {
+      for (const side of [-1, 1]) {
+        tier.add(cylinder('wall-g3-emitter', [0.14, 0.18, 0.9, 6], cache.frame(team), [side * 0.8, 2.6, 0]));
+        const node = new THREE.Mesh(cache.geometry('wall-g3-node', () => new THREE.OctahedronGeometry(0.2, 0)), cache.glow(team, 2.6));
+        node.position.set(side * 0.8, 3.1, 0); tier.add(node);
+      }
+      tier.add(box('wall-g3-curtain', [1.6, 0.5, 0.1], cache.glow(team, 1.1), [0, 3, 0]));
+    });
+  } else if (kind === 'gate') {
+    add(2, (tier) => {
+      tier.add(box('gate-g2-arch', [2.3, 0.3, 0.75], cache.plate(team), [0, 2.45, 0]));
+      for (const side of [-1, 1]) tier.add(box('gate-g2-buttress', [0.28, 1.2, 0.9], cache.frame(team), [side * 1.05, 1.2, 0]));
+    });
+    add(3, (tier) => {
+      tier.add(box('gate-g3-curtain', [1.35, 1.7, 0.08], cache.glow(team, 1.1), [0, 1, 0]));
+      const crest = new THREE.Mesh(cache.geometry('gate-g3-crest', () => new THREE.OctahedronGeometry(0.34, 0)), cache.glow(team, 2.6));
+      crest.position.y = 2.9; tier.add(crest);
+    });
+  } else if (kind === 'outpost') {
+    add(2, (tier) => {
+      tier.add(cylinder('outpost-g2-skirt', [2.1, 2.3, 0.3, 8], cache.frame(team), [0, 0.5, 0]));
+      const dish = new THREE.Mesh(cache.geometry('outpost-g2-dish', () => new THREE.ConeGeometry(0.7, 0.45, 8, 1, true)), cache.hull(team));
+      dish.rotation.set(Math.PI * 0.7, 0, 0.3); dish.position.set(0.75, 3.3, 0);
+      tier.add(dish, box('outpost-g2-boom', [1.4, 0.14, 0.14], cache.frame(team), [0.4, 3.05, 0]));
+    });
+    add(3, (tier) => {
+      const shield = new THREE.Mesh(cache.geometry('outpost-g3-shield', () => new THREE.SphereGeometry(2.05, 12, 7, 0, Math.PI * 2, 0, Math.PI / 2)), cache.glow(team, 0.9));
+      shield.position.y = 0.5;
+      tier.add(shield);
+      for (let index = 0; index < 3; index += 1) {
+        const angle = (index / 3) * Math.PI * 2;
+        const pod = new THREE.Mesh(cache.geometry('outpost-g3-pod', () => new THREE.OctahedronGeometry(0.3, 0)), cache.glow(team, 2.4));
+        pod.position.set(Math.cos(angle) * 2.3, 3.8, Math.sin(angle) * 2.3);
+        tier.add(pod);
+      }
+    });
+  } else if (kind === 'turret') {
+    add(2, (tier) => {
+      for (const side of [-1, 1]) {
+        tier.add(box('turret-g2-pod', [0.4, 0.42, 0.7], cache.plate(team), [side * 0.85, 2, 0.1]));
+        tier.add(cylinder('turret-g2-gun', [0.09, 0.11, 1.1, 6], cache.frame(team), [side * 0.85, 2, -0.8]));
+      }
+      tier.add(cylinder('turret-g2-ring', [1.15, 1.15, 0.22, 8], cache.frame(team), [0, 0.7, 0]));
+    });
+    add(3, (tier) => {
+      tier.add(cylinder('turret-g3-cannon', [0.24, 0.3, 2, 8], cache.plate(team), [0, 2.6, -0.9]));
+      tier.add(box('turret-g3-pack', [1.1, 0.7, 0.7], cache.hull(team), [0, 2.7, 0.8]));
+      const muzzle = new THREE.Mesh(cache.geometry('turret-g3-muzzle', () => new THREE.OctahedronGeometry(0.28, 0)), cache.glow(team, 3));
+      muzzle.position.set(0, 2.6, -1.9); tier.add(muzzle);
+    });
+  } else {
+    add(2, (tier) => {
+      tier.add(box('foundry-g2-annex', [1.6, 1.6, 2.6], cache.plate(team), [2.6, 1.1, 0]));
+      tier.add(cylinder('foundry-g2-stack', [0.3, 0.42, 2.2, 7], cache.frame(team), [0, 3.6, -1.1]));
+    });
+    add(3, (tier) => {
+      const crucible = new THREE.Mesh(cache.geometry('foundry-g3-crucible', () => new THREE.SphereGeometry(1.05, 10, 7)), cache.glow(team, 2.2));
+      crucible.position.set(0, 4.4, 0);
+      tier.add(crucible, cylinder('foundry-g3-frame', [1.35, 1.5, 0.4, 8], cache.frame(team), [0, 3.6, 0]));
+      for (const side of [-1, 1]) tier.add(box('foundry-g3-fin', [0.24, 2.2, 1.1], cache.plate(team), [side * 2.2, 3.2, 0]));
+    });
+  }
+  return parts;
+}
+
 export function buildBuildingModel(cache: ResourceCache, kind: BuildingTypeId, team: Team, id: string): BuildingModel {
-  if (kind === 'core') return buildCore(cache, team, id);
-  const model = kind === 'relay' ? buildRelay(cache, team, id)
-    : kind === 'fabricator' ? buildFabricator(cache, team, id)
-      : kind === 'wall' ? buildWall(cache, team, id)
-        : kind === 'outpost' ? buildOutpost(cache, team, id)
-          : kind === 'turret' ? buildTurret(cache, team, id)
-            : buildFoundry(cache, team, id);
-  const height = kind === 'wall' ? 1.65 : kind === 'foundry' ? 4.35 : kind === 'outpost' ? 3.6 : 3.2;
-  const autonomyPanel = new THREE.Group(); autonomyPanel.position.set(BUILDINGS[kind].footprint[0] * 0.32, height, 0); autonomyPanel.visible = false;
-  const stem = new THREE.Mesh(cache.geometry('generation-stem', () => new THREE.CylinderGeometry(0.05, 0.07, 0.55, 5)), cache.frame(team)); stem.position.y = 0.22;
-  const panel = new THREE.Mesh(cache.geometry('generation-panel', () => new THREE.BoxGeometry(0.7, 0.08, 0.42)), cache.glow(team, 1)); panel.position.y = 0.52; panel.rotation.z = 0.15;
-  autonomyPanel.add(stem, panel);
-  const singularityOrb = new THREE.Mesh(cache.geometry('generation-orb', () => new THREE.OctahedronGeometry(0.24, 0)), cache.glow(team, 2.4));
-  singularityOrb.position.set(-BUILDINGS[kind].footprint[0] * 0.3, height + 0.45, 0); singularityOrb.visible = false;
-  model.group.add(autonomyPanel, singularityOrb);
-  return { ...model, generationParts: [...model.generationParts, { part: autonomyPanel, min: 2 }, { part: singularityOrb, min: 3 }] };
+  const model = kind === 'core' ? buildCore(cache, team, id)
+    : kind === 'relay' ? buildRelay(cache, team, id)
+      : kind === 'fabricator' ? buildFabricator(cache, team, id)
+        : kind === 'habitat' ? buildHabitat(cache, team, id)
+          : kind === 'depot' ? buildDepot(cache, team, id)
+            : kind === 'wall' ? buildWall(cache, team, id)
+              : kind === 'gate' ? buildGate(cache, team, id)
+                : kind === 'outpost' ? buildOutpost(cache, team, id)
+                  : kind === 'turret' ? buildTurret(cache, team, id)
+                    : buildFoundry(cache, team, id);
+  const upgrades = generationUpgrades(cache, kind, team);
+  for (const entry of upgrades) model.group.add(entry.part);
+  return { ...model, generationParts: [...model.generationParts, ...upgrades] };
 }
 
 /** Scaffolding shown while a site is still being assembled. */

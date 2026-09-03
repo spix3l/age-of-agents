@@ -63,10 +63,16 @@ describe('procedural models', () => {
 
     const fabricator = buildBuildingModel(cache, 'fabricator', 'player', 'pick-4');
     expect(fabricator.arm).not.toBeNull();
-    for (const kind of ['relay', 'wall', 'outpost', 'turret', 'foundry'] as const) {
+    for (const kind of ['relay', 'habitat', 'depot', 'wall', 'gate', 'outpost', 'turret', 'foundry'] as const) {
       const building = buildBuildingModel(cache, kind, 'player', `building-${kind}`);
       expect(building.pickable.length).toBeGreaterThan(0);
-      expect(building.generationParts.length).toBeGreaterThan(0);
+      // Every structure must gain real geometry at Generation II and again at Generation III.
+      for (const min of [2, 3] as const) {
+        const tier = building.generationParts.find((entry) => entry.min === min);
+        expect(tier, `${kind} is missing a Generation ${min} upgrade`).toBeDefined();
+        expect(tier!.part.visible).toBe(false);
+        expect(meshes(tier!.part).length).toBeGreaterThan(1);
+      }
     }
     cache.dispose();
   });

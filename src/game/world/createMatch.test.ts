@@ -13,16 +13,16 @@ describe('economy match', () => {
     for (const team of ['player', 'enemy'] as const) {
       expect(ownedBy(first.buildings, team).filter((building) => building.kind === 'core')).toHaveLength(1);
       expect(ownedBy(first.units, team).filter((unit) => unit.kind === 'worker')).toHaveLength(3);
-      // Home cluster plus an expansion cluster with one scarce Data archive.
-      expect(first.resources.filter((node) => node.id.startsWith(team))).toHaveLength(6);
+      // Home cluster, a mid expansion, and a far wing expansion.
+      expect(first.resources.filter((node) => node.id.startsWith(team))).toHaveLength(10);
     }
     const grid = new NavigationGrid(MAP_BOUNDS.minX, MAP_BOUNDS.minZ, MAP_BOUNDS.maxX, MAP_BOUNDS.maxZ);
     WORLD_OBSTACLES.forEach((obstacle) => grid.setBlockedRect(obstacle.center, obstacle.size, true, 0.65));
     first.buildings.forEach((building) => grid.setBlockedRect(building.position, building.footprint, true, 0.35));
     for (const team of ['player', 'enemy'] as const) {
       const worker = first.units.find((unit) => unit.team === team)!;
-      const home = first.resources.filter((resource) => /^\w+-(matter-1|matter-2|energy-1)$/.test(resource.id) && resource.id.startsWith(team));
-      expect(home).toHaveLength(3);
+      const home = first.resources.filter((resource) => /^\w+-(matter-1|matter-2|energy-1|data-1)$/.test(resource.id) && resource.id.startsWith(team));
+      expect(home).toHaveLength(4);
       for (const node of home) {
         expect(Math.hypot(worker.position.x - node.position.x, worker.position.z - node.position.z)).toBeLessThan(16);
         expect(findPath(grid, worker.position, node.position).length).toBeGreaterThan(0);

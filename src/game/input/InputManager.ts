@@ -7,6 +7,9 @@ interface InputCallbacks {
   readonly selectionBox: (rect: ScreenRect | null) => void;
   readonly hover?: (point: ScreenPoint) => void;
   readonly primaryAction?: (point: ScreenPoint) => boolean;
+  /** Consumes a held-button drag, used to lay a continuous run of village pieces. */
+  readonly primaryDrag?: (point: ScreenPoint) => boolean;
+  readonly rotateAction?: () => boolean;
   readonly cancelAction?: () => boolean;
   readonly toggleDebug?: () => void;
 }
@@ -42,9 +45,12 @@ export class InputManager {
   };
 
   private readonly onPointerMove = (event: PointerEvent): void => {
-    this.callbacks.hover?.({ x: event.clientX, y: event.clientY });
+    const point = { x: event.clientX, y: event.clientY };
+    this.callbacks.hover?.(point);
     if (!this.dragStart) return;
-    this.dragCurrent = { x: event.clientX, y: event.clientY };
+    this.dragCurrent = point;
+    // A placement drag owns the gesture outright: no selection box is drawn over it.
+    if (this.callbacks.primaryDrag?.(point)) return;
     if (this.distance() >= this.dragThreshold) this.callbacks.selectionBox(this.rect());
   };
 
@@ -67,6 +73,7 @@ export class InputManager {
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
     if (event.key === 'Escape' && this.callbacks.cancelAction?.()) event.preventDefault();
+    if ((event.key === 'r' || event.key === 'R') && this.callbacks.rotateAction?.()) event.preventDefault();
     if (event.key === 'F3') {
       event.preventDefault();
       this.callbacks.toggleDebug?.();

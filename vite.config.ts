@@ -6,5 +6,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.{ts,tsx}'],
+    // Opponent and economy suites simulate tens of minutes of match time on a 240 x 176 map.
+    testTimeout: 60_000,
   },
 });

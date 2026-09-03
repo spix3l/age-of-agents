@@ -54,26 +54,38 @@ export function createEconomyScenario(seed = 20_260_902): EconomyScenario {
         z: origin.z - inward * (index - 1) * 1.6,
       }));
     }
-    // Home cluster: two Matter deposits and one Energy vent within a short walk of the Core.
+    // Home cluster: enough of all three resources to open, evolve once, and start a village
+    // without leaving the basin. The archive is close so Generation II is a real early choice.
     resources.push(
-      createResourceNode(entityId(`${team}-matter-1`), 'matter', { x: origin.x + inward * 7, z: origin.z - inward * 7 + wobble }, RESOURCES.matter.capacity),
-      createResourceNode(entityId(`${team}-matter-2`), 'matter', { x: origin.x - inward * 6, z: origin.z - inward * 9 - wobble }, RESOURCES.matter.capacity),
-      createResourceNode(entityId(`${team}-energy-1`), 'energy', { x: origin.x + inward * 10, z: origin.z - inward * 2 - wobble }, RESOURCES.energy.capacity),
+      createResourceNode(entityId(`${team}-matter-1`), 'matter', { x: origin.x + inward * 8, z: origin.z - inward * 8 + wobble }, RESOURCES.matter.capacity),
+      createResourceNode(entityId(`${team}-matter-2`), 'matter', { x: origin.x - inward * 5, z: origin.z - inward * 9 - wobble }, RESOURCES.matter.capacity),
+      createResourceNode(entityId(`${team}-energy-1`), 'energy', { x: origin.x + inward * 12, z: origin.z - inward * 2 - wobble }, RESOURCES.energy.capacity),
+      createResourceNode(entityId(`${team}-data-1`), 'data', { x: origin.x + inward * 5, z: origin.z - inward * 13 + wobble }, RESOURCES.data.capacity),
     );
-    // Expansion cluster: richer, but out in the open and closer to the middle.
+    // Expansion cluster: richer, but out in the open where an Outpost pays for itself.
     resources.push(
-      createResourceNode(entityId(`${team}-matter-3`), 'matter', { x: origin.x + inward * 21, z: origin.z - inward * 18 }, RESOURCES.matter.capacity),
-      createResourceNode(entityId(`${team}-energy-2`), 'energy', { x: origin.x + inward * 25, z: origin.z - inward * 13 + wobble }, RESOURCES.energy.capacity),
-      createResourceNode(entityId(`${team}-data-1`), 'data', { x: origin.x + inward * 29, z: origin.z - inward * 5 - wobble }, RESOURCES.data.capacity),
+      createResourceNode(entityId(`${team}-matter-3`), 'matter', { x: origin.x + inward * 34, z: origin.z - inward * 26 }, RESOURCES.matter.capacity),
+      createResourceNode(entityId(`${team}-matter-4`), 'matter', { x: origin.x + inward * 41, z: origin.z - inward * 20 + wobble }, RESOURCES.matter.capacity),
+      createResourceNode(entityId(`${team}-energy-2`), 'energy', { x: origin.x + inward * 38, z: origin.z - inward * 32 - wobble }, RESOURCES.energy.capacity),
+      createResourceNode(entityId(`${team}-data-2`), 'data', { x: origin.x + inward * 45, z: origin.z - inward * 9 - wobble }, RESOURCES.data.capacity),
+    );
+    // Wing expansion: the far, undefended ground that rewards scouting the big map.
+    resources.push(
+      createResourceNode(entityId(`${team}-matter-5`), 'matter', { x: origin.x + inward * 16, z: origin.z - inward * 52 }, RESOURCES.matter.capacity),
+      createResourceNode(entityId(`${team}-energy-3`), 'energy', { x: origin.x + inward * 62, z: origin.z - inward * 46 + wobble }, RESOURCES.energy.capacity),
     );
   }
 
   // Contested middle: the deposits both factions have to fight over.
   resources.push(
-    createResourceNode(entityId('middle-matter-north'), 'matter', { x: -13, z: 24 }, RESOURCES.matter.capacity),
-    createResourceNode(entityId('middle-matter-south'), 'matter', { x: 14, z: -25 }, RESOURCES.matter.capacity),
-    createResourceNode(entityId('middle-energy-north'), 'energy', { x: 18, z: 15 }, RESOURCES.energy.capacity),
-    createResourceNode(entityId('middle-energy-south'), 'energy', { x: -19, z: -16 }, RESOURCES.energy.capacity),
+    createResourceNode(entityId('middle-matter-north'), 'matter', { x: -26, z: 48 }, RESOURCES.matter.capacity),
+    createResourceNode(entityId('middle-matter-south'), 'matter', { x: 27, z: -49 }, RESOURCES.matter.capacity),
+    createResourceNode(entityId('middle-matter-east'), 'matter', { x: 46, z: 24 }, RESOURCES.matter.capacity),
+    createResourceNode(entityId('middle-matter-west'), 'matter', { x: -47, z: -25 }, RESOURCES.matter.capacity),
+    createResourceNode(entityId('middle-energy-north'), 'energy', { x: 36, z: 30 }, RESOURCES.energy.capacity),
+    createResourceNode(entityId('middle-energy-south'), 'energy', { x: -37, z: -31 }, RESOURCES.energy.capacity),
+    createResourceNode(entityId('middle-data-north'), 'data', { x: -8, z: 6 }, RESOURCES.data.capacity),
+    createResourceNode(entityId('middle-data-south'), 'data', { x: 9, z: -7 }, RESOURCES.data.capacity),
     createResourceNode(entityId('middle-data'), 'data', { x: 2, z: 2 }, RESOURCES.data.capacity * 2),
   );
 

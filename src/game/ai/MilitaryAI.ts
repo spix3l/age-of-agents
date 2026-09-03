@@ -1,9 +1,10 @@
 import { AI, type AITuning } from '../../data/ai';
+import { GENERATIONS } from '../../data/technologies';
 import { UNITS } from '../../data/units';
 import { MAP_BOUNDS } from '../world/map';
 import type { Random } from '../util/Random';
 import type { EntityId, UnitTypeId } from '../types/ids';
-import type { CombatTarget, UnitEntity, Vec2 } from '../types/simulation';
+import type { CombatTarget, Generation, UnitEntity, Vec2 } from '../types/simulation';
 import type { AICommands, AIView } from './AIContext';
 import { distance, type AIKnowledge } from './AIKnowledge';
 import type { AISnapshot, AIState } from './AIStrategy';
@@ -31,6 +32,8 @@ export class MilitaryAI {
   private scoutTargetIndex = 0;
   private scoutTravelling = false;
   private productionCooldown = 0;
+  private saving: { readonly since: number; readonly generation: Generation } | null = null;
+  private abandonedSaving: Generation | null = null;
 
   constructor(private readonly random: Random, private readonly tuning: AITuning) {}
 
@@ -72,6 +75,10 @@ export class MilitaryAI {
     if (state === 'RECOVER' && snapshot.workers < 3) return;
     // Difficulty throttles how attentively the opponent keeps its Fabricators busy.
     if (this.productionCooldown > 0) return;
+    // With a defensible army already fielded and the Data banked, the colony stops spending
+    // Matter on units so it can actually pay for its next Generation instead of never
+    // holding 180 Matter at once.
+    if (this.shouldSaveForGeneration(snapshot)) return;
     const balances = view.balances();
     const units = view.units();
     const titanWanted = view.generation() >= 3 && units.filter((unit) => unit.kind === 'titan').length < 1;
@@ -97,6 +104,32 @@ export class MilitaryAI {
       // Capacity shortages are handled by the economy and build slices next tick.
       return;
     }
+  }
+
+  /**
+   * Banking Matter for the next Generation is always time-boxed. A colony whose income can
+   * never reach the upgrade must go back to building Agents rather than saving forever.
+   */
+  private shouldSaveForGeneration(snapshot: AISnapshot): boolean {
+    const cost = GENERATIONS[snapshot.generation].advanceCost;
+    const worthSaving = Boolean(cost) && snapshot.army >= AI.minimumAssault
+      && snapshot.data >= (cost?.data ?? 0)
+      && snapshot.energy >= (cost?.energy ?? 0)
+      && snapshot.matter < (cost?.matter ?? 0);
+    if (!worthSaving) {
+      this.saving = null;
+      return false;
+    }
+    if (this.abandonedSaving === snapshot.generation) return false;
+    if (!this.saving || this.saving.generation !== snapshot.generation) {
+      this.saving = { since: snapshot.elapsedSeconds, generation: snapshot.generation };
+    }
+    if (snapshot.elapsedSeconds - this.saving.since > AI.techSaveSeconds) {
+      this.abandonedSaving = snapshot.generation;
+      this.saving = null;
+      return false;
+    }
+    return true;
   }
 
   private defend(view: AIView, commands: AICommands, army: readonly UnitEntity[]): void {

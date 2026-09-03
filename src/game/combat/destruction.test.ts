@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BUILDING_FOOTPRINT_PADDING } from '../../data/buildings';
+import { setBuildingOccupancy } from '../navigation/occupancy';
 import { Capacity } from '../economy/Capacity';
 import { EconomyLedger } from '../economy/EconomyLedger';
 import { createBuildingSite } from '../entities/buildings/Building';
@@ -57,7 +57,7 @@ describe('destruction lifecycle', () => {
     fabricator.operational = true;
     context.state.buildings.add(relay);
     context.state.buildings.add(fabricator);
-    context.navigation.setBlockedRect(relay.position, relay.footprint, true, BUILDING_FOOTPRINT_PADDING);
+    setBuildingOccupancy(context.navigation, relay, true);
     economy.capacity.addProvider(relay.capacityContribution);
     relay.capacityApplied = true;
     const production = new ProductionSystem();

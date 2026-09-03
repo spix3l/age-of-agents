@@ -77,6 +77,8 @@ export interface BuildingEntity extends SimEntity {
   operational: boolean;
   constructionProgress: number;
   readonly constructionTime: number;
+  /** A quarter-turn applied at placement; the footprint already accounts for it. */
+  readonly rotated: boolean;
   builderId: EntityId | null;
   capacityApplied: boolean;
   combat: { readonly damage: number; readonly range: number; readonly cooldownTime: number; cooldown: number; targetId: EntityId | null } | null;

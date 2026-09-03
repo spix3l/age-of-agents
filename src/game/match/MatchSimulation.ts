@@ -1,4 +1,4 @@
-import { BUILDING_FOOTPRINT_PADDING } from '../../data/buildings';
+import { setBuildingOccupancy } from '../navigation/occupancy';
 import { issueBuildCommand, type BuildCommandResult } from '../commands/BuildCommand';
 import { issueAttackCommand } from '../commands/AttackCommand';
 import { DamageService, type DeathRecord } from '../combat/DamageService';
@@ -91,7 +91,7 @@ export class MatchSimulation {
     }
     for (const building of scenario.buildings) {
       this.state.buildings.add(building);
-      this.navigation.setBlockedRect(building.position, building.footprint, true, BUILDING_FOOTPRINT_PADDING);
+      setBuildingOccupancy(this.navigation, building, true);
       this.hooks.onBuildingAdded?.(building);
     }
     for (const resource of scenario.resources) this.state.resources.add(resource);
@@ -183,7 +183,7 @@ export class MatchSimulation {
     return result;
   }
 
-  build(worker: UnitEntity, type: PlaceableBuildingType, position: Vec2): BuildCommandResult {
+  build(worker: UnitEntity, type: PlaceableBuildingType, position: Vec2, rotated = false): BuildCommandResult {
     if (worker.team === 'neutral') return { ok: false, reason: 'INVALID_WORKER' };
     return issueBuildCommand(worker, type, position, worker.team, {
       state: this.state,
@@ -193,7 +193,7 @@ export class MatchSimulation {
       nextBuildingId: (kind, team) => entityId(`${team}-${kind}-b${this.buildingSequence++}`),
       onCreated: (site) => this.hooks.onBuildingAdded?.(site),
       onRemoved: (site) => this.hooks.onBuildingRemoved?.(site),
-    });
+    }, rotated);
   }
 
   attack(units: readonly UnitEntity[], target: CombatTarget): number {
@@ -204,7 +204,7 @@ export class MatchSimulation {
   removeConstructionSite(site: BuildingEntity, refund: Readonly<Partial<Record<'matter' | 'energy' | 'data', number>>>): boolean {
     if (!this.state.buildings.has(site.id) || site.operational) return false;
     this.economy(site.team)?.ledger.refund(refund);
-    this.navigation.setBlockedRect(site.position, site.footprint, false, BUILDING_FOOTPRINT_PADDING);
+    setBuildingOccupancy(this.navigation, site, false);
     this.state.buildings.destroy(site.id);
     for (const worker of this.state.units.alive()) {
       if (worker.buildOrder?.buildingId !== site.id) continue;

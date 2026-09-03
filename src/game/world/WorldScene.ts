@@ -60,12 +60,14 @@ export class WorldScene {
   private readonly parentQuaternion = new THREE.Quaternion();
   private readonly generations = new Map<Exclude<Team, 'neutral'>, Generation>([['player', 1], ['enemy', 1]]);
   private readonly hiddenEntities = new Set<EntityId>();
+  /** Structures mid-growth-pop after an evolution, keyed to elapsed seconds of the animation. */
+  private readonly growing = new Map<StaticVisual, { elapsed: number; readonly parts: THREE.Object3D[] }>();
   private readonly fogTexture: THREE.DataTexture;
   private readonly fogPixels: Uint8Array;
 
   constructor() {
     this.scene.background = new THREE.Color(0xa8c9c5);
-    this.scene.fog = new THREE.Fog(0xa8c9c5, 58, 118);
+    this.scene.fog = new THREE.Fog(0xa8c9c5, 150, 330);
     this.scene.add(new THREE.HemisphereLight(0xe6f5dc, 0x42522d, 2.2));
     // A broad fill keeps the toy-like palette readable even inside the long,
     // dramatic shadows cast by cliffs and oversized colony structures.
@@ -78,7 +80,7 @@ export class WorldScene {
     // crisp shadows instead of stretching one huge low-resolution map across it.
     this.sun.shadow.camera.left = -34; this.sun.shadow.camera.right = 34;
     this.sun.shadow.camera.top = 30; this.sun.shadow.camera.bottom = -30;
-    this.sun.shadow.camera.far = 160;
+    this.sun.shadow.camera.far = 260;
     this.scene.add(this.sun, this.sun.target);
 
     const terrain = new THREE.PlaneGeometry(MAP_SIZE.width, MAP_SIZE.depth, Math.round(MAP_SIZE.width / 2), Math.round(MAP_SIZE.depth / 2));
@@ -151,13 +153,20 @@ export class WorldScene {
   }
 
   /** Advances presentation-only state: pooled combat effects and camera-facing indicators. */
-  updatePresentation(frameDelta: number, view: THREE.Object3D, focus?: THREE.Vector3): void {
+  updatePresentation(frameDelta: number, view: THREE.Object3D, focus?: THREE.Vector3, zoom = 1): void {
     this.effects.update(frameDelta);
     view.getWorldQuaternion(this.billboardQuaternion);
     if (!focus) return;
     this.sun.target.position.set(focus.x, 0, focus.z);
     this.sun.position.set(focus.x - 28, 46, focus.z + 22);
     this.sun.target.updateMatrixWorld();
+    // The frustum tracks the visible area so a wide view still casts shadows at its edges.
+    const half = THREE.MathUtils.clamp(38 / zoom, 38, 130);
+    if (Math.abs(this.sun.shadow.camera.right - half) > 1) {
+      this.sun.shadow.camera.left = -half; this.sun.shadow.camera.right = half;
+      this.sun.shadow.camera.top = half * 0.88; this.sun.shadow.camera.bottom = -half * 0.88;
+      this.sun.shadow.camera.updateProjectionMatrix();
+    }
   }
 
   get effectCounters(): { readonly active: number; readonly pooled: number; readonly created: number; readonly dropped: number } {
@@ -188,7 +197,30 @@ export class WorldScene {
     this.generations.set(team, generation);
     for (const visual of this.buildings.values()) {
       if (visual.group.userData.team !== team || !visual.parts) continue;
-      for (const entry of visual.parts.generationParts) entry.part.visible = generation >= entry.min;
+      const grew: THREE.Object3D[] = [];
+      for (const entry of visual.parts.generationParts) {
+        const visible = generation >= entry.min;
+        if (visible && !entry.part.visible) grew.push(entry.part);
+        entry.part.visible = visible;
+      }
+      // Every structure that actually gained mass announces it, so an evolution is felt
+      // across the whole colony instead of only on the Core that paid for it.
+      if (grew.length > 0) {
+        for (const part of grew) part.scale.setScalar(0.2);
+        this.growing.set(visual, { elapsed: 0, parts: grew });
+        this.effects.spawnDeath({ x: visual.group.position.x, z: visual.group.position.z }, team, 1.4);
+      }
+    }
+  }
+
+  /** Drives the pop-in of structure added by an evolution. Purely presentational. */
+  private advanceGrowth(delta: number): void {
+    for (const [visual, state] of this.growing) {
+      state.elapsed += delta;
+      const progress = Math.min(1, state.elapsed / 0.6);
+      const scale = progress >= 1 ? 1 : THREE.MathUtils.lerp(0.2, 1, progress) + Math.sin(progress * Math.PI) * 0.16;
+      for (const part of state.parts) part.scale.setScalar(scale);
+      if (progress >= 1) this.growing.delete(visual);
     }
   }
 
@@ -244,6 +276,7 @@ export class WorldScene {
     }
     const model = new THREE.Group();
     model.add(parts.group);
+    if (building.rotated) model.rotation.y = Math.PI / 2;
 
     const scaffold = buildConstructionScaffold(this.cache, building.kind, building.team);
     scaffold.visible = !building.operational;
@@ -383,6 +416,7 @@ export class WorldScene {
 
   syncStructures(buildings: readonly BuildingEntity[], resources: readonly ResourceNodeEntity[]): void {
     const frame = 1 / 60;
+    this.advanceGrowth(frame);
     for (const building of buildings) {
       const visual = this.buildings.get(building.id);
       if (!visual) continue;
@@ -463,7 +497,7 @@ export class WorldScene {
     this.markerLife = 1;
   }
 
-  showPlacementGhost(type: PlaceableBuildingType, x: number, z: number, valid: boolean): void {
+  showPlacementGhost(type: PlaceableBuildingType, x: number, z: number, valid: boolean, rotated = false): void {
     if (!this.placementGhost || this.placementGhostType !== type) {
       this.removePlacementGhost();
       const config = BUILDINGS[type];
@@ -481,6 +515,7 @@ export class WorldScene {
       this.placementGhostType = type;
     }
     this.placementGhost.position.set(x, 0, z);
+    this.placementGhost.rotation.y = rotated ? Math.PI / 2 : 0;
     for (const child of this.placementGhost.children) {
       const material = (child as THREE.Mesh).material as THREE.MeshBasicMaterial;
       material.color.setHex(valid ? 0x63efbd : 0xff665c);

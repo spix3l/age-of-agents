@@ -12,7 +12,8 @@ function idleMatch(seed: number) {
 describe('AI military', () => {
   it('produces Strikers continuously and keeps them near an assembly point before attacking', () => {
     const simulation = idleMatch(31);
-    simulation.run(200);
+    // The opening is longer on the full-size map: Fabricator, then a steady stream of Agents.
+    simulation.run(320);
     const army = simulation.unitsOf('enemy').filter((unit) => unit.kind === 'striker');
     expect(army.length).toBeGreaterThan(0);
     const core = simulation.coreOf('enemy')!;
@@ -39,7 +40,7 @@ describe('AI military', () => {
 
   it('switches to DEFEND and engages hostiles that reach its base', () => {
     const simulation = idleMatch(33);
-    simulation.run(120);
+    simulation.run(300);
     const core = simulation.coreOf('enemy')!;
     const raiders = Array.from({ length: 3 }, (_, index) => createUnitEntity(
       `player-raider-${index}`, 'striker', 'player', { x: core.position.x + 6, z: core.position.z + index * 1.5 },
@@ -61,7 +62,8 @@ describe('AI military', () => {
     for (let step = 0; step < 30 * 600 && simulation.opponent!.state !== 'ATTACK'; step += 1) simulation.step(1 / 30);
     expect(simulation.opponent!.state).toBe('ATTACK');
     const debug = simulation.opponent!.debug;
-    const army = simulation.unitsOf('enemy').filter((unit) => unit.kind === 'striker').length;
+    // The assault group is drawn from every combat Agent, not Strikers alone.
+    const army = simulation.unitsOf('enemy').filter((unit) => unit.kind !== 'worker').length;
     expect(debug.assaultSize).toBeGreaterThan(0);
     expect(debug.assaultSize).toBeLessThanOrEqual(Math.max(1, army - AI.defenseReserve));
   });

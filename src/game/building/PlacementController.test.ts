@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { createBuildingSite } from '../entities/buildings/Building';
 import { createCore } from '../entities/buildings/Core';
 import { createResourceNode } from '../entities/resources/ResourceNode';
 import { NavigationGrid } from '../navigation/NavigationGrid';
@@ -24,7 +25,7 @@ describe('building placement', () => {
     const confirmed = vi.fn();
     const rejected = vi.fn();
     const controller = new PlacementController({
-      validate: (_type, position) => ({ valid, position, failure: valid ? undefined : 'BLOCKED' }),
+      validate: (_type, position, rotated) => ({ valid, position, rotated, failure: valid ? undefined : 'BLOCKED' }),
       preview: vi.fn(), hide: vi.fn(), confirmed, rejected,
     });
     controller.begin('relay');
@@ -36,5 +37,36 @@ describe('building placement', () => {
     expect(controller.active).toBe(true);
     expect(controller.cancel()).toBe(true);
     expect(controller.active).toBe(false);
+  });
+
+  it('quarter-turns the pending footprint so a wall line can run in either direction', () => {
+    const grid = new NavigationGrid(-32, -32, 32, 32);
+    const first = validatePlacement('wall', { x: 0, z: 0 }, grid, [], []);
+    expect(first).toMatchObject({ valid: true, rotated: false });
+    expect(validatePlacement('wall', { x: 0, z: 0 }, grid, [], [], true)).toMatchObject({ valid: true, rotated: true });
+
+    const seen: boolean[] = [];
+    const controller = new PlacementController({
+      validate: (_type, position, rotated) => { seen.push(rotated); return { valid: true, position, rotated }; },
+      preview: vi.fn(), hide: vi.fn(), confirmed: vi.fn(), rejected: vi.fn(),
+    });
+    controller.begin('wall');
+    controller.update({ x: 4, z: 4 });
+    expect(controller.rotate()).toBe(true);
+    expect(controller.rotated).toBe(true);
+    // Rotating revalidates the ghost in place rather than waiting for the next pointer move.
+    expect(seen).toEqual([false, true]);
+  });
+
+  it('lets Barrier Walls sit edge to edge while keeping clearance around a Fabricator', () => {
+    const grid = new NavigationGrid(-32, -32, 32, 32);
+    const builder = entityId('worker-1');
+    const wall = createBuildingSite(entityId('wall-1'), 'wall', 'player', { x: 0.5, z: 0.5 }, builder);
+    // Wall footprints are 2 x 1: the neighbour's centre is exactly two units along.
+    expect(validatePlacement('wall', { x: 2, z: 0 }, grid, [wall], [])).toMatchObject({ valid: true });
+    expect(validatePlacement('wall', { x: 1, z: 0 }, grid, [wall], []).failure).toBe('BUILDING_OVERLAP');
+
+    const fabricator = createBuildingSite(entityId('fab-1'), 'fabricator', 'player', { x: 10.5, z: 10.5 }, builder);
+    expect(validatePlacement('relay', { x: 13, z: 10 }, grid, [fabricator], []).failure).toBe('BUILDING_OVERLAP');
   });
 });

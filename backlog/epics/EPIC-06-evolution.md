@@ -32,6 +32,9 @@ status: REVIEW
 - [ ] [D6-11 — Run external-tester usability pass and triage](../tasks/D6-11.md) — P0 / M — depends on D6-01
 - [ ] [D6-12 — Add modular Barrier Walls](../tasks/D6-12.md) — P1 / S — depends on D3-02, D4-01
 - [ ] [D6-13 — Add remote-deposit Field Outpost](../tasks/D6-13.md) — P1 / M — depends on D2-03, D3-02, D6-03
+- [ ] [D6-14 — Double the battlefield and refill it](../tasks/D6-14.md) — P1 / M — depends on D6-03
+- [ ] [D6-15 — Make colonies buildable as villages](../tasks/D6-15.md) — P1 / M — depends on D6-12, D6-13
+- [ ] [D6-16 — Give every structure real Generation upgrades](../tasks/D6-16.md) — P1 / M — depends on D6-02, D6-09
 
 ## Epic completion
 

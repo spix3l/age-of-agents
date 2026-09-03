@@ -1,4 +1,4 @@
-import { BUILDING_FOOTPRINT_PADDING } from '../../data/buildings';
+import { setBuildingOccupancy } from '../navigation/occupancy';
 import { UNITS } from '../../data/units';
 import { deactivateCapacityProvider } from '../economy/CapacityProviders';
 import type { GameState } from '../GameState';
@@ -55,7 +55,7 @@ export function destroyBuilding(building: BuildingEntity, world: DestructionWorl
   building.selected = false;
   building.operational = false;
   building.builderId = null;
-  world.navigation.setBlockedRect(building.position, building.footprint, false, BUILDING_FOOTPRINT_PADDING);
+  setBuildingOccupancy(world.navigation, building, false);
   world.state.buildings.destroy(building.id);
   clearReferencesTo(building.id, world.state);
   world.onBuildingRemoved?.(building);

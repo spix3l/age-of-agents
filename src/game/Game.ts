@@ -6,7 +6,7 @@ import { UNITS } from '../data/units';
 import { BUILDING_GENERATION, GENERATIONS } from '../data/technologies';
 import { useUiStore, type SelectionSnapshot } from '../ui/store';
 import { RTSCameraController } from './camera/RTSCameraController';
-import { PlacementController, validatePlacement, type PlaceableBuildingType, type PlacementFailure } from './building/PlacementController';
+import { PlacementController, snappedPlacement, validatePlacement, type PlaceableBuildingType, type PlacementFailure } from './building/PlacementController';
 import type { BuildRejection } from './commands/BuildCommand';
 import { issueGatherCommand } from './commands/GatherCommand';
 import { issueMoveCommand } from './commands/MoveCommand';
@@ -28,6 +28,9 @@ import { MAP_BOUNDS } from './world/map';
 import { VisionSystem } from './vision/VisionSystem';
 import { AudioManager } from '../audio/AudioManager';
 
+/** Village pieces are laid in runs: the placement tool stays armed and supports drag-laying. */
+const REPEATABLE_BUILDINGS = new Set<PlaceableBuildingType>(['wall', 'gate', 'habitat']);
+
 function isUnit(entity: SelectableEntity): entity is UnitEntity { return 'movementSpeed' in entity; }
 function isBuilding(entity: SelectableEntity): entity is BuildingEntity { return 'productionQueue' in entity; }
 
@@ -44,6 +47,7 @@ export class Game {
   private readonly selection: SelectionSystem;
   private readonly input: InputManager;
   private readonly vision: VisionSystem;
+  private lastDragCell: { x: number; z: number } | null = null;
   private readonly audio: AudioManager;
   private readonly loop: GameLoop;
   private readonly raycaster = new THREE.Raycaster();
@@ -83,10 +87,10 @@ export class Game {
     this.updateVision(1);
 
     this.placement = new PlacementController({
-      validate: (type, position) => validatePlacement(type, position, this.navigation, this.state.buildings.alive(), this.state.resources.alive()),
-      preview: (type, result) => this.world.showPlacementGhost(type, result.position.x, result.position.z, result.valid),
+      validate: (type, position, rotated) => validatePlacement(type, position, this.navigation, this.state.buildings.alive(), this.state.resources.alive(), rotated),
+      preview: (type, result) => this.world.showPlacementGhost(type, result.position.x, result.position.z, result.valid, result.rotated),
       hide: () => this.world.hidePlacementGhost(),
-      confirmed: (type, result) => this.createConstruction(type, result.position),
+      confirmed: (type, result) => this.createConstruction(type, result.position, result.rotated),
       rejected: (failure) => useUiStore.getState().setLastOrder(`PLACEMENT REJECTED // ${this.placementFailure(failure)}`),
     });
     this.selection = new SelectionSystem(
@@ -104,6 +108,8 @@ export class Game {
       selectionBox: (rect) => useUiStore.getState().setSelectionBox(rect),
       hover: this.updatePlacement,
       primaryAction: this.confirmPlacement,
+      primaryDrag: this.dragPlacement,
+      rotateAction: this.rotatePlacement,
       cancelAction: this.cancelPlacement,
       toggleDebug: () => useUiStore.getState().toggleDebug(),
     });
@@ -253,7 +259,7 @@ export class Game {
     const frameDelta = this.lastFrameTime === null ? 1 / 60 : Math.min(0.1, (now - this.lastFrameTime) / 1000);
     this.lastFrameTime = now;
     this.smoothedFps += (1 / Math.max(frameDelta, 1 / 240) - this.smoothedFps) * 0.08;
-    this.world.updatePresentation(frameDelta, this.camera.camera, this.camera.focusPoint);
+    this.world.updatePresentation(frameDelta, this.camera.camera, this.camera.focusPoint, this.camera.zoomLevel);
     this.world.syncUnits(this.state.units.all(), alpha);
     this.world.syncStructures(this.state.buildings.all(), this.state.resources.all());
     this.renderer.render(this.world.scene, this.camera.camera);
@@ -347,10 +353,35 @@ export class Game {
   private readonly confirmPlacement = (point: ScreenPoint): boolean => {
     if (!this.placement.active) return false;
     const world = this.groundPoint(point);
-    return world ? this.placement.confirm(world) : true;
+    if (!world) return true;
+    // Releasing at the end of a drag must not try to place a second piece on the last cell.
+    const laid = this.lastDragCell;
+    this.lastDragCell = null;
+    const snapped = snappedPlacement(world);
+    if (laid && laid.x === snapped.x && laid.z === snapped.z) return true;
+    return this.placement.confirm(world);
   };
 
+  /**
+   * Dragging with a village piece selected lays a continuous run. Each snapped cell is placed
+   * at most once, so one sweep across the map cannot spend a colony's Matter twice over.
+   */
+  private readonly dragPlacement = (point: ScreenPoint): boolean => {
+    const type = this.placement.type;
+    if (!type || !REPEATABLE_BUILDINGS.has(type)) return false;
+    const world = this.groundPoint(point);
+    if (!world) return true;
+    const snapped = snappedPlacement(world);
+    if (this.lastDragCell && this.lastDragCell.x === snapped.x && this.lastDragCell.z === snapped.z) return true;
+    this.lastDragCell = snapped;
+    this.placement.confirm(world);
+    return true;
+  };
+
+  private readonly rotatePlacement = (): boolean => this.placement.rotate();
+
   private readonly cancelPlacement = (): boolean => {
+    this.lastDragCell = null;
     if (!this.placement.cancel()) return false;
     useUiStore.getState().setPlacementMode(null);
     useUiStore.getState().setLastOrder('PLACEMENT CANCELLED');
@@ -398,14 +429,21 @@ export class Game {
     }
   };
 
-  private createConstruction(type: PlaceableBuildingType, position: { x: number; z: number }): void {
-    useUiStore.getState().setPlacementMode(null);
+  private createConstruction(type: PlaceableBuildingType, position: { x: number; z: number }, rotated: boolean): void {
     const worker = this.selection.selected().filter(isUnit).find((unit) => unit.kind === 'worker');
-    if (!worker) return;
-    const result = this.simulation.build(worker, type, position);
+    if (!worker) { useUiStore.getState().setPlacementMode(null); return; }
+    const result = this.simulation.build(worker, type, position, rotated);
     useUiStore.getState().setLastOrder(result.ok
       ? `${BUILDINGS[type].label.toUpperCase()} CONSTRUCTION STARTED`
       : `CONSTRUCTION REJECTED // ${this.buildFailure(result.reason)}`);
+    // Walls, gates, and habitats are placed in runs, so the tool stays armed until it is
+    // cancelled or the colony runs out of Matter.
+    if (result.ok && REPEATABLE_BUILDINGS.has(type)) {
+      this.placement.begin(type);
+      this.placement.update(position);
+    } else {
+      useUiStore.getState().setPlacementMode(null);
+    }
     this.publishUi();
     if (result.ok) this.audio.play('build');
   }

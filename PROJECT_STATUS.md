@@ -38,7 +38,7 @@ The user confirmed gathering, finite depletion, and the Core economy and accepte
 |---|---|
 | `npm run typecheck` | PASS |
 | `npm run lint` | PASS |
-| `npm test -- --run` | PASS — 43 files, 130 tests |
+| `npm test -- --run` | PASS — 44 files, 136 tests |
 | `npm run build` | PASS |
 | Dev server HTTP boot | PASS — `/` returned HTTP 200 |
 | Clean-browser Epic 6 render | PASS — no runtime console errors; menu, Core evolution UI, and corrected fog visually inspected |
@@ -48,6 +48,44 @@ The user confirmed gathering, finite depletion, and the Core economy and accepte
 | Automated Day 5 soak | PASS — 5/5 AI wins, 0 invariant failures |
 | Interactive Day 5 gate | PENDING — awaiting user |
 | Interactive Day 6 gate | PENDING — awaiting user |
+
+## Epic 06 playtest response — 2026-09-03
+
+The user played the build and raised three things: the map was too small, evolving a Generation
+did not visibly upgrade buildings, and the catalog and placement rules made it impossible to
+build a real village. All three are addressed as D6-14, D6-15, and D6-16.
+
+- **Map (D6-14).** The playfield is now 240 x 176 — four times the area — with starts at the far
+  corners, roomy home basins, readable mid-field lanes, and a central massif. Each faction owns a
+  home cluster (Matter, Energy, and a Data archive), a mid expansion, and a far wing expansion,
+  around a contested interior. Camera pan speed, zoom-out range, scene fog, the far plane, and the
+  shadow frustum all widened to match.
+- **Village (D6-15).** Habitat, Storage Depot, and Gate join the Awakening catalog. Village pieces
+  carry zero clearance so walls sit edge to edge — previously two adjacent Barrier Walls were
+  rejected outright, making a continuous wall impossible to build. `R` quarter-turns the pending
+  footprint, and wall/gate/habitat placement stays armed and can be dragged into a run, spending
+  once per snapped cell. A Gate blocks placement and takes damage but never blocks pathing.
+- **Upgrades (D6-16).** Every building kind now gains real Generation II and Generation III
+  geometry — storeys, armour, dishes, gantries, crowns, cannons — replacing the shared panel and
+  orb that were the only previous upgrade cue. Structures that gain mass pop in with a burst.
+  Upgrades remain purely presentational; no balance number changed.
+
+Opponent pacing was re-tuned for the larger map, because a doubled travel distance broke the
+economy the old constants assumed:
+
+- One dedicated Data gatherer, deferred until the colony has six Workers, replaces a quarter of
+  the crew being sent to archives during the opening.
+- A large Energy surplus now moves gatherers back to Matter, including already-automated ones.
+  Persistent automation previously banked over a thousand Energy while the Matter line starved.
+- The opponent time-boxes banking Matter for its next Generation, so it evolves in every measured
+  run without ever saving toward an upgrade its income can no longer reach.
+- `relentless` attack force dropped from 22 to 13, which restores the difficulty ordering the
+  gate asserts.
+
+Re-measured on the shipped seeds: **5 of 5** idle-player defeats, median **605 seconds**, zero
+invariant failures, and TECH reached in every run. Difficulty ordering is relentless 407s <
+standard 604s < relaxed 845s. The Vitest timeout moved to 60 seconds because these suites now
+simulate tens of minutes of match time on a four-times-larger map.
 
 ## Epic 06 review pass — 2026-09-03
 
@@ -204,6 +242,7 @@ Accepted by the user on 2026-09-02 against this checklist:
 ## Known follow-ups
 
 - The AI's median win lands near the low end of the 8–20 minute target because the handcrafted map's finite deposits cap how large an army either side can field. Revisit alongside D7-05 pacing.
+- The opponent does not build Habitats, Depots, Gates, or walls. Its build plan is unchanged apart from Turrets and the Foundry, so the village catalog is currently a player-facing tool.
 - Worker repair of damaged friendly buildings is specified in the PRD but is not Day 4 scope.
 - Three.js keeps the main production JavaScript chunk above Vite's advisory 500 kB threshold. This remains non-blocking until the performance epic.
 - Rally points remain optional post-P0 scope.

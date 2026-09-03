@@ -69,6 +69,9 @@ This is the portfolio view for the file-backed backlog derived from [`PRD.md`](P
 | [D6-11](backlog/tasks/D6-11.md) | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Run external-tester usability pass and triage | P0 | M | D6-01 | REVIEW |
 | [D6-12](backlog/tasks/D6-12.md) | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Add modular Barrier Walls | P1 | S | D3-02, D4-01 | REVIEW |
 | [D6-13](backlog/tasks/D6-13.md) | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Add remote-deposit Field Outpost | P1 | M | D2-03, D3-02, D6-03 | REVIEW |
+| [D6-14](backlog/tasks/D6-14.md) | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Double the battlefield and refill it | P1 | M | D6-03 | REVIEW |
+| [D6-15](backlog/tasks/D6-15.md) | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Make colonies buildable as villages | P1 | M | D6-12, D6-13 | REVIEW |
+| [D6-16](backlog/tasks/D6-16.md) | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Give every structure real Generation upgrades | P1 | M | D6-02, D6-09 | REVIEW |
 | [D7-01](backlog/tasks/D7-01.md) | [EPIC-07](backlog/epics/EPIC-07-release.md) | Freeze scope and build the release bug board | P0 | S | D5-07, D6-01 | TODO |
 | [D7-02](backlog/tasks/D7-02.md) | [EPIC-07](backlog/epics/EPIC-07-release.md) | Add full-loop smoke and invariant tests | P0 | L | D7-01 | TODO |
 | [D7-03](backlog/tasks/D7-03.md) | [EPIC-07](backlog/epics/EPIC-07-release.md) | Fix navigation and stuck-unit release blockers | P0 | L | D7-01 | TODO |

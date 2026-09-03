@@ -1,7 +1,7 @@
 import type { Vec2 } from '../types/simulation';
 
-/** 120 x 88 battlefield: two corner bases with a wide contested middle between them. */
-export const MAP_BOUNDS = Object.freeze({ minX: -60, maxX: 60, minZ: -44, maxZ: 44 });
+/** 240 x 176 battlefield: two far corner bases with a deep contested interior between them. */
+export const MAP_BOUNDS = Object.freeze({ minX: -120, maxX: 120, minZ: -88, maxZ: 88 });
 
 export const MAP_SIZE = Object.freeze({
   width: MAP_BOUNDS.maxX - MAP_BOUNDS.minX,
@@ -10,8 +10,8 @@ export const MAP_SIZE = Object.freeze({
 
 /** Faction start positions. Everything else in the scenario is laid out relative to these. */
 export const START_POSITIONS = Object.freeze({
-  player: Object.freeze({ x: -44, z: 28 }),
-  enemy: Object.freeze({ x: 44, z: -28 }),
+  player: Object.freeze({ x: -92, z: 60 }),
+  enemy: Object.freeze({ x: 92, z: -60 }),
 });
 
 export interface WorldObstacle {
@@ -24,17 +24,35 @@ export interface WorldObstacle {
 
 /**
  * Terrain is handcrafted and deterministic. Ridges frame each base's approach and break the
- * middle into lanes so armies meet at readable choke points instead of one open field.
+ * interior into lanes so armies meet at readable choke points instead of one open field. On a
+ * map this size the home basins are deliberately roomy: a colony needs somewhere to sprawl.
  */
 export const WORLD_OBSTACLES: readonly WorldObstacle[] = Object.freeze([
-  { id: 'ridge-west', center: { x: -30, z: 6 }, size: { x: 6, z: 26 }, height: 4.2, rotation: -0.12 },
-  { id: 'ridge-east', center: { x: 29, z: -8 }, size: { x: 6, z: 24 }, height: 4.8, rotation: 0.1 },
-  { id: 'ridge-north', center: { x: 8, z: 30 }, size: { x: 26, z: 6 }, height: 4.4, rotation: 0.06 },
-  { id: 'ridge-south', center: { x: -9, z: -31 }, size: { x: 24, z: 6 }, height: 4 },
-  { id: 'spire-centre-north', center: { x: -6, z: 12 }, size: { x: 9, z: 7 }, height: 5.6 },
-  { id: 'spire-centre-south', center: { x: 7, z: -13 }, size: { x: 9, z: 7 }, height: 5.6 },
-  { id: 'crag-northwest', center: { x: -46, z: -6 }, size: { x: 7, z: 14 }, height: 3.6, rotation: 0.2 },
-  { id: 'crag-southeast', center: { x: 45, z: 8 }, size: { x: 7, z: 14 }, height: 3.6, rotation: -0.2 },
-  { id: 'outcrop-north', center: { x: 30, z: 26 }, size: { x: 11, z: 5 }, height: 3.2, rotation: 0.24 },
-  { id: 'outcrop-south', center: { x: -31, z: -26 }, size: { x: 11, z: 5 }, height: 3.2, rotation: -0.24 },
+  // Home basin walls: they shape each start without crowding the buildable ground.
+  { id: 'ridge-player-north', center: { x: -74, z: 78 }, size: { x: 34, z: 8 }, height: 5.2, rotation: 0.08 },
+  { id: 'ridge-player-east', center: { x: -52, z: 44 }, size: { x: 8, z: 30 }, height: 5, rotation: -0.1 },
+  { id: 'ridge-enemy-south', center: { x: 74, z: -78 }, size: { x: 34, z: 8 }, height: 5.2, rotation: -0.08 },
+  { id: 'ridge-enemy-west', center: { x: 52, z: -44 }, size: { x: 8, z: 30 }, height: 5, rotation: 0.1 },
+
+  // Mid-field ridges: the lanes armies actually travel down.
+  { id: 'ridge-west', center: { x: -58, z: 4 }, size: { x: 7, z: 40 }, height: 4.6, rotation: -0.12 },
+  { id: 'ridge-east', center: { x: 57, z: -6 }, size: { x: 7, z: 38 }, height: 4.8, rotation: 0.1 },
+  { id: 'ridge-north', center: { x: 16, z: 62 }, size: { x: 40, z: 7 }, height: 4.6, rotation: 0.06 },
+  { id: 'ridge-south', center: { x: -17, z: -63 }, size: { x: 38, z: 7 }, height: 4.4 },
+
+  // Central massif: the landmark both factions navigate around.
+  { id: 'spire-centre-north', center: { x: -14, z: 22 }, size: { x: 14, z: 11 }, height: 6.4 },
+  { id: 'spire-centre-south', center: { x: 15, z: -23 }, size: { x: 14, z: 11 }, height: 6.4 },
+  { id: 'spire-centre-east', center: { x: 26, z: 12 }, size: { x: 10, z: 16 }, height: 5.8, rotation: 0.18 },
+  { id: 'spire-centre-west', center: { x: -27, z: -13 }, size: { x: 10, z: 16 }, height: 5.8, rotation: -0.18 },
+
+  // Flank crags: cover for expansions out on the open wings.
+  { id: 'crag-northwest', center: { x: -96, z: 6 }, size: { x: 9, z: 22 }, height: 4, rotation: 0.2 },
+  { id: 'crag-southeast', center: { x: 95, z: -8 }, size: { x: 9, z: 22 }, height: 4, rotation: -0.2 },
+  { id: 'crag-northeast', center: { x: 88, z: 46 }, size: { x: 18, z: 8 }, height: 3.8, rotation: 0.16 },
+  { id: 'crag-southwest', center: { x: -89, z: -47 }, size: { x: 18, z: 8 }, height: 3.8, rotation: -0.16 },
+  { id: 'outcrop-north', center: { x: 44, z: 52 }, size: { x: 16, z: 7 }, height: 3.6, rotation: 0.24 },
+  { id: 'outcrop-south', center: { x: -45, z: -53 }, size: { x: 16, z: 7 }, height: 3.6, rotation: -0.24 },
+  { id: 'outcrop-far-north', center: { x: -18, z: 74 }, size: { x: 14, z: 7 }, height: 3.4, rotation: -0.2 },
+  { id: 'outcrop-far-south', center: { x: 19, z: -75 }, size: { x: 14, z: 7 }, height: 3.4, rotation: 0.2 },
 ]);

@@ -20,13 +20,21 @@ Last updated: 2026-09-03
 | High | The opponent stopped producing military units when its preferred unit type was unaffordable or had no producer (Generation III without a Foundry). | Production falls back through a preference list; Data gathering continues at Generation III. |
 | Normal | Selection lookups rebuilt and scanned the full entity list per entity, at 10 Hz. | Restored O(1) registry lookups behind a shared vision predicate. |
 
+## Playtest triage — 2026-09-03
+
+| Severity | Observation | Resolution |
+|---|---|---|
+| High | The map was too small to expand into or manoeuvre around. | Playfield doubled to 240 x 176 with far corner starts, three resource tiers per faction, and matching camera, fog, and shadow range. |
+| High | Evolving a Generation did not visibly upgrade buildings. | Every kind gains real Generation II and III geometry with a growth burst, replacing the shared panel and orb. |
+| High | Walls could not be placed as a continuous line, and the catalog could not make a village. | Village pieces place flush, `R` rotates, wall runs can be dragged, and Habitat, Storage Depot, and Gate were added. |
+
 ## Internal verification record
 
 - Clean browser load: PASS; menu renders, Play starts one WebGL canvas, and no runtime console errors were observed.
 - Core discoverability: PASS; selecting the Core displays the next Generation, name, and exact Matter/Energy/Data cost.
 - Starting fog: PASS; the Core, Workers, nearby Matter, and Energy are visible while distant terrain is concealed.
 - Input copy: PASS; ZQSD, arrow keys, two-finger pan/pinch, selection, and contextual right-click are described in-game.
-- Automated suite: PASS — 43 files and 130 tests, including progression, AI evolution, fog cadence/coverage, turret targeting, audio fallback, models, and prior P0 regressions.
+- Automated suite: PASS — 44 files and 136 tests, including progression, AI evolution, fog cadence/coverage, turret targeting, audio fallback, models, and prior P0 regressions.
 - Production build: PASS; Vite reports only the known non-blocking main-chunk size advisory.
 
 ## External tester gate

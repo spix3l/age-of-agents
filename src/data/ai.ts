@@ -6,6 +6,16 @@ export const AI = Object.freeze({
   midPhaseSeconds: 420,
   /** Share of Workers assigned to Energy; the rest gather Matter. */
   energyWorkerRatio: 0.25,
+  /** Energy lead over Matter that sends gatherers back to Matter; the build is Matter-heavy. */
+  surplusMargin: 260,
+  /** Data banked beyond this is idle capital: the colony gathers something else instead. */
+  dataTarget: 220,
+  /** Workers kept on Data while the colony is still short of its Data target. */
+  dataWorkers: 1,
+  /** Worker count before any gatherer is spared for Data. */
+  dataCrewFrom: 6,
+  /** Longest the opponent will hold Matter for its next Generation before giving up on it. */
+  techSaveSeconds: 120,
   /** Build a Relay once free capacity drops to this many slots. */
   capacityHeadroom: 3,
   maxFabricators: 2,
@@ -76,7 +86,7 @@ export const AI_DIFFICULTY: Readonly<Record<AIDifficulty, AITuning>> = Object.fr
   },
   relentless: {
     difficulty: 'relentless', label: 'RELENTLESS', description: 'Maximum economy, constant production, early aggression.',
-    workers: { early: 10, mid: 14, late: 18 }, attackForce: 22,
+    workers: { early: 10, mid: 14, late: 18 }, attackForce: 13,
     productionInterval: 0, earliestAttackSeconds: 180, maxRelays: 9,
   },
 });

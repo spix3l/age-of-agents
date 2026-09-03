@@ -1,4 +1,5 @@
-import { BUILDINGS, BUILDING_FOOTPRINT_PADDING } from '../../data/buildings';
+import { BUILDINGS } from '../../data/buildings';
+import { setBuildingOccupancy } from '../navigation/occupancy';
 import { validatePlacement, type PlaceableBuildingType, type PlacementFailure } from '../building/PlacementController';
 import { createBuildingSite } from '../entities/buildings/Building';
 import type { GameState } from '../GameState';
@@ -32,25 +33,26 @@ export function issueBuildCommand(
   position: Vec2,
   team: Exclude<Team, 'neutral'>,
   context: BuildCommandContext,
+  rotated = false,
 ): BuildCommandResult {
   if (!worker.alive || worker.kind !== 'worker' || worker.team !== team) return { ok: false, reason: 'INVALID_WORKER' };
   const economy = context.state.economies.get(team);
   if (!economy) return { ok: false, reason: 'INVALID_WORKER' };
   if (context.canBuild && !context.canBuild(type, team)) return { ok: false, reason: 'LOCKED' };
 
-  const placement = validatePlacement(type, position, context.navigation, context.state.buildings.alive(), context.state.resources.alive());
+  const placement = validatePlacement(type, position, context.navigation, context.state.buildings.alive(), context.state.resources.alive(), rotated);
   if (!placement.valid) return { ok: false, reason: 'INVALID_PLACEMENT', failure: placement.failure };
 
   const config = BUILDINGS[type];
   if (!economy.ledger.spend(config.cost)) return { ok: false, reason: 'INSUFFICIENT_RESOURCES' };
 
-  const site = createBuildingSite(context.nextBuildingId(type, team), type, team, placement.position, worker.id);
+  const site = createBuildingSite(context.nextBuildingId(type, team), type, team, placement.position, worker.id, rotated);
   context.state.buildings.add(site);
-  context.navigation.setBlockedRect(site.position, site.footprint, true, BUILDING_FOOTPRINT_PADDING);
+  setBuildingOccupancy(context.navigation, site, true);
   context.onCreated?.(site);
 
   if (!context.construction.assign(worker, site)) {
-    context.navigation.setBlockedRect(site.position, site.footprint, false, BUILDING_FOOTPRINT_PADDING);
+    setBuildingOccupancy(context.navigation, site, false);
     context.state.buildings.destroy(site.id);
     context.onRemoved?.(site);
     economy.ledger.refund(config.cost);

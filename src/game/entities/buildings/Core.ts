@@ -16,7 +16,7 @@ export function createCore(id: EntityId, team: Exclude<Team, 'neutral'>, positio
     previousPosition: { ...position },
     hp: config.maxHp,
     maxHp: config.maxHp,
-    footprint: { x: config.footprint[0], z: config.footprint[1] },
+    footprint: { x: config.footprint[0], z: config.footprint[1] }, rotated: false,
     vision: config.vision,
     acceptsDeposits: config.acceptsDeposits,
     capacityContribution: CORE_CAPACITY,
