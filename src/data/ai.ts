@@ -19,6 +19,16 @@ export const AI = Object.freeze({
   /** Build a Relay once free capacity drops to this many slots. */
   capacityHeadroom: 3,
   maxFabricators: 2,
+  /** Ceilings on the rest of the colony, so the opponent's base fills out instead of stopping. */
+  maxTurrets: 5,
+  maxHabitats: 3,
+  maxDepots: 2,
+  /** Wall segments the opponent fences its approach with before Turrets unlock. */
+  maxWalls: 8,
+  /** Foundations the opponent will keep open at once. One at a time built a base far too slowly. */
+  concurrentSites: 2,
+  /** Half-angle, in radians, of the arc a Turret is placed within, facing the map's interior. */
+  turretArc: 1.0,
   /** Ring around the Core used for building placement candidates. */
   buildRingMin: 5.5,
   buildRingMax: 13,

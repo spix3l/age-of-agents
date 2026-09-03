@@ -20,7 +20,9 @@ describe('AI build planning', () => {
     expect(built.some((building) => building.kind === 'fabricator')).toBe(true);
 
     for (const building of built) {
-      expect(distance(building.position, core.position)).toBeLessThanOrEqual(AI.buildRingMax + 4);
+      // Defensive structures deliberately sit further out than the rest, covering the approach.
+      const reach = building.kind === 'turret' || building.kind === 'wall' ? AI.buildRingMax * 1.35 + 2 : AI.buildRingMax + 4;
+      expect(distance(building.position, core.position)).toBeLessThanOrEqual(reach);
       expect(distance(building.position, core.position)).toBeGreaterThan(2);
       const worker = simulation.unitsOf('enemy')[0]!;
       expect(findPath(simulation.navigation, worker.position, core.position).length).toBeGreaterThan(0);

@@ -8,6 +8,7 @@ import { BuildPlanner } from './BuildPlanner';
 import { EconomyAI } from './EconomyAI';
 import { MilitaryAI } from './MilitaryAI';
 import { createAIContext, type AICommands, type AIView, type PlayableTeam } from './AIContext';
+import { applyOpeningPlan, chooseOpeningPlan, type OpeningPlan } from './OpeningPlan';
 import { decideState, type AIDecision, type AISnapshot, type AIState } from './AIStrategy';
 
 export interface AIControllerOptions {
@@ -20,6 +21,7 @@ export interface AIControllerOptions {
 export interface AIDebugSnapshot {
   readonly state: AIState;
   readonly reason: string;
+  readonly plan: string;
   readonly decisions: number;
   readonly workers: number;
   readonly army: number;
@@ -28,6 +30,8 @@ export interface AIDebugSnapshot {
   readonly capacity: string;
   readonly enemyCoreKnown: boolean;
   readonly assaultSize: number;
+  /** The Agent currently nominated to scout, if any. */
+  readonly scoutId: EntityId | null;
 }
 
 interface LossSample { readonly at: number; readonly lost: number }
@@ -42,6 +46,8 @@ export class AIController {
   private readonly commands: AICommands;
   private readonly random: Random;
   readonly tuning: AITuning;
+  /** This match's opening, chosen from the seed. Two seeds open differently. */
+  readonly plan: OpeningPlan;
   private readonly economy: EconomyAI;
   private readonly builder: BuildPlanner;
   private readonly military: MilitaryAI;
@@ -70,10 +76,13 @@ export class AIController {
     this.view = context.view;
     this.commands = context.commands;
     this.random = new Random(options.seed ?? 20_260_905);
-    this.tuning = resolveTuning(options.difficulty);
+    // The plan is drawn first, so it is a pure function of the seed and cannot drift with how
+    // many times the rest of the opponent happened to call the generator.
+    this.plan = chooseOpeningPlan(this.random);
+    this.tuning = applyOpeningPlan(resolveTuning(options.difficulty), this.plan);
     this.economy = new EconomyAI(this.tuning);
-    this.builder = new BuildPlanner(this.random, this.tuning);
-    this.military = new MilitaryAI(this.random, this.tuning);
+    this.builder = new BuildPlanner(this.random, this.tuning, this.plan);
+    this.military = new MilitaryAI(this.random, this.tuning, this.plan);
   }
 
   get team(): PlayableTeam { return this.view.team; }
@@ -85,6 +94,7 @@ export class AIController {
     return {
       state: this.currentState,
       reason: this.currentReason,
+      plan: this.plan.label,
       decisions: this.decisionCount,
       workers: snapshot?.workers ?? 0,
       army: snapshot?.army ?? 0,
@@ -93,6 +103,7 @@ export class AIController {
       capacity: `${snapshot?.capacityUsed ?? 0}+${snapshot?.capacityReserved ?? 0}/${snapshot?.capacityMax ?? 0}`,
       enemyCoreKnown: this.knowledge.hasDiscoveredCore,
       assaultSize: this.military.debug.assaultSize,
+      scoutId: this.military.debug.scoutId,
     };
   }
 
@@ -179,7 +190,8 @@ export class AIController {
       threatsNearBase: threats.length,
       enemyCoreKnown: this.knowledge.hasDiscoveredCore,
       scoutActive: this.military.debug.scouting,
-      secondsSinceScout: elapsed - this.lastScoutAt,
+      // Scaled by the plan, so a map-control opening sweeps far more often than a greedy one.
+      secondsSinceScout: (elapsed - this.lastScoutAt) / this.plan.scoutCadence,
       armyLostRecently: this.recentLosses(elapsed),
       reinforceStalledSeconds: this.reinforceStall(this.canReinforce(buildings, balances, capacity), elapsed),
       productionQueued: buildings.reduce((sum, building) => sum + building.productionQueue.length, 0),

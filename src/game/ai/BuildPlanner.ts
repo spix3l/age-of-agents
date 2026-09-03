@@ -6,6 +6,7 @@ import type { Random } from '../util/Random';
 import type { BuildingEntity, UnitEntity, Vec2 } from '../types/simulation';
 import type { AICommands, AIView } from './AIContext';
 import type { AISnapshot, AIState } from './AIStrategy';
+import type { OpeningPlan } from './OpeningPlan';
 import { distance } from './AIKnowledge';
 
 interface Backoff { failures: number; until: number }
@@ -18,13 +19,22 @@ export class BuildPlanner {
   private readonly backoff = new Map<PlaceableBuildingType, Backoff>();
   private lastPlacement: Vec2 | null = null;
 
-  constructor(private readonly random: Random, private readonly tuning: AITuning) {}
+  private openingIndex = 0;
+
+  constructor(
+    private readonly random: Random,
+    private readonly tuning: AITuning,
+    private readonly plan: OpeningPlan,
+  ) {}
 
   get lastSite(): Vec2 | null { return this.lastPlacement; }
 
   update(view: AIView, commands: AICommands, snapshot: AISnapshot, state: AIState): void {
     this.reviveStalledSites(view, commands);
-    if (state === 'DEFEND' || state === 'ATTACK') return;
+    // Only a base under attack stops building. A colony whose army is out on a raid should still
+    // be laying foundations -- pausing construction for the whole of every assault was most of
+    // why the opponent's base stayed a Core and two sheds.
+    if (state === 'DEFEND') return;
     const type = this.desiredBuilding(view, snapshot);
     if (!type || this.isBackedOff(type, snapshot.elapsedSeconds)) return;
     const cost = BUILDINGS[type].cost;
@@ -34,7 +44,7 @@ export class BuildPlanner {
     // placement newly possible the planner could otherwise relay-spam its income away and
     // freeze the assault for minutes; the reserve keeps production fed while still expanding
     // whenever income covers both.
-    const armyStarved = type !== 'turret' && snapshot.fabricators > 0
+    const armyStarved = type !== 'turret' && type !== 'wall' && snapshot.fabricators > 0
       && snapshot.army < this.tuning.attackForce;
     const reserveMatter = armyStarved ? UNITS.striker.cost.matter ?? 0 : 0;
     if (balances.matter < (cost.matter ?? 0) + reserveMatter) return;
@@ -55,15 +65,51 @@ export class BuildPlanner {
     }
   }
 
+  /**
+   * What to build next. The order is: keep the opening plan's first few structures, never run out
+   * of capacity, get a producer up, fortify, then fill the colony out.
+   *
+   * The last step is what makes the base look like a base. Previously the plan ran dry after a
+   * Fabricator and two Relays, so an opponent that had been mining for twenty minutes still had
+   * four buildings and no defences.
+   */
   private desiredBuilding(view: AIView, snapshot: AISnapshot): PlaceableBuildingType | null {
-    if (snapshot.constructionSites > 0) return null;
+    if (snapshot.constructionSites >= AI.concurrentSites) return null;
+    const buildings = view.buildings();
+    const count = (kind: PlaceableBuildingType): number => buildings.filter((building) => building.kind === kind).length;
     const capacityFree = snapshot.capacityMax - snapshot.capacityUsed - snapshot.capacityReserved;
-    if (capacityFree <= AI.capacityHeadroom && snapshot.relays < this.tuning.maxRelays) return 'relay';
+    const generation = view.generation();
+    const matter = view.balances().matter;
+
+    // The opening plan's own build order comes first, one structure at a time.
+    const opening = this.plan.buildOrder[this.openingIndex];
+    if (opening) {
+      const unlocked = opening !== 'turret' || generation >= 2;
+      if (unlocked) return opening;
+      this.openingIndex += 1;
+    }
+
+    if (capacityFree <= AI.capacityHeadroom) {
+      if (count('relay') < this.tuning.maxRelays) return 'relay';
+      if (count('habitat') < AI.maxHabitats) return 'habitat';
+    }
     if (snapshot.fabricators < 1) return 'fabricator';
-    if (view.generation() >= 2 && view.buildings().filter((building) => building.kind === 'turret').length < 2 && view.balances().matter > 180) return 'turret';
-    if (view.generation() >= 3 && !view.buildings().some((building) => building.kind === 'foundry')) return 'foundry';
-    if (snapshot.fabricators < AI.maxFabricators && view.balances().matter > 260) return 'fabricator';
-    if (snapshot.relays < this.tuning.maxRelays && capacityFree <= AI.capacityHeadroom * 2) return 'relay';
+
+    // The Foundry is the Generation III unlock and the only way to a Titan, so it outranks any
+    // amount of fortification once it is available.
+    if (generation >= 3 && count('foundry') === 0) return 'foundry';
+    // Otherwise fortify before massing: a colony with no Turrets loses its Workers to the first raid.
+    const turrets = count('turret');
+    if (generation >= 2 && turrets < this.plan.earlyTurrets && matter > 180) return 'turret';
+    if (generation >= 2 && turrets < AI.maxTurrets && matter > 260) return 'turret';
+
+    if (snapshot.fabricators < AI.maxFabricators && matter > 260) return 'fabricator';
+    // Turrets need Generation II. A colony that has not got there yet still needs something
+    // between a raid and its Workers, so it fences the approach.
+    if (count('wall') < AI.maxWalls && matter > 140) return 'wall';
+    if (count('depot') < AI.maxDepots && matter > 200) return 'depot';
+    if (count('habitat') < AI.maxHabitats && matter > 220) return 'habitat';
+    if (count('relay') < this.tuning.maxRelays && capacityFree <= AI.capacityHeadroom * 2) return 'relay';
     return null;
   }
 
@@ -78,6 +124,7 @@ export class BuildPlanner {
     if (result.ok) {
       this.backoff.delete(type);
       this.lastPlacement = position;
+      if (this.plan.buildOrder[this.openingIndex] === type) this.openingIndex += 1;
       return;
     }
     if (result.reason !== 'INSUFFICIENT_RESOURCES') this.recordFailure(type, snapshot.elapsedSeconds);
@@ -85,10 +132,17 @@ export class BuildPlanner {
 
   private findSite(view: AIView, core: BuildingEntity, type: PlaceableBuildingType): Vec2 | null {
     const buildings = view.buildings();
+    // Turrets and walls cover the way in. Everything else fills the ring behind them.
+    const facing = type === 'turret' || type === 'wall';
+    const towards = facing ? Math.atan2(-core.position.z, -core.position.x) : null;
     let best: { position: Vec2; score: number } | null = null;
     for (let attempt = 0; attempt < AI.placementCandidates; attempt += 1) {
-      const angle = this.random.next() * Math.PI * 2;
-      const radius = this.random.range(AI.buildRingMin, AI.buildRingMax);
+      const angle = towards === null
+        ? this.random.next() * Math.PI * 2
+        : towards + this.random.range(-AI.turretArc, AI.turretArc);
+      const radius = facing
+        ? this.random.range(AI.buildRingMax * 0.8, AI.buildRingMax * 1.35)
+        : this.random.range(AI.buildRingMin, AI.buildRingMax);
       const candidate = { x: core.position.x + Math.cos(angle) * radius, z: core.position.z + Math.sin(angle) * radius };
       const placement = validatePlacement(type, candidate, view.navigation, view.allBuildings(), view.resources());
       if (!placement.valid) continue;

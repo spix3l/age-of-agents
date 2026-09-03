@@ -1,5 +1,6 @@
 import type { PlaceableBuildingType } from '../building/PlacementController';
 import type { UnitTypeId } from '../types/ids';
+import type { AITuning } from '../../data/ai';
 import type { Random } from '../util/Random';
 
 /**
@@ -28,6 +29,13 @@ export interface OpeningPlan {
   readonly scoutWith: readonly ('worker' | 'scout' | 'striker')[];
   /** Multiplies `scoutInterval`. Below 1 sweeps more often. */
   readonly scoutCadence: number;
+  /**
+   * How long, in match seconds, the plan will hold out for one of its preferred scouts before
+   * settling for whatever is to hand. Scouting otherwise begins before any military Agent exists,
+   * so every opening sent a Worker first no matter what it preferred -- which is exactly the
+   * sameness this plan system exists to break.
+   */
+  readonly scoutPatience: number;
   /** Military production preference ahead of the default striker-heavy mix. */
   readonly unitBias: readonly UnitTypeId[];
   /** Defensive structures the plan wants standing before it masses an army. */
@@ -49,6 +57,7 @@ export const OPENING_PLANS: readonly OpeningPlan[] = Object.freeze([
     buildOrder: ['fabricator'],
     scoutWith: ['striker', 'worker'],
     scoutCadence: 0.7,
+    scoutPatience: 40,
     unitBias: ['striker'],
     earlyTurrets: 0,
   },
@@ -61,6 +70,7 @@ export const OPENING_PLANS: readonly OpeningPlan[] = Object.freeze([
     buildOrder: ['relay', 'habitat', 'relay'],
     scoutWith: ['worker', 'scout'],
     scoutCadence: 1.3,
+    scoutPatience: 0,
     unitBias: ['striker'],
     earlyTurrets: 1,
   },
@@ -73,6 +83,7 @@ export const OPENING_PLANS: readonly OpeningPlan[] = Object.freeze([
     buildOrder: ['relay', 'depot', 'habitat'],
     scoutWith: ['scout', 'worker'],
     scoutCadence: 1.1,
+    scoutPatience: 210,
     unitBias: ['ranger', 'striker'],
     earlyTurrets: 3,
   },
@@ -85,6 +96,7 @@ export const OPENING_PLANS: readonly OpeningPlan[] = Object.freeze([
     buildOrder: ['fabricator', 'outpost'],
     scoutWith: ['scout', 'striker', 'worker'],
     scoutCadence: 0.55,
+    scoutPatience: 170,
     unitBias: ['scout', 'ranger', 'striker'],
     earlyTurrets: 1,
   },
@@ -97,6 +109,7 @@ export const OPENING_PLANS: readonly OpeningPlan[] = Object.freeze([
     buildOrder: ['relay', 'fabricator', 'fabricator'],
     scoutWith: ['worker', 'striker'],
     scoutCadence: 1.0,
+    scoutPatience: 110,
     unitBias: ['titan', 'ranger', 'striker'],
     earlyTurrets: 2,
   },
@@ -106,4 +119,22 @@ export const OPENING_PLANS: readonly OpeningPlan[] = Object.freeze([
 export function chooseOpeningPlan(random: Random): OpeningPlan {
   const index = Math.floor(random.next() * OPENING_PLANS.length) % OPENING_PLANS.length;
   return OPENING_PLANS[index] ?? OPENING_PLANS[0]!;
+}
+
+/**
+ * Folds a plan into a difficulty preset. Difficulty stays dominant: a plan re-weights the same
+ * numbers rather than replacing them, so relentless under the greediest opening is still more
+ * aggressive than relaxed under the sharpest one.
+ */
+export function applyOpeningPlan(tuning: AITuning, plan: OpeningPlan): AITuning {
+  return {
+    ...tuning,
+    workers: {
+      early: Math.max(4, Math.round(tuning.workers.early * plan.workerScale)),
+      mid: Math.max(5, Math.round(tuning.workers.mid * plan.workerScale)),
+      late: Math.max(6, Math.round(tuning.workers.late * plan.workerScale)),
+    },
+    attackForce: Math.max(4, Math.round(tuning.attackForce * plan.attackForceScale)),
+    earliestAttackSeconds: Math.round(tuning.earliestAttackSeconds * plan.attackTiming),
+  };
 }

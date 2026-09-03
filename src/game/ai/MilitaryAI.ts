@@ -8,6 +8,7 @@ import type { CombatTarget, Generation, UnitEntity, Vec2 } from '../types/simula
 import type { AICommands, AIView } from './AIContext';
 import { distance, type AIKnowledge } from './AIKnowledge';
 import type { AISnapshot, AIState } from './AIStrategy';
+import type { OpeningPlan } from './OpeningPlan';
 
 export interface MilitaryDebug {
   readonly assembly: Vec2 | null;
@@ -35,7 +36,11 @@ export class MilitaryAI {
   private saving: { readonly since: number; readonly generation: Generation } | null = null;
   private abandonedSaving: Generation | null = null;
 
-  constructor(private readonly random: Random, private readonly tuning: AITuning) {}
+  constructor(
+    private readonly random: Random,
+    private readonly tuning: AITuning,
+    private readonly plan: OpeningPlan,
+  ) {}
 
   get debug(): MilitaryDebug {
     return {
@@ -86,7 +91,16 @@ export class MilitaryAI {
     const rangerWanted = view.generation() >= 2 && units.filter((unit) => unit.kind === 'ranger').length * 3 < units.filter((unit) => unit.kind === 'striker').length;
     // Ordered by preference, then filtered by what is actually affordable and buildable: a
     // missing Foundry or a Data shortage must never stall the whole military queue.
+    // The opening plan leads: an industry opening reaches for a Titan, a recon opening for
+    // Scouts and Rangers, a rush opening simply makes Strikers. Everything else follows as the
+    // fallback list so a missing producer or a Data shortage can never stall the queue.
     const wanted: UnitTypeId[] = [];
+    for (const preferred of this.plan.unitBias) {
+      if (preferred === 'titan' && !titanWanted) continue;
+      if (preferred === 'scout' && !scoutWanted) continue;
+      if (preferred === 'ranger' && !rangerWanted) continue;
+      wanted.push(preferred);
+    }
     if (titanWanted) wanted.push('titan');
     if (scoutWanted) wanted.push('scout');
     if (rangerWanted) wanted.push('ranger');
@@ -174,11 +188,9 @@ export class MilitaryAI {
       this.scoutTravelling = true;
       return;
     }
-    const candidate = scout?.alive
-      ? scout
-      : army.find((unit) => unit.kind === 'scout' && !this.assaultIds.has(unit.id))
-        ?? army.find((unit) => !this.assaultIds.has(unit.id))
-        ?? view.units().find((unit) => unit.kind === 'worker' && !unit.buildOrder);
+    // Who goes looking is part of the opening. Always sending a Worker and then a Drone is what
+    // made every match's discovery phase look the same.
+    const candidate = scout?.alive ? scout : this.pickScout(view, army, view.elapsedSeconds);
     if (!candidate) {
       this.scoutTravelling = false;
       return;
@@ -187,6 +199,24 @@ export class MilitaryAI {
     if (candidate.kind === 'worker') candidate.automation = null;
     const target = this.nextScoutTarget(view);
     this.scoutTravelling = commands.move([candidate], target) > 0;
+  }
+
+  /**
+   * The first available Agent of the kinds this opening prefers to scout with. A plan that wants a
+   * Drone or a Striker will wait for one, up to `scoutPatience`, rather than settling for a
+   * Worker the moment the match starts.
+   */
+  private pickScout(view: AIView, army: readonly UnitEntity[], elapsed: number): UnitEntity | undefined {
+    for (const preferred of this.plan.scoutWith) {
+      const found = preferred === 'worker'
+        ? view.units().find((unit) => unit.kind === 'worker' && !unit.buildOrder)
+        : army.find((unit) => unit.kind === preferred && !this.assaultIds.has(unit.id));
+      if (found) return found;
+      // Still holding out for this kind: report nothing so SCOUT simply comes round again.
+      if (preferred !== 'worker' && elapsed < this.plan.scoutPatience) return undefined;
+    }
+    return army.find((unit) => !this.assaultIds.has(unit.id))
+      ?? view.units().find((unit) => unit.kind === 'worker' && !unit.buildOrder);
   }
 
   private recall(commands: AICommands, army: readonly UnitEntity[], state: AIState): void {
