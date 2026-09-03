@@ -83,7 +83,7 @@ export class WorldScene {
     // the world is what lights them.
     this.scene.background = new THREE.Color(0x16242c);
     // Pushed out to match the isometric camera's longer sightline to the horizon.
-    this.scene.fog = new THREE.Fog(0x16242c, 230, 680);
+    this.scene.fog = new THREE.Fog(0x16242c, 210, 560);
     this.scene.add(new THREE.HemisphereLight(0xa9cde3, 0x3f5a30, 1.05));
     this.scene.add(new THREE.AmbientLight(0xbfd6e6, 0.3));
     // A hard, slightly warm key for daylight. The crisp panel shadows on a structure come from
@@ -164,7 +164,7 @@ export class WorldScene {
     // The frustum tracks the visible area so a wide view still casts shadows at its edges. The
     // isometric camera sees a much larger footprint than the old steep one, so the floor is
     // higher; too small and the frustum edge reads as a hard diagonal band across the ground.
-    const half = THREE.MathUtils.clamp(95 / zoom, 80, 190);
+    const half = THREE.MathUtils.clamp(95 / zoom, 80, 160);
     if (Math.abs(this.sun.shadow.camera.right - half) > 1) {
       this.sun.shadow.camera.left = -half; this.sun.shadow.camera.right = half;
       this.sun.shadow.camera.top = half * 0.88; this.sun.shadow.camera.bottom = -half * 0.88;

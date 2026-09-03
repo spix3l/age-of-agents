@@ -114,6 +114,7 @@ export class Game {
       cancelAction: this.cancelPlacement,
       toggleDebug: () => useUiStore.getState().toggleDebug(),
     });
+    useUiStore.getState().setMinimapJumpRequest((x, z) => this.camera.jumpTo(x, z));
     useUiStore.getState().setProductionRequest(this.enqueueWorker);
     useUiStore.getState().setBuildRequest(this.beginPlacement);
     useUiStore.getState().setAutomationRequest(this.automateSelection);

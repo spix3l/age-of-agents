@@ -38,8 +38,9 @@ export class RTSCameraController {
   private distance = DEFAULT_DISTANCE;
 
   constructor(private readonly canvas: HTMLCanvasElement) {
-    // A shallower pitch sees much further toward the horizon, so the far plane moves out with it.
-    this.camera = new THREE.PerspectiveCamera(FIELD_OF_VIEW, 16 / 9, 1, 1100);
+    // Far enough to cover the map plus its scenery margin from the highest zoom-out, and no
+    // further: everything inside this plane is geometry the frame has to pay for.
+    this.camera = new THREE.PerspectiveCamera(FIELD_OF_VIEW, 16 / 9, 1, 620);
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
     canvas.addEventListener('wheel', this.onWheel, { passive: false });
@@ -54,6 +55,14 @@ export class RTSCameraController {
 
   /** World-space point the camera is centred on; the sun and shadows follow it. */
   get focusPoint(): THREE.Vector3 { return this.focus; }
+
+  /** Centres the view on a world position. Used by the minimap. */
+  jumpTo(x: number, z: number): void {
+    this.focus.x = x;
+    this.focus.z = z;
+    this.clampFocus();
+    this.sync();
+  }
 
   update(delta: number): void {
     let dx = 0; let dz = 0;

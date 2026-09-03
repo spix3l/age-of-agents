@@ -46,7 +46,7 @@ try {
   await page.waitForSelector('.hud', { timeout: 20_000 });
   await delay(3000);
 
-  const canvas = page.locator('canvas');
+  const canvas = page.locator('canvas.game-canvas');
   const box = await canvas.boundingBox();
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   for (let step = 0; step < zooms; step += 1) {

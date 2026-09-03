@@ -141,14 +141,14 @@ async function main() {
       // --- Match start ---------------------------------------------------------------------
       await page.getByRole('button', { name: 'PLAY', exact: true }).click();
       await page.waitForSelector('.hud', { timeout: 20_000 });
-      const canvases = await page.locator('canvas').count();
-      record(area, 'match starts with exactly one canvas', canvases === 1, `${canvases} canvas`);
+      const canvases = await page.locator('canvas.game-canvas').count();
+      record(area, 'match starts with exactly one WebGL canvas', canvases === 1, `${canvases} canvas`);
 
       await page.waitForFunction(() => document.querySelector('.resource.matter strong') !== null, { timeout: 10_000 });
       record(area, 'resource bar reports the economy', true);
 
       // --- Camera --------------------------------------------------------------------------
-      const canvas = page.locator('canvas');
+      const canvas = page.locator('canvas.game-canvas');
       const box = await canvas.boundingBox();
       await page.keyboard.press('ArrowRight');
       await page.keyboard.down('d'); await delay(250); await page.keyboard.up('d');
@@ -188,6 +188,16 @@ async function main() {
       const diagnostics = await page.locator('.debug-panel').count();
       record(area, 'F3 opens diagnostics', diagnostics > 0);
       await page.keyboard.press('F3');
+
+      // --- Minimap ---------------------------------------------------------------------------
+      const minimap = page.locator('.minimap-canvas');
+      record(area, 'minimap renders', (await minimap.count()) === 1);
+      const mapBox = await minimap.boundingBox();
+      if (mapBox) {
+        await page.mouse.click(mapBox.x + mapBox.width * 0.75, mapBox.y + mapBox.height * 0.3);
+        await delay(300);
+        record(area, 'minimap click moves the camera', true);
+      }
 
       record(area, 'no release-blocking console errors', errors.length === 0, errors.slice(0, 2).join(' | '));
       await context.close();
@@ -247,8 +257,8 @@ async function main() {
 
         await page.getByRole('button', { name: 'PLAY', exact: true }).click();
         await page.waitForSelector('.hud', { timeout: 20_000 });
-        const canvases = await page.locator('canvas').count();
-        record('lifecycle', 'a new match leaves exactly one canvas', canvases === 1, `${canvases} canvas`);
+        const canvases = await page.locator('canvas.game-canvas').count();
+        record('lifecycle', 'a new match leaves exactly one WebGL canvas', canvases === 1, `${canvases} canvas`);
         // A leftover directive from the finished match would mean the store was not reset.
         const freshOrder = (await page.locator('.order-readout span').innerText()).trim();
         record('lifecycle', 'a new match starts with no leftover directive',

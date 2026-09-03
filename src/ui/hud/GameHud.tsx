@@ -8,7 +8,25 @@ import { WorkerActions } from '../actions/WorkerActions';
 import { EndScreen } from '../menus/EndScreen';
 import { MainMenu } from '../menus/MainMenu';
 import { DebugPanel } from '../debug/DebugPanel';
+import { Minimap } from './Minimap';
 import { GENERATIONS } from '../../data/technologies';
+
+/** One resource readout: stock, and what the colony is actually earning per second. */
+function Resource({ kind, glyph, label, amount, rate }: {
+  readonly kind: string; readonly glyph: string; readonly label: string;
+  readonly amount: number; readonly rate: number;
+}) {
+  return (
+    <div className={`resource ${kind}`}>
+      <span className="resource-glyph">{glyph}</span>
+      <div className="resource-body">
+        <small>{label}</small>
+        <strong>{Math.floor(amount)}</strong>
+      </div>
+      {rate > 0.05 && <span className="resource-rate">+{rate.toFixed(1)}/s</span>}
+    </div>
+  );
+}
 
 export function GameHud() {
   const matter = useUiStore((state) => state.matter);
@@ -22,6 +40,7 @@ export function GameHud() {
   const lastOrder = useUiStore((state) => state.lastOrder);
   const audioMuted = useUiStore((state) => state.audioMuted);
   const toggleAudio = useUiStore((state) => state.toggleAudio);
+  const income = useUiStore((state) => state.income);
   const audioVolume = useUiStore((state) => state.audioVolume);
   const setAudioVolume = useUiStore((state) => state.setAudioVolume);
 
@@ -30,10 +49,10 @@ export function GameHud() {
       <header className="hud-top">
         <div className="brand"><span className="brand-mark">A</span><div><strong>AGE OF AGENTS</strong><small>GENERATION {generation} · {GENERATIONS[generation].label.toUpperCase()}</small></div></div>
         <div className="resource-bar" aria-label="Player economy">
-          <div className="resource matter"><span className="resource-glyph">◆</span><small>MATTER</small><strong>{Math.floor(matter)}</strong></div>
-          <div className="resource energy"><span className="resource-glyph">ϟ</span><small>ENERGY</small><strong>{Math.floor(energy)}</strong></div>
-          <div className="resource data"><span className="resource-glyph">✦</span><small>DATA</small><strong>{Math.floor(data)}</strong></div>
-          <div className="resource agents"><span className="resource-glyph">⬡</span><small>AGENTS</small><strong>{used}{reserved > 0 ? `+${reserved}` : ''} / {max}</strong></div>
+          <Resource kind="matter" glyph="◆" label="MATTER" amount={matter} rate={income.matter} />
+          <Resource kind="energy" glyph="ϟ" label="ENERGY" amount={energy} rate={income.energy} />
+          <Resource kind="data" glyph="✦" label="DATA" amount={data} rate={income.data} />
+          <div className="resource agents"><span className="resource-glyph">⬡</span><div className="resource-body"><small>AGENTS</small><strong>{used}{reserved > 0 ? `+${reserved}` : ''} / {max}</strong></div></div>
         </div>
         <div className="hud-status"><button type="button" className="audio-toggle" onClick={toggleAudio} aria-pressed={audioMuted} title={audioMuted ? 'Sound off' : 'Sound on'}>{audioMuted ? '🔇' : '🔊'}</button><input className="volume-slider" aria-label="Sound volume" type="range" min="0" max="1" step="0.05" value={audioVolume} onChange={(event) => setAudioVolume(Number(event.target.value))} /></div>
       </header>
@@ -47,6 +66,8 @@ export function GameHud() {
       {generation > 1 && <div key={generation} className="generation-banner" role="status">
         <small>COGNITION BLOOM COMPLETE</small><strong>GENERATION {generation}</strong><span>{GENERATIONS[generation].label}</span>
       </div>}
+
+      <Minimap />
 
       <footer className="command-deck">
         <SelectionPanel />
