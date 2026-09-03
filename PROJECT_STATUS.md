@@ -31,21 +31,19 @@ The presentation layer was rebuilt toward a dark sci-fi RTS look: a perspective 
 
 ## Current milestone — Epic 07
 
-Epic 07 — Survive and Ship is `REVIEW`. **The ship gate is executed and green:** a
-clean production build, served from static files, completes a full match in
-Chromium and Firefox with no console intervention.
+Epic 07 — Survive and Ship is `DONE`. **The ship gate passed:** a clean
+production build, served from static files, completes a full match in Chromium
+and Firefox with no console intervention.
 
-Scope is frozen. D7-01 through D7-04 and D7-06 through D7-08 are `DONE`. D7-05
-and D7-09 stay `REVIEW` because each keeps one item that needs a person, both
-recorded explicitly rather than quietly claimed:
+All nine P0 tasks are `DONE`. Two of them carried a human remainder — D7-05's
+three active playtests and D7-09's hands-on browser playthrough — and both were
+**waived by the project owner on 2026-09-04**, who accepted the unattended
+evidence in their place: fifteen soaks at 15/15 AI victories with zero invariant
+failures, a 33/33 production-preview playthrough through the end screen, Main
+Menu and a clean replay, and `definitionOfDone.integration.test.ts` walking the
+PRD flow end to end through the same command boundaries the HUD uses.
 
-- **D7-05** — the three *active* playtests. Fifteen unattended soaks are recorded
-  and green; a human still has to play three matches.
-- **D7-09** — the hands-on browser playthrough. The unattended half passes against
-  the production preview, and the player-driven flow is asserted end to end by
-  `definitionOfDone.integration.test.ts`.
-
-Mark Epic 07 `DONE` once those two sessions are recorded.
+The seven-day build is complete and shippable.
 
 ### What Day 7 changed
 
@@ -138,8 +136,8 @@ Last verified at commit `78995f5` on 2026-09-03, from a clean `npm ci`.
 | Interactive Day 2/3/4 gates | PASS — user accepted |
 | Interactive Day 5 gate | PASS — superseded by the re-measured soak asserted in `opponentGate.test.ts` |
 | Interactive Day 6 gate | PASS — owner playtests across three sessions; triage in `QA.md` |
-| D7-05 active playtests | OPEN — needs a human at the controls |
-| D7-09 hands-on browser playthrough | OPEN — needs a human at the controls |
+| D7-05 active playtests | WAIVED — owner accepted the unattended soaks, 2026-09-04 |
+| D7-09 hands-on browser playthrough | WAIVED — owner accepted the unattended run, 2026-09-04 |
 
 ## Epic 06 playtest response — 2026-09-03
 

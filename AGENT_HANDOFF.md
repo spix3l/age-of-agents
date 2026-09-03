@@ -102,7 +102,7 @@ Select the Core to evolve from **Awakening** to **Autonomy** and then **Singular
 
 Selected Workers can place Relay Nodes, Fabricators, Habitats, Storage Depots, Barrier Walls, Gates, and Field Outposts in Generation I; Zap Turrets unlock in Generation II and the Heavy Foundry in Generation III. **R** quarter-turns the pending footprint, and wall, gate, and habitat placement stays armed so a run can be clicked or dragged out in one gesture. Every structure visibly rebuilds itself at each Generation. Fabricators produce Strikers plus unlocked Rangers/Scouts; Foundries produce Titans. The top bar shows Generation and all three resources. Sound can be muted and adjusted from the top-right controls.
 
-Epic 07 — Survive and Ship is `REVIEW` with its ship gate executed and green. Epics 01 through 06 are `DONE`. Epic 06 closed on 2026-09-03 with all sixteen tasks complete, every automated check green (typecheck, lint, 44 files / 138 tests, production build), and the usability triage recorded in `QA.md`. D6-11's pass was run by the project owner rather than an outside tester; per-milestone timing carries into D7-06's QA matrix. Epic 07 — Survive and Ship is the active epic; start at D7-01 and treat the feature set as frozen.
+Epics 01 through 07 are `DONE`; the Day 7 ship gate passed. Epic 06 closed on 2026-09-03 with all sixteen tasks complete, every automated check green (typecheck, lint, 44 files / 138 tests, production build), and the usability triage recorded in `QA.md`. D6-11's pass was run by the project owner rather than an outside tester; per-milestone timing carries into D7-06's QA matrix. Epic 07 — Survive and Ship is the active epic; start at D7-01 and treat the feature set as frozen.
 
 ## Day 5 controls and completion state
 
@@ -132,10 +132,9 @@ Epics 01 through 03 are complete. The user accepted Epic 03's colony gate on 202
 
 ## Day 7 release state
 
-Scope is frozen; no feature work remains. D7-01 through D7-04 and D7-06 through
-D7-08 are `DONE`. D7-05 and D7-09 are `REVIEW`, each holding exactly one item
-that needs a person: three *active* playtests, and one hands-on browser
-playthrough. Everything else about both tasks is measured and recorded.
+The seven-day build is complete. All nine P0 tasks are `DONE`; D7-05's active
+playtests and D7-09's hands-on playthrough were waived by the project owner on
+2026-09-04 in favour of the recorded unattended evidence.
 
 Last verified at commit `78995f5` from a clean `npm ci`: typecheck, lint, 157
 tests (three consecutive runs), production build, static preview, Chromium and
@@ -145,3 +144,5 @@ with zero invariant failures.
 If you are picking this up: read `README.md`, then `PERFORMANCE.md` before
 changing anything in a hot loop, and re-run `node scripts/browser-qa.mjs
 --headed --full` before claiming the ship gate again.
+
+Post-release work lives in Epic 08.

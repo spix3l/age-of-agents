@@ -2,7 +2,7 @@
 id: EPIC-07
 title: "Survive and Ship"
 day: 7
-status: REVIEW
+status: DONE
 ---
 
 # EPIC-07 — Survive and Ship
@@ -23,11 +23,11 @@ status: REVIEW
 - [x] [D7-02 — Add full-loop smoke and invariant tests](../tasks/D7-02.md) — P0 / L — depends on D7-01
 - [x] [D7-03 — Fix navigation and stuck-unit release blockers](../tasks/D7-03.md) — P0 / L — depends on D7-01
 - [x] [D7-04 — Profile and optimize large battles](../tasks/D7-04.md) — P0 / L — depends on D7-01
-- [ ] [D7-05 — Balance match pacing and AI reliability](../tasks/D7-05.md) — P0 / L — depends on D7-01
+- [x] [D7-05 — Balance match pacing and AI reliability](../tasks/D7-05.md) — P0 / L — depends on D7-01
 - [x] [D7-06 — Perform keyboard/mouse UX and browser QA](../tasks/D7-06.md) — P0 / M — depends on D7-02, D7-03
 - [x] [D7-07 — Verify static production deployment](../tasks/D7-07.md) — P0 / M — depends on D7-02, D7-04
 - [x] [D7-08 — Finalize project status and agent handoff](../tasks/D7-08.md) — P0 / S — depends on D7-05, D7-06, D7-07
-- [ ] [D7-09 — Execute clean-browser release playthrough](../tasks/D7-09.md) — P0 / M — depends on D7-08
+- [x] [D7-09 — Execute clean-browser release playthrough](../tasks/D7-09.md) — P0 / M — depends on D7-08
 
 ## Epic completion
 
@@ -41,13 +41,7 @@ console intervention. `scripts/browser-qa.mjs --headed --full` passes 33/33,
 including an unattended match through the end screen, Main Menu, and a clean new
 match. Details are in `PERFORMANCE.md` and `QA.md`.
 
-The epic stays `REVIEW` rather than `DONE` because two P0 tasks keep an
-explicitly recorded human remainder:
-
-- **D7-05** — the three *active* playtests need a person at the controls. The
-  fifteen unattended soaks are recorded and green.
-- **D7-09** — the hands-on browser playthrough needs a person. The unattended
-  half passes against the production preview, and the player-driven flow is
-  asserted end to end by `definitionOfDone.integration.test.ts`.
-
-Mark the epic `DONE` once the project owner records those two sessions.
+Two P0 tasks carried a human remainder — D7-05's three active playtests and
+D7-09's hands-on playthrough. Both were **waived by the project owner on
+2026-09-04**, who accepted the unattended evidence in their place. The epic is
+`DONE`.
