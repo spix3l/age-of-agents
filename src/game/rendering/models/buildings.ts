@@ -93,6 +93,41 @@ class Kit {
     return mesh;
   }
 
+  /**
+   * A ring of dark buttress pods with a lit face, set around a polygonal mass. This is the
+   * reference art's signature silhouette: the bulk is a bright armoured drum, and what makes it
+   * read as machinery rather than a cake is the dark pods bolted around its skirt.
+   */
+  podRing(key: string, radius: number, y: number, count: number, size: Vec3, at: Vec3 = [0, 0, 0], phase = 0): THREE.Group {
+    const group = new THREE.Group();
+    const frame = this.cache.frame(this.team);
+    for (let index = 0; index < count; index += 1) {
+      const angle = phase + (index / count) * Math.PI * 2;
+      const pod = this.box(`${key}-pod`, size, frame, [Math.cos(angle) * radius, y, Math.sin(angle) * radius], 0.05, false);
+      pod.rotation.y = -angle;
+      group.add(pod);
+      // The lit face points outward, so a ring of pods reads as a ring of lights at range.
+      const lens = this.strip(`${key}-pod-lens`, [size[0] * 0.52, size[1] * 0.44, 0.05],
+        [Math.cos(angle) * (radius + size[2] / 2), y, Math.sin(angle) * (radius + size[2] / 2)], -angle, 2.4);
+      group.add(lens);
+    }
+    group.position.set(...at);
+    return group;
+  }
+
+  /**
+   * The dark plinth every structure stands on. Value contrast at the ground line is what stops a
+   * white building from dissolving into a pale floor.
+   */
+  chassis(key: string, radius: number, height: number, at: Vec3 = [0, 0, 0], sides = 8): THREE.Mesh {
+    return this.drum(key, radius, radius * 1.06, height, this.cache.frame(this.team), [at[0], at[1] + height / 2, at[2]], sides);
+  }
+
+  /** A dark seam between two bright masses, so tiers read as separate plates rather than a cone. */
+  seam(key: string, radius: number, y: number, sides = 8): THREE.Mesh {
+    return this.drum(key, radius, radius, 0.14, this.cache.panel(), [0, y, 0], sides, false);
+  }
+
   antenna(key: string, at: Vec3, height = 1.2): THREE.Group {
     const group = new THREE.Group();
     const mast = new THREE.Mesh(this.cache.geometry(`${key}-mast-${height}`, () => new THREE.CylinderGeometry(0.04, 0.06, height, 5)), this.cache.steel());
@@ -116,9 +151,12 @@ function buildCore(kit: Kit): BuildingModel {
 
   group.add(kit.drum('core-plinth', 2.9, 3.05, 0.4, frame, [0, 0.2, 0]));
   group.add(kit.ringStrips('core-plinth-strip', 2.92, 0.36, 2.1, 0.05, 8, 1.8));
+  group.add(kit.podRing('core-skirt', 2.72, 0.62, 8, [0.62, 0.72, 0.5], [0, 0, 0], Math.PI / 8));
   const tiers: Array<[number, number, number, number]> = [[2.55, 2.8, 1.3, 0.4], [2.0, 2.3, 1.2, 1.7], [1.45, 1.75, 1.1, 2.9]];
   for (const [index, [top, bottom, height, y]] of tiers.entries()) {
     group.add(kit.drum(`core-tier-${index}`, top, bottom, height, index === 1 ? plate : hull, [0, y + height / 2, 0]));
+    // A dark collar where each tier meets the next: the reference separates every plate.
+    group.add(kit.seam(`core-seam-${index}`, bottom + 0.03, y + 0.05));
     group.add(kit.ringStrips(`core-tier-strip-${index}`, top + 0.02, y + height - 0.12, top * 0.72, 0.06, 8, 2.4));
     for (let side = 0; side < 4; side += 1) {
       const angle = side * Math.PI / 2 + Math.PI / 4;

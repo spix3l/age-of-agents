@@ -15,7 +15,7 @@ status: TODO
 
 **Entry dependency:** [EPIC-07 — Survive and Ship](EPIC-07-release.md) must pass its ship gate.
 
-**Ship gate:** Two matches on different seeds are visibly different maps; a defeated first AI assault is followed by another; every Day 7 check stays green.
+**Ship gate:** Two matches on different seeds are visibly different maps and different opponent openings; a defeated assault is followed by another; the colony reads as the reference art direction; every Day 7 check stays green.
 
 ## Tasks
 
@@ -24,6 +24,9 @@ status: TODO
 - [ ] [D8-03 — Seed map variation and enrich resources](../tasks/D8-03.md) — P1 / L — depends on D7-09
 - [ ] [D8-04 — Add a minimap](../tasks/D8-04.md) — P1 / M — depends on D8-03
 - [ ] [D8-05 — Make match results shareable](../tasks/D8-05.md) — P1 / M — depends on D7-09
+- [ ] [D8-07 — Vary the opponent's opening between matches](../tasks/D8-07.md) — P1 / M — depends on D8-02
+- [ ] [D8-08 — Give the opponent a real colony and real defenses](../tasks/D8-08.md) — P1 / M — depends on D8-02
+- [ ] [D8-09 — Rebuild the visual language as clean sci-fi](../tasks/D8-09.md) — P1 / L — depends on D8-01
 - [ ] [D8-06 — Player-versus-player](../tasks/D8-06.md) — P2 / L — DEFERRED
 
 ## Epic completion

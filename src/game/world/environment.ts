@@ -31,8 +31,9 @@ const FAR_RANGES: readonly WorldObstacle[] = [
   { id: 'range-south-east', center: { x: 90, z: 134 }, size: { x: 40, z: 18 }, height: 9, rotation: -0.1 },
 ];
 
-const SANDSTONE = [0x5d6166, 0x6c7076, 0x7b7f84];
-const GRASS_CAP = 0x4f7a34;
+// Cold slate rock. The mesas are backdrop: they must never out-brighten a structure.
+const SANDSTONE = [0x6a6f74, 0x7a8087, 0x8a9099];
+const GRASS_CAP = 0x5a8a3c;
 
 function hash(seed: number): number {
   const value = Math.sin(seed * 12.9898 + 78.233) * 43_758.5453;
@@ -131,19 +132,20 @@ export class Environment {
     const positions = geometry.getAttribute('position') as THREE.BufferAttribute;
     const colors = new Float32Array(positions.count * 3);
     const color = new THREE.Color();
-    const shadow = new THREE.Color(0x101e26);
+    const shadow = new THREE.Color(0x16242c);
     for (let index = 0; index < positions.count; index += 1) {
       const x = positions.getX(index);
       const z = positions.getZ(index);
       const height = terrainHeight(x, z);
       positions.setY(index, height);
 
-      // Meadow green with broad patches and fine speckle, so the field never reads as one flat tint.
+      // Lush meadow green with broad patches and fine speckle. The gunmetal structures are the
+      // dark shapes in the frame, so the field is what supplies its light and colour.
       const patch = fbm(x * 0.02 + 40, z * 0.02 + 40);
       const speckle = hash2(Math.round(x), Math.round(z));
-      const hue = 0.235 + patch * 0.035;
-      const lightness = 0.17 + patch * 0.07 + speckle * 0.03;
-      color.setHSL(hue, 0.42, lightness);
+      const hue = 0.245 + patch * 0.03;
+      const lightness = 0.235 + patch * 0.085 + speckle * 0.035;
+      color.setHSL(hue, 0.46, lightness);
       const outside = distanceOutside(x, z);
       if (outside > 0) {
         // Beyond the map the land is forever unexplored: colder and darker, matching the fog.
@@ -152,7 +154,7 @@ export class Environment {
         color.lerp(shadow, dim * 0.92);
       }
       const basin = pondDepth(x, z);
-      if (basin > 0) color.lerp(new THREE.Color(0x2b2f2e), Math.min(1, basin * 1.2));
+      if (basin > 0) color.lerp(new THREE.Color(0x33413a), Math.min(1, basin * 1.2));
       colors[index * 3] = color.r; colors[index * 3 + 1] = color.g; colors[index * 3 + 2] = color.b;
     }
     geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
@@ -165,7 +167,7 @@ export class Environment {
   }
 
   private buildWater(): void {
-    const material = this.track(new THREE.MeshStandardMaterial({ color: 0x14344a, roughness: 0.18, metalness: 0.05, transparent: true, opacity: 0.92, flatShading: true }));
+    const material = this.track(new THREE.MeshStandardMaterial({ color: 0x1d5773, roughness: 0.1, metalness: 0.3, transparent: true, opacity: 0.9, flatShading: true }));
     for (const pond of PONDS) {
       const geometry = this.track(new THREE.CircleGeometry(pond.radius + 2, 28));
       const mesh = new THREE.Mesh(geometry, material);
@@ -234,7 +236,7 @@ export class Environment {
   private mesaMaterial(band: number, distant: boolean): THREE.MeshStandardMaterial {
     const base = band < 0 ? GRASS_CAP : SANDSTONE[band]!;
     if (!distant) return this.material(band < 0 ? 'mesa-cap' : `mesa-${band}`, base);
-    const dimmed = new THREE.Color(base).lerp(new THREE.Color(0x101e26), 0.88).getHex();
+    const dimmed = new THREE.Color(base).lerp(new THREE.Color(0x16242c), 0.88).getHex();
     return this.material(band < 0 ? 'mesa-cap-far' : `mesa-${band}-far`, dimmed);
   }
 
@@ -310,7 +312,7 @@ export class Environment {
     const position = new THREE.Vector3();
     const scale = new THREE.Vector3();
     const tint = new THREE.Color();
-    const dim = new THREE.Color(0x101e26);
+    const dim = new THREE.Color(0x16242c);
 
     const trunks = new THREE.InstancedMesh(trunkGeometry, trunkMaterial, trees.length);
     const roundCrowns = new THREE.InstancedMesh(roundGeometry, leafMaterial, rounds.length * 2 + bushes.length);
@@ -334,8 +336,8 @@ export class Environment {
       place(trunks, trunkIndex, tree.x, tree.y + trunkHeight / 2, tree.z, scale, yaw, tint);
       trunkIndex += 1;
       // Leaf colour drifts between spring lime and deep pine so a forest is never one green.
-      const leafHue = 0.27 + hash(index * 7.7) * 0.1;
-      tint.setHSL(leafHue, 0.38 + hash(index * 2.1) * 0.15, 0.2 + hash(index * 4.9) * 0.1).lerp(dim, tree.shade);
+      const leafHue = 0.26 + hash(index * 7.7) * 0.09;
+      tint.setHSL(leafHue, 0.42 + hash(index * 2.1) * 0.14, 0.2 + hash(index * 4.9) * 0.1).lerp(dim, tree.shade);
       if (tree.pine) {
         scale.set(tree.scale * 1.05, tree.scale * 1.15, tree.scale * 1.05);
         place(pineCrowns, pineIndex, tree.x, tree.y + trunkHeight + tree.scale * 0.95, tree.z, scale, yaw, tint);
@@ -351,7 +353,7 @@ export class Environment {
       }
     }
     for (const [index, bush] of bushes.entries()) {
-      tint.setHSL(0.27 + hash(index * 9.1) * 0.06, 0.4, 0.22 + hash(index * 1.3) * 0.08);
+      tint.setHSL(0.27 + hash(index * 9.1) * 0.06, 0.42, 0.24 + hash(index * 1.3) * 0.08);
       scale.set(bush.scale * 1.3, bush.scale, bush.scale * 1.2);
       place(roundCrowns, roundIndex, bush.x, bush.y + bush.scale * 0.55, bush.z, scale, hash(index) * Math.PI, tint);
       roundIndex += 1;
@@ -398,7 +400,7 @@ export class Environment {
     };
 
     const tufts = new THREE.InstancedMesh(this.geometry('tuft', () => new THREE.ConeGeometry(0.22, 0.55, 3)), this.material('tuft', 0xffffff, 1, 0), 4200);
-    fill(tufts, 4200, 900, 0.45, 0.9, (index) => tint.setHSL(0.24 + hash(index * 3.7) * 0.04, 0.45, 0.2 + hash(index * 1.9) * 0.1), (s) => s * 0.22, 1);
+    fill(tufts, 4200, 900, 0.45, 0.9, (index) => tint.setHSL(0.25 + hash(index * 3.7) * 0.04, 0.48, 0.24 + hash(index * 1.9) * 0.1), (s) => s * 0.22, 1);
 
     const flowers = new THREE.InstancedMesh(this.geometry('flower', () => new THREE.SphereGeometry(0.12, 5, 4)), this.material('flower', 0xffffff, 0.9, 0), 700);
     const petals = [0xf3e39a, 0xe6b64d, 0xd9d3a8, 0x9fc9d8];
@@ -406,7 +408,7 @@ export class Environment {
 
     const pebbles = new THREE.InstancedMesh(this.geometry('pebble', () => new THREE.DodecahedronGeometry(0.18, 0)), this.material('pebble', 0xffffff, 0.95, 0.05), 420);
     pebbles.castShadow = true;
-    fill(pebbles, 420, 7800, 0.6, 1.6, (index) => tint.setHSL(0.6, 0.05, 0.28 + hash(index * 5.1) * 0.15), (s) => s * 0.07, 0.6);
+    fill(pebbles, 420, 7800, 0.6, 1.6, (index) => tint.setHSL(0.6, 0.05, 0.3 + hash(index * 5.1) * 0.15), (s) => s * 0.07, 0.6);
   }
 
   private readonly geometries = new Map<string, THREE.BufferGeometry>();

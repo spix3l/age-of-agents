@@ -79,13 +79,16 @@ export class WorldScene {
   private readonly fogPixels: Uint8Array;
 
   constructor() {
-    // The canvas is transparent: the sky gradient behind it shows above the horizon, and
-    // distance fog fades the far hills into the same pale blue.
-    this.scene.background = new THREE.Color(0x13202a);
-    this.scene.fog = new THREE.Fog(0x13202a, 160, 420);
-    this.scene.add(new THREE.HemisphereLight(0xa9cde3, 0x33452e, 1.0));
+    // Daylight over a green valley. The structures are the dark, saturated shapes in the frame;
+    // the world is what lights them.
+    this.scene.background = new THREE.Color(0x16242c);
+    // Pushed out to match the isometric camera's longer sightline to the horizon.
+    this.scene.fog = new THREE.Fog(0x16242c, 230, 680);
+    this.scene.add(new THREE.HemisphereLight(0xa9cde3, 0x3f5a30, 1.05));
     this.scene.add(new THREE.AmbientLight(0xbfd6e6, 0.3));
-    this.sun = new THREE.DirectionalLight(0xffe9cc, 2.1);
+    // A hard, slightly warm key for daylight. The crisp panel shadows on a structure come from
+    // one strong source, not from stacked fills.
+    this.sun = new THREE.DirectionalLight(0xfff2dd, 2.5);
     this.sun.position.set(SUN_OFFSET.x, SUN_OFFSET.y, SUN_OFFSET.z);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
@@ -93,10 +96,19 @@ export class WorldScene {
     this.sun.shadow.normalBias = 0.08;
     // The shadow frustum stays tight and travels with the camera, so a large map keeps
     // crisp shadows instead of stretching one huge low-resolution map across it.
-    this.sun.shadow.camera.left = -38; this.sun.shadow.camera.right = 38;
-    this.sun.shadow.camera.top = 34; this.sun.shadow.camera.bottom = -34;
+    // Sized for the isometric camera's footprint. Too tight and the frustum edge shows as a
+    // hard diagonal band where shadows simply stop being drawn.
+    this.sun.shadow.camera.left = -95; this.sun.shadow.camera.right = 95;
+    this.sun.shadow.camera.top = 85; this.sun.shadow.camera.bottom = -85;
     this.sun.shadow.camera.near = 1;
-    this.sun.shadow.camera.far = 260;
+    this.sun.shadow.camera.far = 420;
+    // A cold rim from behind and opposite the key. This is what separates a dark chassis from a
+    // dark background and gives every silhouette its lit edge; it casts no shadow, so it is
+    // nearly free.
+    const rim = new THREE.DirectionalLight(0x86b9e8, 0.75);
+    rim.position.set(-SUN_OFFSET.x * 0.8, SUN_OFFSET.y * 0.55, -SUN_OFFSET.z * 0.9);
+    this.scene.add(rim, rim.target);
+
     this.scene.add(this.sun, this.sun.target);
 
     this.environment = new Environment();
@@ -149,8 +161,10 @@ export class WorldScene {
     this.sun.target.position.set(focus.x, 0, focus.z);
     this.sun.position.set(focus.x + SUN_OFFSET.x, SUN_OFFSET.y, focus.z + SUN_OFFSET.z);
     this.sun.target.updateMatrixWorld();
-    // The frustum tracks the visible area so a wide view still casts shadows at its edges.
-    const half = THREE.MathUtils.clamp(38 / zoom, 38, 130);
+    // The frustum tracks the visible area so a wide view still casts shadows at its edges. The
+    // isometric camera sees a much larger footprint than the old steep one, so the floor is
+    // higher; too small and the frustum edge reads as a hard diagonal band across the ground.
+    const half = THREE.MathUtils.clamp(95 / zoom, 80, 190);
     if (Math.abs(this.sun.shadow.camera.right - half) > 1) {
       this.sun.shadow.camera.left = -half; this.sun.shadow.camera.right = half;
       this.sun.shadow.camera.top = half * 0.88; this.sun.shadow.camera.bottom = -half * 0.88;

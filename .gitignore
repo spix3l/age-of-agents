@@ -4,7 +4,8 @@ dist/
 .DS_Store
 coverage/
 
-# Batch 3D generator scratch output (`scripts/gen3d_batch.py`); regenerate, never commit.
-models/
+# `models/` is committed: it is the reference art direction for the visual language.
+# `models3d/` is 43MB of image-to-3D output we do not ship; regenerate with scripts/gen3d_batch.py.
 models3d/
 __pycache__/
+art/review/

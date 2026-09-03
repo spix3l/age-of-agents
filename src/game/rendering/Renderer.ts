@@ -26,7 +26,8 @@ export class Renderer {
     this.instance.shadowMap.type = THREE.PCFSoftShadowMap;
     this.instance.outputColorSpace = THREE.SRGBColorSpace;
     this.instance.toneMapping = THREE.ACESFilmicToneMapping;
-    this.instance.toneMappingExposure = 1.05;
+    // Lifted so the armour plates sit near white without the emissive strips clipping.
+    this.instance.toneMappingExposure = 1.12;
     this.instance.domElement.className = 'game-canvas';
     this.postEnabled = new URLSearchParams(globalThis.location?.search ?? '').get('post') !== 'off';
     container.append(this.instance.domElement);
@@ -59,7 +60,9 @@ export class Renderer {
     gtao.updateGtaoMaterial({ radius: 0.9, distanceExponent: 1, thickness: 1, scale: 1.3, samples: 12, distanceFallOff: 1, screenSpaceRadius: false });
     gtao.blendIntensity = 0.9;
     composer.addPass(gtao);
-    const bloom = new UnrealBloomPass(new THREE.Vector2(width, height), 0.3, 0.3, 0.88);
+    // Strength and threshold tuned so only the emissive strips bloom: the reference glows at
+    // the seams, it does not wash the whole frame.
+    const bloom = new UnrealBloomPass(new THREE.Vector2(width, height), 0.32, 0.5, 0.95);
     composer.addPass(bloom);
     composer.addPass(new OutputPass());
     this.composer = composer;

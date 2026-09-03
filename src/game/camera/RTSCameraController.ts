@@ -2,16 +2,22 @@ import * as THREE from 'three';
 import { MAP_BOUNDS, START_POSITIONS } from '../world/map';
 
 /**
- * A perspective camera that looks straight down the map's depth axis from a raised, tilted
- * position. Buildings sit square to the screen and the ground recedes toward a real horizon,
- * which is what gives a low-poly world its diorama feel. Zoom moves the camera along its
- * viewing ray rather than changing the projection.
+ * The Age of Empires framing: the camera looks straight down the map's depth axis from a raised,
+ * tilted position, so structures sit square to the screen and a wall built along X runs flat
+ * across it. Zoom moves the camera along its viewing ray rather than changing the projection.
+ *
+ * `PITCH` is measured up from the ground plane. At 60 -- where this used to sit -- you look down
+ * on roofs and the world reads as a top-down map; at 45 you see a structure's face and its top in
+ * comparable measure, which is the classic RTS read.
+ *
+ * There is deliberately no yaw. Turning the camera off-axis rotates the world's X axis away from
+ * the screen's, which makes walls run diagonally and every pan drift.
  */
-const PITCH = THREE.MathUtils.degToRad(60);
+const PITCH = THREE.MathUtils.degToRad(45);
 const FIELD_OF_VIEW = 34;
-const DEFAULT_DISTANCE = 72;
-const MIN_DISTANCE = 26;
-const MAX_DISTANCE = 170;
+const DEFAULT_DISTANCE = 78;
+const MIN_DISTANCE = 28;
+const MAX_DISTANCE = 180;
 
 export type PanDirection = 'up' | 'down' | 'left' | 'right';
 
@@ -32,7 +38,8 @@ export class RTSCameraController {
   private distance = DEFAULT_DISTANCE;
 
   constructor(private readonly canvas: HTMLCanvasElement) {
-    this.camera = new THREE.PerspectiveCamera(FIELD_OF_VIEW, 16 / 9, 1, 700);
+    // A shallower pitch sees much further toward the horizon, so the far plane moves out with it.
+    this.camera = new THREE.PerspectiveCamera(FIELD_OF_VIEW, 16 / 9, 1, 1100);
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
     canvas.addEventListener('wheel', this.onWheel, { passive: false });
@@ -56,10 +63,8 @@ export class RTSCameraController {
     if (this.pressed.has('right')) dx += 1;
     if (dx === 0 && dz === 0) return;
     const length = Math.hypot(dx, dz);
-    const speed = 36 / this.zoomLevel;
-    this.focus.x += (dx / length) * speed * delta;
-    this.focus.z += (dz / length) * speed * delta;
-    this.clampFocus();
+    const speed = 38 / this.zoomLevel;
+    this.panBy((dx / length) * speed * delta, (dz / length) * speed * delta);
     this.sync();
   }
 
@@ -94,12 +99,10 @@ export class RTSCameraController {
       return;
     }
 
-    // Two-finger trackpad scrolling pans in screen space. The camera looks straight down
-    // the depth axis, so screen X is world X and screen Y is world Z.
+    // Two-finger trackpad scrolling pans in screen space. With the camera yawed, screen axes are
+    // no longer world axes, so the gesture is resolved against the camera's own ground basis.
     const factor = 0.024 / this.zoomLevel;
-    this.focus.x += event.deltaX * factor;
-    this.focus.z += event.deltaY * factor;
-    this.clampFocus();
+    this.panBy(event.deltaX * factor, event.deltaY * factor);
     this.sync();
   };
 
@@ -107,6 +110,13 @@ export class RTSCameraController {
     this.camera.aspect = Math.max(0.25, this.canvas.clientWidth / Math.max(1, this.canvas.clientHeight));
     this.camera.updateProjectionMatrix();
   };
+
+  /** Moves the focus by a screen-space offset. Screen X is world X, screen Y is world Z. */
+  private panBy(screenX: number, screenY: number): void {
+    this.focus.x += screenX;
+    this.focus.z += screenY;
+    this.clampFocus();
+  }
 
   private clampFocus(): void {
     this.focus.x = THREE.MathUtils.clamp(this.focus.x, MAP_BOUNDS.minX + 3, MAP_BOUNDS.maxX - 3);
