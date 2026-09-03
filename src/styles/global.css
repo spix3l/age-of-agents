@@ -230,3 +230,29 @@ kbd { min-width: 34px; padding: 3px 6px; color: var(--ink); text-align: center; 
   /* On a short viewport the deck and the minimap would collide; the map gives way. */
   .minimap { transform: scale(.78); transform-origin: bottom left; }
 }
+
+/* ---- Match sharing -------------------------------------------------------------------- */
+
+.end-share {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 14px;
+}
+
+.end-seed {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .1em;
+  color: var(--muted);
+}
+
+/* A share action that fails must say so; a silent no-op reads as a broken button. */
+.end-share-note {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .1em;
+  color: var(--mint);
+}

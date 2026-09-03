@@ -13,7 +13,7 @@ This is the portfolio view for the file-backed backlog derived from [`PRD.md`](P
 | [EPIC-05](backlog/epics/EPIC-05-opponent.md) | Day 5 | The Other Intelligence | 7 | DONE |
 | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Day 6 | Evolution | 16 | DONE |
 | [EPIC-07](backlog/epics/EPIC-07-release.md) | Day 7 | Survive and Ship | 9 | DONE |
-| [EPIC-08](backlog/epics/EPIC-08-depth.md) | Day 8 | Depth and Replayability | 9 | TODO |
+| [EPIC-08](backlog/epics/EPIC-08-depth.md) | Day 8 | Depth and Replayability | 9 | REVIEW |
 
 ## Tasks
 
@@ -82,14 +82,14 @@ This is the portfolio view for the file-backed backlog derived from [`PRD.md`](P
 | [D7-07](backlog/tasks/D7-07.md) | [EPIC-07](backlog/epics/EPIC-07-release.md) | Verify static production deployment | P0 | M | D7-02, D7-04 | DONE |
 | [D7-08](backlog/tasks/D7-08.md) | [EPIC-07](backlog/epics/EPIC-07-release.md) | Finalize project status and agent handoff | P0 | S | D7-05, D7-06, D7-07 | DONE |
 | [D7-09](backlog/tasks/D7-09.md) | [EPIC-07](backlog/epics/EPIC-07-release.md) | Execute clean-browser release playthrough | P0 | M | D7-08 | DONE |
-| [D8-01](backlog/tasks/D8-01.md) | [EPIC-08](backlog/epics/EPIC-08-depth.md) | Correct the camera to an isometric read | P1 | S | D7-09 | TODO |
-| [D8-02](backlog/tasks/D8-02.md) | [EPIC-08](backlog/epics/EPIC-08-depth.md) | Make the AI recover and keep attacking | P1 | M | D7-09 | TODO |
-| [D8-03](backlog/tasks/D8-03.md) | [EPIC-08](backlog/epics/EPIC-08-depth.md) | Seed map variation and enrich resources | P1 | L | D7-09 | TODO |
-| [D8-04](backlog/tasks/D8-04.md) | [EPIC-08](backlog/epics/EPIC-08-depth.md) | Add a minimap | P1 | M | D8-03 | TODO |
-| [D8-05](backlog/tasks/D8-05.md) | [EPIC-08](backlog/epics/EPIC-08-depth.md) | Make match results shareable | P1 | M | D7-09 | TODO |
-| [D8-07](backlog/tasks/D8-07.md) | [EPIC-08](backlog/epics/EPIC-08-depth.md) | Vary the opponent's opening between matches | P1 | M | D8-02 | TODO |
-| [D8-08](backlog/tasks/D8-08.md) | [EPIC-08](backlog/epics/EPIC-08-depth.md) | Give the opponent a real colony and real defenses | P1 | M | D8-02 | TODO |
-| [D8-09](backlog/tasks/D8-09.md) | [EPIC-08](backlog/epics/EPIC-08-depth.md) | Rebuild the visual language as clean sci-fi | P1 | L | D8-01 | TODO |
+| [D8-01](backlog/tasks/D8-01.md) | [EPIC-08](backlog/epics/EPIC-08-depth.md) | Correct the camera to an isometric read | P1 | S | D7-09 | DONE |
+| [D8-02](backlog/tasks/D8-02.md) | [EPIC-08](backlog/epics/EPIC-08-depth.md) | Make the AI recover and keep attacking | P1 | M | D7-09 | DONE |
+| [D8-03](backlog/tasks/D8-03.md) | [EPIC-08](backlog/epics/EPIC-08-depth.md) | Seed map variation and enrich resources | P1 | L | D7-09 | DONE |
+| [D8-04](backlog/tasks/D8-04.md) | [EPIC-08](backlog/epics/EPIC-08-depth.md) | Add a minimap | P1 | M | D8-03 | DONE |
+| [D8-05](backlog/tasks/D8-05.md) | [EPIC-08](backlog/epics/EPIC-08-depth.md) | Make match results shareable | P1 | M | D7-09 | DONE |
+| [D8-07](backlog/tasks/D8-07.md) | [EPIC-08](backlog/epics/EPIC-08-depth.md) | Vary the opponent's opening between matches | P1 | M | D8-02 | DONE |
+| [D8-08](backlog/tasks/D8-08.md) | [EPIC-08](backlog/epics/EPIC-08-depth.md) | Give the opponent a real colony and real defenses | P1 | M | D8-02 | DONE |
+| [D8-09](backlog/tasks/D8-09.md) | [EPIC-08](backlog/epics/EPIC-08-depth.md) | Rebuild the visual language as clean sci-fi | P1 | L | D8-01 | IN PROGRESS |
 | [D8-06](backlog/tasks/D8-06.md) | [EPIC-08](backlog/epics/EPIC-08-depth.md) | Player-versus-player | P2 | L | D8-01, D8-03 | DEFERRED |
 
 ## Release rule

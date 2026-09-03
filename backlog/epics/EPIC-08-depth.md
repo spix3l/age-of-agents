@@ -2,7 +2,7 @@
 id: EPIC-08
 title: "Depth and Replayability"
 day: 8
-status: TODO
+status: REVIEW
 ---
 
 # EPIC-08 — Depth and Replayability
@@ -19,13 +19,13 @@ status: TODO
 
 ## Tasks
 
-- [ ] [D8-01 — Correct the camera to an isometric read](../tasks/D8-01.md) — P1 / S — depends on D7-09
-- [ ] [D8-02 — Make the AI recover and keep attacking](../tasks/D8-02.md) — P1 / M — depends on D7-09
-- [ ] [D8-03 — Seed map variation and enrich resources](../tasks/D8-03.md) — P1 / L — depends on D7-09
-- [ ] [D8-04 — Add a minimap](../tasks/D8-04.md) — P1 / M — depends on D8-03
-- [ ] [D8-05 — Make match results shareable](../tasks/D8-05.md) — P1 / M — depends on D7-09
-- [ ] [D8-07 — Vary the opponent's opening between matches](../tasks/D8-07.md) — P1 / M — depends on D8-02
-- [ ] [D8-08 — Give the opponent a real colony and real defenses](../tasks/D8-08.md) — P1 / M — depends on D8-02
+- [x] [D8-01 — Correct the camera to an isometric read](../tasks/D8-01.md) — P1 / S — depends on D7-09
+- [x] [D8-02 — Make the AI recover and keep attacking](../tasks/D8-02.md) — P1 / M — depends on D7-09
+- [x] [D8-03 — Seed map variation and enrich resources](../tasks/D8-03.md) — P1 / L — depends on D7-09
+- [x] [D8-04 — Add a minimap](../tasks/D8-04.md) — P1 / M — depends on D8-03
+- [x] [D8-05 — Make match results shareable](../tasks/D8-05.md) — P1 / M — depends on D7-09
+- [x] [D8-07 — Vary the opponent's opening between matches](../tasks/D8-07.md) — P1 / M — depends on D8-02
+- [x] [D8-08 — Give the opponent a real colony and real defenses](../tasks/D8-08.md) — P1 / M — depends on D8-02
 - [ ] [D8-09 — Rebuild the visual language as clean sci-fi](../tasks/D8-09.md) — P1 / L — depends on D8-01
 - [ ] [D8-06 — Player-versus-player](../tasks/D8-06.md) — P2 / L — DEFERRED
 
