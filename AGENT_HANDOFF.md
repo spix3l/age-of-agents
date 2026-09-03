@@ -1,6 +1,6 @@
 # Agent Handoff
 
-Read `PRD.md`, `BACKLOG.md`, and `PROJECT_STATUS.md` before changing code. Task files under `backlog/tasks/` are the authoritative work contracts.
+Read `README.md` first for how to run and deploy the project. Read `PRD.md`, `BACKLOG.md`, and `PROJECT_STATUS.md` before changing code, and `PERFORMANCE.md` before touching anything in a hot loop. Task files under `backlog/tasks/` are the authoritative work contracts.
 
 ## Run the project
 
@@ -11,6 +11,11 @@ npm run typecheck
 npm run lint
 npm test -- --run
 npm run build
+npm run preview
+
+# Browser gate. --headed is required for meaningful FPS; --full adds an unattended
+# match through the end screen, Main Menu, and a clean replay.
+npm run build && node scripts/browser-qa.mjs --headed [--browser firefox] [--full]
 ```
 
 ## Architecture map
@@ -19,6 +24,10 @@ npm run build
 - `src/game/Game.ts` is the presentation shell: renderer, camera, input, selection, placement, and HUD wiring around one `MatchSimulation`. Keep it thin and keep simulation logic out of it.
 - `src/game/ai/` is the opponent: `AIController` (3 Hz tick, memory, slices), `AIStrategy` (pure utility scoring), `AIContext` (read-only view + command adapter), `EconomyAI`, `BuildPlanner`, `MilitaryAI`, `AIKnowledge`.
 - `src/game/debug/` holds the category `Logger` and `runSoak`, the deterministic unattended match report used by the Day 5 gate.
+- `src/game/navigation/AStar.ts` is a binary-heap A* over reused, generation-stamped scratch buffers with a hard `MAX_EXPANSIONS` budget. It allocates nothing per search. `pathMetrics` counts searches and expansions for the profiler.
+- `src/game/util/phase.ts` gives a stable per-entity fraction. Use it to spread throttled per-entity work across an interval instead of firing it on the same step for every unit.
+- `src/game/debug/profileMatch.ts` times each simulation phase by wrapping systems on the instance; `profile.test.ts` and `pacing.bench.test.ts` are skipped harnesses that regenerate the tables in `PERFORMANCE.md` and `QA.md`.
+- `scripts/browser-qa.mjs` drives the production build in Chromium or Firefox: UX matrix, console/network errors, frame rate, and the full match lifecycle.
 - `src/game/util/Random.ts` is the only sanctioned source of randomness; seed it, never call `Math.random`.
 - `src/game/building/PlacementController.ts` owns snapped placement state and authoritative validation. `Game.ts` confirms placement by spending, creating the site, blocking its footprint, and assigning a builder as one rollback-safe transaction.
 - `src/game/GameState.ts` owns separate unit, building, and resource registries plus faction economies.
@@ -60,6 +69,12 @@ npm run build
 - React receives UI snapshots at 10 Hz. Simulation code cannot import React.
 - New browser listeners, animation frames, Three.js resources, and observers must be disposed on remount.
 - Human and future AI actions should converge on the same command/system boundaries.
+- A path search must stay bounded. `MAX_EXPANSIONS` is what stops an unreachable goal — a Worker walled into its own colony, an order clicked onto an island — from sweeping a 42,240-cell grid, repeatedly, at automation cadence.
+- Throttled per-entity work must be phase-spread with `entityPhase`, never scheduled on a shared step. Setting a cooldown to a constant makes a whole army pay its bill in one step.
+- A command that produced no effect is a refusal and must be reported as one. Never count an unroutable order as issued, and never set an activity the simulation did not actually start.
+- Performance regressions are guarded by deterministic counters (cell expansions, search counts), not wall clock. Millisecond thresholds are flaky under parallel-suite load.
+- `checkInvariants` in `src/game/debug/soak.ts` is the shared invariant set. Extend it there so `runSoak` and the integration suites both gain the check.
+- The build must stay a static bundle: no backend, API, authentication, WebSocket, or secret. `localStorage` is optional and every access is guarded.
 - Only `DamageService` writes HP. It rejects friendly fire and queues each death once; deaths are processed after every system has finished iterating.
 - Destroyed entities must go through `destroyEntity`. Never unregister an entity inline from a system loop.
 - Target acquisition runs at 5 Hz for idle auto-acquiring units only. Do not acquire targets per render frame.
@@ -87,7 +102,7 @@ Select the Core to evolve from **Awakening** to **Autonomy** and then **Singular
 
 Selected Workers can place Relay Nodes, Fabricators, Habitats, Storage Depots, Barrier Walls, Gates, and Field Outposts in Generation I; Zap Turrets unlock in Generation II and the Heavy Foundry in Generation III. **R** quarter-turns the pending footprint, and wall, gate, and habitat placement stays armed so a run can be clicked or dragged out in one gesture. Every structure visibly rebuilds itself at each Generation. Fabricators produce Strikers plus unlocked Rangers/Scouts; Foundries produce Titans. The top bar shows Generation and all three resources. Sound can be muted and adjusted from the top-right controls.
 
-Epics 01 through 06 are `DONE`. Epic 06 closed on 2026-09-03 with all sixteen tasks complete, every automated check green (typecheck, lint, 44 files / 138 tests, production build), and the usability triage recorded in `QA.md`. D6-11's pass was run by the project owner rather than an outside tester; per-milestone timing carries into D7-06's QA matrix. Epic 07 — Survive and Ship is the active epic; start at D7-01 and treat the feature set as frozen.
+Epic 07 — Survive and Ship is `REVIEW` with its ship gate executed and green. Epics 01 through 06 are `DONE`. Epic 06 closed on 2026-09-03 with all sixteen tasks complete, every automated check green (typecheck, lint, 44 files / 138 tests, production build), and the usability triage recorded in `QA.md`. D6-11's pass was run by the project owner rather than an outside tester; per-milestone timing carries into D7-06's QA matrix. Epic 07 — Survive and Ship is the active epic; start at D7-01 and treat the feature set as frozen.
 
 ## Day 5 controls and completion state
 
@@ -114,3 +129,19 @@ Selected Workers expose Relay/Fabricator placement and persistent **Auto Matter*
 Camera input remains layout-aware ZQSD on AZERTY plus arrow keys; two-finger trackpad scrolling pans and pinching zooms.
 
 Epics 01 through 03 are complete. The user accepted Epic 03's colony gate on 2026-09-02, and its automated checks are green. D3-07 rally points were intentionally cut as optional P1 scope.
+
+## Day 7 release state
+
+Scope is frozen; no feature work remains. D7-01 through D7-04 and D7-06 through
+D7-08 are `DONE`. D7-05 and D7-09 are `REVIEW`, each holding exactly one item
+that needs a person: three *active* playtests, and one hands-on browser
+playthrough. Everything else about both tasks is measured and recorded.
+
+Last verified at commit `78995f5` from a clean `npm ci`: typecheck, lint, 157
+tests (three consecutive runs), production build, static preview, Chromium and
+Firefox browser gates (33/33 with `--full`), and fifteen unattended pacing soaks
+with zero invariant failures.
+
+If you are picking this up: read `README.md`, then `PERFORMANCE.md` before
+changing anything in a hot loop, and re-run `node scripts/browser-qa.mjs
+--headed --full` before claiming the ship gate again.

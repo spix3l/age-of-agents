@@ -12,7 +12,7 @@ This is the portfolio view for the file-backed backlog derived from [`PRD.md`](P
 | [EPIC-04](backlog/epics/EPIC-04-war.md) | Day 4 | War | 7 | DONE |
 | [EPIC-05](backlog/epics/EPIC-05-opponent.md) | Day 5 | The Other Intelligence | 7 | DONE |
 | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Day 6 | Evolution | 16 | DONE |
-| [EPIC-07](backlog/epics/EPIC-07-release.md) | Day 7 | Survive and Ship | 9 | TODO |
+| [EPIC-07](backlog/epics/EPIC-07-release.md) | Day 7 | Survive and Ship | 9 | REVIEW |
 
 ## Tasks
 
@@ -72,15 +72,15 @@ This is the portfolio view for the file-backed backlog derived from [`PRD.md`](P
 | [D6-14](backlog/tasks/D6-14.md) | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Double the battlefield and refill it | P1 | M | D6-03 | DONE |
 | [D6-15](backlog/tasks/D6-15.md) | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Make colonies buildable as villages | P1 | M | D6-12, D6-13 | DONE |
 | [D6-16](backlog/tasks/D6-16.md) | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Give every structure real Generation upgrades | P1 | M | D6-02, D6-09 | DONE |
-| [D7-01](backlog/tasks/D7-01.md) | [EPIC-07](backlog/epics/EPIC-07-release.md) | Freeze scope and build the release bug board | P0 | S | D5-07, D6-01 | TODO |
-| [D7-02](backlog/tasks/D7-02.md) | [EPIC-07](backlog/epics/EPIC-07-release.md) | Add full-loop smoke and invariant tests | P0 | L | D7-01 | TODO |
-| [D7-03](backlog/tasks/D7-03.md) | [EPIC-07](backlog/epics/EPIC-07-release.md) | Fix navigation and stuck-unit release blockers | P0 | L | D7-01 | TODO |
-| [D7-04](backlog/tasks/D7-04.md) | [EPIC-07](backlog/epics/EPIC-07-release.md) | Profile and optimize large battles | P0 | L | D7-01 | TODO |
-| [D7-05](backlog/tasks/D7-05.md) | [EPIC-07](backlog/epics/EPIC-07-release.md) | Balance match pacing and AI reliability | P0 | L | D7-01 | TODO |
-| [D7-06](backlog/tasks/D7-06.md) | [EPIC-07](backlog/epics/EPIC-07-release.md) | Perform keyboard/mouse UX and browser QA | P0 | M | D7-02, D7-03 | TODO |
-| [D7-07](backlog/tasks/D7-07.md) | [EPIC-07](backlog/epics/EPIC-07-release.md) | Verify static production deployment | P0 | M | D7-02, D7-04 | TODO |
-| [D7-08](backlog/tasks/D7-08.md) | [EPIC-07](backlog/epics/EPIC-07-release.md) | Finalize project status and agent handoff | P0 | S | D7-05, D7-06, D7-07 | TODO |
-| [D7-09](backlog/tasks/D7-09.md) | [EPIC-07](backlog/epics/EPIC-07-release.md) | Execute clean-browser release playthrough | P0 | M | D7-08 | TODO |
+| [D7-01](backlog/tasks/D7-01.md) | [EPIC-07](backlog/epics/EPIC-07-release.md) | Freeze scope and build the release bug board | P0 | S | D5-07, D6-01 | DONE |
+| [D7-02](backlog/tasks/D7-02.md) | [EPIC-07](backlog/epics/EPIC-07-release.md) | Add full-loop smoke and invariant tests | P0 | L | D7-01 | DONE |
+| [D7-03](backlog/tasks/D7-03.md) | [EPIC-07](backlog/epics/EPIC-07-release.md) | Fix navigation and stuck-unit release blockers | P0 | L | D7-01 | DONE |
+| [D7-04](backlog/tasks/D7-04.md) | [EPIC-07](backlog/epics/EPIC-07-release.md) | Profile and optimize large battles | P0 | L | D7-01 | DONE |
+| [D7-05](backlog/tasks/D7-05.md) | [EPIC-07](backlog/epics/EPIC-07-release.md) | Balance match pacing and AI reliability | P0 | L | D7-01 | REVIEW |
+| [D7-06](backlog/tasks/D7-06.md) | [EPIC-07](backlog/epics/EPIC-07-release.md) | Perform keyboard/mouse UX and browser QA | P0 | M | D7-02, D7-03 | DONE |
+| [D7-07](backlog/tasks/D7-07.md) | [EPIC-07](backlog/epics/EPIC-07-release.md) | Verify static production deployment | P0 | M | D7-02, D7-04 | DONE |
+| [D7-08](backlog/tasks/D7-08.md) | [EPIC-07](backlog/epics/EPIC-07-release.md) | Finalize project status and agent handoff | P0 | S | D7-05, D7-06, D7-07 | DONE |
+| [D7-09](backlog/tasks/D7-09.md) | [EPIC-07](backlog/epics/EPIC-07-release.md) | Execute clean-browser release playthrough | P0 | M | D7-08 | REVIEW |
 
 ## Release rule
 

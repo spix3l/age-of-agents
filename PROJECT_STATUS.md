@@ -29,28 +29,72 @@ Three defects from the user's village playtest, all regression-tested:
 
 The presentation layer was rebuilt toward a dark sci-fi RTS look: a perspective camera pitched at 60°, gunmetal octagonal structures with faction light strips and warning lamps, a Core light beam, chibi mechs, a mossy forested world with stratified mesas and ponds beyond the playfield, softer fog of war drawn as a screen overlay, and a dark glass HUD with less text. Simulation, balance, and tests are unchanged. `?scenario=showcase` lays out every building and unit for review.
 
-## Current milestone
+## Current milestone — Epic 07
 
-Epic 06 — Evolution is `DONE`, and Epic 05 closed with it. The Core advances Awakening → Autonomy
-→ Singularity by spending Matter, Energy, and gathered Data; progression unlocks Ranger and Scout
-production, Zap Turrets, then the Heavy Foundry and Titan, and every existing structure visibly
-rebuilds itself at each Generation.
+Epic 07 — Survive and Ship is `REVIEW`. **The ship gate is executed and green:** a
+clean production build, served from static files, completes a full match in
+Chromium and Firefox with no console intervention.
 
-Fog of War hides unseen entities and retains explored terrain; the AI gathers Data and advances
-naturally while still discovering the player through physical vision. Essential procedural audio,
-persistent sound controls, expanded end statistics, Barrier Walls, Gates, Habitats, Storage Depots,
-Field Outposts, a 240 x 176 playfield, a dark sci-fi visual pass, and the menu/onboarding flow are
-all present.
+Scope is frozen. D7-01 through D7-04 and D7-06 through D7-08 are `DONE`. D7-05
+and D7-09 stay `REVIEW` because each keeps one item that needs a person, both
+recorded explicitly rather than quietly claimed:
 
-D6-01 through D6-16 are `DONE`. D6-11's usability pass was executed by the project owner across
-three sessions rather than an outside tester; its triage is recorded in `QA.md`, and per-milestone
-timing measurement carries into D7-06 rather than staying open. D5-07's opponent gate is `DONE`:
-its acceptance is asserted on the shipped seeds by `src/game/ai/opponentGate.test.ts`, re-measured
-after the map change.
+- **D7-05** — the three *active* playtests. Fifteen unattended soaks are recorded
+  and green; a human still has to play three matches.
+- **D7-09** — the hands-on browser playthrough. The unattended half passes against
+  the production preview, and the player-driven flow is asserted end to end by
+  `definitionOfDone.integration.test.ts`.
 
-Epic 07 — Survive and Ship is next, starting with D7-01.
+Mark Epic 07 `DONE` once those two sessions are recorded.
 
-## Previous milestone — Epic 05
+### What Day 7 changed
+
+Profiling found the simulation spending **94% of its time inside A\***. Two causes,
+both fixed, both regression-tested:
+
+- `AStar` picked the next node by scanning the whole open set — O(V²) on a
+  42,240-cell grid. One cross-map route cost 17–24 ms, a 30-unit group order cost
+  418 ms, and every search allocated half a megabyte of scratch it then threw
+  away. It now uses a binary-heap open set over reused, generation-stamped
+  buffers, plus a 12,000-expansion budget so an unreachable goal fails fast
+  instead of sweeping the map to prove it.
+- `AutomationSystem` ran a full A\* to every node of a resource type, per
+  automated Worker, twice a second. It now orders candidates by straight-line
+  distance and path-verifies only the nearest three.
+
+Pursuit repathing and target acquisition also fired on the same step for every
+unit under one order, so a 100-unit battle spiked to a 118 ms step; both cadences
+are now jittered by a deterministic per-entity phase at an unchanged mean.
+
+Seed-10 match wall time went **6.49 s → 0.61 s** (93x → 1017x real time); the
+worst 100-unit battle step went **118.3 ms → 3.0 ms**; the test suite went
+**73 s → 7 s**. No balance value changed, and pacing is where Epic 6 left it.
+
+Two defects surfaced alongside: an unroutable move order reported success, drew a
+destination marker, and left the Agent reading "Moving" forever — it now refuses
+visibly; and neither HTML entry declared an icon, so every page load logged a
+`/favicon.ico` 404.
+
+Full evidence: `PERFORMANCE.md` for profiling and frame rates, `QA.md` for the
+release bug board, the fifteen-run pacing table, and the browser matrix.
+
+## Completed milestone — Epic 06
+
+Epic 06 — Evolution is `DONE`, closed on 2026-09-03 with all sixteen tasks
+complete. The Core advances Awakening → Autonomy → Singularity by spending
+Matter, Energy, and gathered Data; progression unlocks Ranger and Scout
+production, Zap Turrets, then the Heavy Foundry and Titan, and every existing
+structure visibly rebuilds itself at each Generation.
+
+Fog of War hides unseen entities and retains explored terrain; the AI gathers
+Data and advances naturally while still discovering the player through physical
+vision. Essential procedural audio, persistent sound controls, expanded end
+statistics, Barrier Walls, Gates, Habitats, Storage Depots, Field Outposts, a
+240 x 176 playfield, a dark sci-fi visual pass, and the menu/onboarding flow all
+shipped. D6-11's usability pass was run by the project owner across three
+sessions rather than an outside tester; its triage is in `QA.md`.
+
+## Completed milestone — Epic 05
 
 Epic 05 — The Other Intelligence is `DONE`. A deterministic local AI runs the whole loop: it gathers with automated Workers, grows to a phase Worker target, builds Relays and Fabricators on validated sites, produces and assembles an army, scouts until it observes the player Core, defends its base, launches grouped assaults, and recovers after heavy losses. F3 opens diagnostics and `runSoak` produces reproducible unattended reports.
 
@@ -74,20 +118,28 @@ The user confirmed gathering, finite depletion, and the Core economy and accepte
 
 ## Verification
 
+Last verified at commit `78995f5` on 2026-09-03, from a clean `npm ci`.
+
 | Check | Result |
 |---|---|
+| `npm ci` | PASS |
 | `npm run typecheck` | PASS |
 | `npm run lint` | PASS |
-| `npm test -- --run` | PASS — 44 files, 138 tests |
-| `npm run build` | PASS |
-| Dev server HTTP boot | PASS — `/` returned HTTP 200 |
-| Clean-browser Epic 6 render | PASS — no runtime console errors; menu, Core evolution UI, and corrected fog visually inspected |
-| Interactive Day 2 gate | PASS — user accepted |
-| Interactive Day 3 gate | PASS — user accepted |
-| Interactive Day 4 gate | PASS — user accepted |
-| Automated Day 5 soak | PASS — 5/5 AI wins, 0 invariant failures |
+| `npm test -- --run` | PASS — 157 tests, three consecutive runs |
+| `npm run build` | PASS — only the known three.js chunk-size advisory |
+| `npm run preview` + smoke | PASS — static files, correct asset paths |
+| `BASE_PATH=/game/ npm run build` | PASS — sub-path assets rewritten |
+| `browser-qa.mjs --headed` (Chromium) | PASS — 26/26 at 1920x1080 and 1280x720 |
+| `browser-qa.mjs --headed --browser firefox` | PASS — 26/26 |
+| `browser-qa.mjs --headed --full` | PASS — 33/33, unattended match to end screen, Main Menu, clean replay |
+| Browser frame rate | PASS — opening colony 60 FPS, 100-unit battle 56–60 FPS |
+| Pacing soaks (15 runs) | PASS — 15/15 AI wins, 0 invariant failures, difficulty strictly ordered |
+| Definition of Done flow (headless) | PASS — gather → automate → produce → build → evolve → army → enemy Core |
+| Interactive Day 2/3/4 gates | PASS — user accepted |
 | Interactive Day 5 gate | PASS — superseded by the re-measured soak asserted in `opponentGate.test.ts` |
 | Interactive Day 6 gate | PASS — owner playtests across three sessions; triage in `QA.md` |
+| D7-05 active playtests | OPEN — needs a human at the controls |
+| D7-09 hands-on browser playthrough | OPEN — needs a human at the controls |
 
 ## Epic 06 playtest response — 2026-09-03
 
@@ -217,6 +269,38 @@ Accepted by the user on 2026-09-02 against this checklist:
 6. Try queueing without enough Matter and at full capacity; confirm the last-directive readout explains the rejection.
 7. Confirm ZQSD, arrow keys, two-finger pan, pinch zoom, box selection, and terrain move orders still work.
 
+## Shipped decisions — Epic 07
+
+- `AStar` uses a binary-heap open set over module-level scratch buffers keyed by
+  grid size, with a per-search generation stamp instead of clearing. A search
+  allocates nothing.
+- Every search takes a hard 12,000-expansion budget. A 42,240-cell map means an
+  unreachable goal would otherwise sweep the whole reachable region to answer
+  "no", and a player can wall themselves in with Barrier Walls.
+- Throttled per-entity work is spread by `entityPhase(id)`, a stable hash. It
+  keeps the mean cadence and removes the lockstep spike, and because it is a pure
+  function of the id it stays reproducible for a fixed seed.
+- `AutomationSystem` ranks by straight-line distance and path-verifies only
+  `AUTOMATION_PATH_CANDIDATES` nodes. Pathing to every node was the single most
+  expensive thing the simulation did.
+- A move order that produced no route is a refusal, not a success. `issueMoveCommand`
+  reports `unreachable` separately and `Game.ts` sets activity from the routes the
+  grid actually returned.
+- `profileMatch` wraps systems on the instance rather than instrumenting
+  `MatchSimulation.step`, so the shipped simulation carries no profiling branch.
+  `pathMetrics` is the exception: two integer counters cheap enough to leave in.
+- Performance guards assert deterministic cell-expansion counts, not wall clock.
+  Millisecond thresholds are unstable under parallel-suite load; the few latency
+  ceilings that remain are set where they still separate the heap implementation
+  from the linear scan.
+- `scripts/browser-qa.mjs` is the browser gate. FPS is only meaningful `--headed`
+  because headless Chromium renders WebGL through SwiftShader.
+- `base` comes from `BASE_PATH` at build time and defaults to the domain root.
+  There is no server runtime, API, authentication, or WebSocket anywhere; the only
+  persistent storage is `localStorage` for audio settings, and it degrades silently.
+- No balance value changed on Day 7. The optimizations left pacing where Epic 6
+  tuned it, which the re-measured soak table confirms.
+
 ## Shipped decisions — Epic 06
 
 - `TechnologySystem` is the sole Generation gate. It spends centralized costs atomically and controls both building and production unlocks for players and AI.
@@ -279,10 +363,25 @@ Accepted by the user on 2026-09-02 against this checklist:
 - The deprecated `PCFSoftShadowMap` renderer mode was replaced with `PCFShadowMap`.
 - Rally points were cut as optional P1 scope; spawned Strikers remain immediately controllable through the normal movement command.
 
-## Known follow-ups
+## Known limitations
 
-- The AI's median win lands near the low end of the 8–20 minute target because the handcrafted map's finite deposits cap how large an army either side can field. Revisit alongside D7-05 pacing.
-- The opponent does not build Habitats, Depots, Gates, or walls. Its build plan is unchanged apart from Turrets and the Foundry, so the village catalog is currently a player-facing tool.
-- Worker repair of damaged friendly buildings is specified in the PRD but is not Day 4 scope.
-- Three.js keeps the main production JavaScript chunk above Vite's advisory 500 kB threshold. This remains non-blocking until the performance epic.
-- Rally points remain optional post-P0 scope.
+None of these prevents completing a match; all are recorded in `README.md` too.
+
+- Worker repair of damaged friendly buildings is described in the PRD but was not
+  built.
+- Rally points were cut as optional post-P0 scope (D3-07). Produced Agents are
+  immediately controllable through the normal movement command.
+- The opponent does not build Habitats, Depots, Gates, or walls, so the village
+  catalog is currently a player-facing tool.
+- Peak armies sit at 14–24 units on every difficulty. The handcrafted map's finite
+  deposits cap army size, not either side's willingness to build.
+- Relaxed difficulty is gated by its attack timer rather than by economy: all five
+  seeds finish within one second of each other, at 14m 03s.
+- The main JavaScript chunk stays above Vite's advisory 500 kB because of three.js.
+  It is one cached static download with no runtime cost; code-splitting it was
+  judged not worth the complexity.
+- Edge was not driven directly — Playwright's channel is unavailable here. It is
+  Chromium-based and the Chromium column is its evidence.
+- `combat` is now the largest simulation phase (~65% of step time), almost all of
+  it pursuit repathing. A shared flow field for units converging on one target is
+  the next lever if a measured need ever appears.
