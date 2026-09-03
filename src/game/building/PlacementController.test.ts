@@ -3,6 +3,7 @@ import { createBuildingSite } from '../entities/buildings/Building';
 import { createCore } from '../entities/buildings/Core';
 import { createResourceNode } from '../entities/resources/ResourceNode';
 import { NavigationGrid } from '../navigation/NavigationGrid';
+import { setBuildingOccupancy } from '../navigation/occupancy';
 import { entityId } from '../types/ids';
 import { PlacementController, validatePlacement } from './PlacementController';
 
@@ -13,7 +14,8 @@ describe('building placement', () => {
 
   it('accepts open terrain and rejects boundaries, blockers, resources, and buildings', () => {
     grid.setBlockedRect({ x: 14, z: 14 }, { x: 3, z: 3 }, true);
-    expect(validatePlacement('relay', { x: 10, z: 20 }, grid, [core], [resource])).toMatchObject({ valid: true, position: { x: 10.5, z: 20.5 } });
+    // Even footprints snap to cell boundaries: a relay centers on the integer grid.
+    expect(validatePlacement('relay', { x: 10, z: 20 }, grid, [core], [resource])).toMatchObject({ valid: true, position: { x: 10, z: 20 } });
     expect(validatePlacement('fabricator', { x: 0, z: 1 }, grid, [core], [resource]).failure).toBe('OUT_OF_BOUNDS');
     expect(validatePlacement('relay', { x: 14, z: 14 }, grid, [core], [resource]).failure).toBe('BLOCKED');
     expect(validatePlacement('relay', { x: 20, z: 20 }, grid, [core], [resource]).failure).toBe('RESOURCE_OVERLAP');
@@ -61,12 +63,31 @@ describe('building placement', () => {
   it('lets Barrier Walls sit edge to edge while keeping clearance around a Fabricator', () => {
     const grid = new NavigationGrid(-32, -32, 32, 32);
     const builder = entityId('worker-1');
-    const wall = createBuildingSite(entityId('wall-1'), 'wall', 'player', { x: 0.5, z: 0.5 }, builder);
-    // Wall footprints are 2 x 1: the neighbour's centre is exactly two units along.
+    // A wall's parity snap puts its 2-long axis on the integer grid: this one spans x[-1,1].
+    const wall = createBuildingSite(entityId('wall-1'), 'wall', 'player', { x: 0, z: 0.5 }, builder);
+    // The neighbour's footprint starts exactly where the first one ends.
     expect(validatePlacement('wall', { x: 2, z: 0 }, grid, [wall], [])).toMatchObject({ valid: true });
     expect(validatePlacement('wall', { x: 1, z: 0 }, grid, [wall], []).failure).toBe('BUILDING_OVERLAP');
 
     const fabricator = createBuildingSite(entityId('fab-1'), 'fabricator', 'player', { x: 10.5, z: 10.5 }, builder);
     expect(validatePlacement('relay', { x: 13, z: 10 }, grid, [fabricator], []).failure).toBe('BUILDING_OVERLAP');
+  });
+
+  it('lets a wall claim the cell flush next to an existing wall on the navigation grid', () => {
+    // Regression: placement allowed flush walls, but the occupancy claim over-blocked the
+    // boundary cell, so the neighbour was rejected as BLOCKED in a real match.
+    const grid = new NavigationGrid(-32, -32, 32, 32);
+    const builder = entityId('worker-1');
+    const first = validatePlacement('wall', { x: 0, z: 0 }, grid, [], []);
+    expect(first.valid).toBe(true);
+    const wall = createBuildingSite(entityId('wall-1'), 'wall', 'player', first.position, builder);
+    setBuildingOccupancy(grid, wall, true);
+
+    const neighbour = validatePlacement('wall', { x: 2.2, z: 0.4 }, grid, [wall], []);
+    expect(neighbour).toMatchObject({ valid: true, position: { x: 2, z: 0.5 } });
+
+    // Still no placing on top of the claimed cells, and a rotated wall fills the row above.
+    expect(validatePlacement('wall', { x: 0.4, z: 0.6 }, grid, [wall], []).failure).toBe('BLOCKED');
+    expect(validatePlacement('wall', { x: 0.4, z: 1.6 }, grid, [wall], [], true)).toMatchObject({ valid: true });
   });
 });

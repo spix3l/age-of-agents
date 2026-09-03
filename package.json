@@ -27,6 +27,7 @@
     "eslint-plugin-react-hooks": "latest",
     "eslint-plugin-react-refresh": "latest",
     "globals": "latest",
+    "playwright": "^1.62.1",
     "typescript": "latest",
     "typescript-eslint": "latest",
     "vite": "latest",

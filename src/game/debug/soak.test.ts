@@ -33,7 +33,9 @@ describe('AI observability', () => {
       expect(repeat.transitions).toEqual(report.transitions);
       expect(repeat.durationSeconds).toBe(report.durationSeconds);
     }
-  }, 60_000);
+    // 36 simulated minutes twice; standalone this is ~15s but the full suite runs these AI
+    // sims alongside the other CPU-heavy soak tests and contention pushed 60s over the line.
+  }, 90_000);
 
   it('reports invariant breaches rather than silently continuing', () => {
     const simulation = new MatchSimulation({ seed: 404, scenario: 'economy', opponent: false });

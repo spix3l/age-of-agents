@@ -1,0 +1,291 @@
+{
+  "sourceImage": "/Users/steve/Spix3l/age-of-agents/art/models/core.png",
+  "zonesDir": "/Users/steve/Spix3l/age-of-agents/art/img2threejs/core/details",
+  "detailInventory": {
+    "scanMethod": "grid-4x4",
+    "targetMinDetails": 10,
+    "details": [
+      {
+        "id": "beam-column",
+        "kind": "emissive",
+        "description": "An axial column of cyan light rising from the apex aperture, brightest at its base and falling to zero alpha at the top. No surface, no shading gradient across its width.",
+        "region": {
+          "x": 0.42,
+          "y": 0.0,
+          "width": 0.16,
+          "height": 0.42,
+          "units": "normalized"
+        },
+        "scale": "macro",
+        "affects": "emissive colour and intensity of the beam volume",
+        "mapsTo": {
+          "type": "material.localOverrides",
+          "ref": "emissive-cyan/beam-column"
+        },
+        "evidenceRef": "/Users/steve/Spix3l/age-of-agents/art/img2threejs/core/details/zone-r0c2.png",
+        "confidence": 0.95
+      },
+      {
+        "id": "crown-ring",
+        "kind": "emissive",
+        "description": "A glowing torus ring lying flush in the floor of the crown basin, concentric with the aperture. Constant emission, reads as a light source spilling onto the basin walls.",
+        "region": {
+          "x": 0.3,
+          "y": 0.36,
+          "width": 0.4,
+          "height": 0.1,
+          "units": "normalized"
+        },
+        "scale": "meso",
+        "affects": "emissive colour, intensity and a matching point light",
+        "mapsTo": {
+          "type": "material.localOverrides",
+          "ref": "emissive-cyan/crown-ring"
+        },
+        "evidenceRef": "/Users/steve/Spix3l/age-of-agents/art/img2threejs/core/details/zone-r1c2.png",
+        "confidence": 0.9
+      },
+      {
+        "id": "collar-plate-chamfer",
+        "kind": "bevel",
+        "description": "A crisp bright line along the top outer edge of every crown collar plate: a real chamfer catching grazing key light, not a painted highlight.",
+        "region": {
+          "x": 0.15,
+          "y": 0.3,
+          "width": 0.7,
+          "height": 0.15,
+          "units": "normalized"
+        },
+        "scale": "meso",
+        "affects": "edgeTreatment.type=chamfer, bevelRadius 0.03, segments 3",
+        "mapsTo": {
+          "type": "component.localFeatures",
+          "ref": "crown-collar-plate/edge-chamfer"
+        },
+        "evidenceRef": "/Users/steve/Spix3l/age-of-agents/art/img2threejs/core/details/zone-r1c1.png",
+        "confidence": 0.85
+      },
+      {
+        "id": "collar-inlay",
+        "kind": "linework",
+        "description": "A cyan strip inset into the outward face of each collar plate, running with the plate's lean. Soft-edged glow, no relief: a recessed emissive strip, not an engraved groove.",
+        "region": {
+          "x": 0.18,
+          "y": 0.33,
+          "width": 0.64,
+          "height": 0.12,
+          "units": "normalized"
+        },
+        "scale": "meso",
+        "affects": "emissive inlay strip repeated once per collar plate",
+        "mapsTo": {
+          "type": "component.localFeatures",
+          "ref": "crown-collar-plate/inlay-strip"
+        },
+        "evidenceRef": "/Users/steve/Spix3l/age-of-agents/art/img2threejs/core/details/zone-r1c1.png",
+        "confidence": 0.8
+      },
+      {
+        "id": "pylon-amber-bars",
+        "kind": "emissive",
+        "description": "Two stacked amber horizontal bars on the front pylon head, the only warm hue on the upper structure. Lower value than the cyan, constant.",
+        "region": {
+          "x": 0.44,
+          "y": 0.55,
+          "width": 0.18,
+          "height": 0.13,
+          "units": "normalized"
+        },
+        "scale": "micro",
+        "affects": "emissive amber colour and intensity on stacked bar geometry",
+        "mapsTo": {
+          "type": "component.localFeatures",
+          "ref": "front-pylon/amber-bar-stack"
+        },
+        "evidenceRef": "/Users/steve/Spix3l/age-of-agents/art/img2threejs/core/details/zone-r2c2.png",
+        "confidence": 0.85
+      },
+      {
+        "id": "pylon-status-panel",
+        "kind": "decal",
+        "description": "A dark recessed square on the pylon head carrying three short amber dashes and one pale square. Flat against the surface, no thickness.",
+        "region": {
+          "x": 0.46,
+          "y": 0.5,
+          "width": 0.14,
+          "height": 0.07,
+          "units": "normalized"
+        },
+        "scale": "micro",
+        "affects": "canvas-texture decal region on the dark gloss panel",
+        "mapsTo": {
+          "type": "material.localOverrides",
+          "ref": "steel-dark/status-panel-decal"
+        },
+        "evidenceRef": "/Users/steve/Spix3l/age-of-agents/art/img2threejs/core/details/zone-r2c2.png",
+        "confidence": 0.6
+      },
+      {
+        "id": "cap-plate-gloss",
+        "kind": "gloss",
+        "description": "The silver cap plates on the lower pods and buttresses hold a tight bright highlight along their crowns while the surrounding steel stays broad and soft: a localized low-roughness zone.",
+        "region": {
+          "x": 0.05,
+          "y": 0.55,
+          "width": 0.9,
+          "height": 0.25,
+          "units": "normalized"
+        },
+        "scale": "meso",
+        "affects": "roughness 0.18 over the cap plates against 0.55 on the body steel",
+        "mapsTo": {
+          "type": "material.localOverrides",
+          "ref": "trim-silver/cap-gloss"
+        },
+        "evidenceRef": "/Users/steve/Spix3l/age-of-agents/art/img2threejs/core/details/zone-r2c0.png",
+        "confidence": 0.85
+      },
+      {
+        "id": "pod-screen-recess",
+        "kind": "hole",
+        "description": "Each lower pod carries a dark inset screen on its outward face, set below the surrounding plate: a real recess with its own dark gloss interior, not a dark patch.",
+        "region": {
+          "x": 0.06,
+          "y": 0.62,
+          "width": 0.3,
+          "height": 0.1,
+          "units": "normalized"
+        },
+        "scale": "meso",
+        "affects": "socket recess, depth 0.03 object-relative, interior uses glass-dark",
+        "mapsTo": {
+          "type": "component.localFeatures",
+          "ref": "lower-pod/screen-recess"
+        },
+        "evidenceRef": "/Users/steve/Spix3l/age-of-agents/art/img2threejs/core/details/zone-r2c0.png",
+        "confidence": 0.75
+      },
+      {
+        "id": "pod-light-slot",
+        "kind": "groove",
+        "description": "A vertical cyan-lit channel recessed into the lateral face of each lower pod, with AO darkening at the channel mouth.",
+        "region": {
+          "x": 0.08,
+          "y": 0.66,
+          "width": 0.08,
+          "height": 0.08,
+          "units": "normalized"
+        },
+        "scale": "micro",
+        "affects": "negative relief channel, width 0.02 depth 0.02, emissive floor",
+        "mapsTo": {
+          "type": "component.localFeatures",
+          "ref": "lower-pod/light-slot"
+        },
+        "evidenceRef": "/Users/steve/Spix3l/age-of-agents/art/img2threejs/core/details/zone-r2c0.png",
+        "confidence": 0.8
+      },
+      {
+        "id": "plinth-rim-chamfer",
+        "kind": "bevel",
+        "description": "The plinth's top rim is a wide chamfer, wider than any other bevel on the model, reading as a bright band all the way round the hexagon.",
+        "region": {
+          "x": 0.02,
+          "y": 0.8,
+          "width": 0.96,
+          "height": 0.08,
+          "units": "normalized"
+        },
+        "scale": "macro",
+        "affects": "edgeTreatment.type=chamfer, bevelRadius 0.06, segments 2",
+        "mapsTo": {
+          "type": "component.localFeatures",
+          "ref": "base-plinth/rim-chamfer"
+        },
+        "evidenceRef": "/Users/steve/Spix3l/age-of-agents/art/img2threejs/core/details/zone-r3c1.png",
+        "confidence": 0.9
+      },
+      {
+        "id": "plinth-corner-bolts",
+        "kind": "fastener",
+        "description": "A round amber-lit boss at each plinth corner, one per hexagon vertex: a radially distributed instanced system with a hemispherical head, raised rather than countersunk.",
+        "region": {
+          "x": 0.1,
+          "y": 0.86,
+          "width": 0.8,
+          "height": 0.1,
+          "units": "normalized"
+        },
+        "scale": "micro",
+        "affects": "InstancedMesh, count 6, radial distribution, hemisphere head, emissive amber",
+        "mapsTo": {
+          "type": "component.localFeatures",
+          "ref": "base-plinth/corner-bolt-ring"
+        },
+        "evidenceRef": "/Users/steve/Spix3l/age-of-agents/art/img2threejs/core/details/zone-r3c0.png",
+        "confidence": 0.7
+      },
+      {
+        "id": "ramp-treads",
+        "kind": "emissive",
+        "description": "The front entry ramp carries cyan strips across its treads, stepping down toward the viewer.",
+        "region": {
+          "x": 0.38,
+          "y": 0.86,
+          "width": 0.24,
+          "height": 0.12,
+          "units": "normalized"
+        },
+        "scale": "micro",
+        "affects": "emissive cyan strips repeated per tread",
+        "mapsTo": {
+          "type": "component.localFeatures",
+          "ref": "entry-ramp/tread-strips"
+        },
+        "evidenceRef": "/Users/steve/Spix3l/age-of-agents/art/img2threejs/core/details/zone-r3c2.png",
+        "confidence": 0.7
+      },
+      {
+        "id": "plinth-rubble",
+        "kind": "chip",
+        "description": "Loose grey gravel scattered on the plinth top in front of the structure, breaking the otherwise clean silhouette of the tier joint. Changes the silhouette, so geometry rather than a texture patch.",
+        "region": {
+          "x": 0.3,
+          "y": 0.78,
+          "width": 0.42,
+          "height": 0.08,
+          "units": "normalized"
+        },
+        "scale": "micro",
+        "affects": "instanced low-poly rock scatter, seeded, 18 pieces",
+        "mapsTo": {
+          "type": "component.localFeatures",
+          "ref": "base-plinth/rubble-scatter"
+        },
+        "evidenceRef": "/Users/steve/Spix3l/age-of-agents/art/img2threejs/core/details/zone-r3c2.png",
+        "confidence": 0.65
+      },
+      {
+        "id": "tier-seam-ao",
+        "kind": "seam",
+        "description": "Each tier meets the one below in a soft dark line rather than a hard groove: an AO seam, no measurable depth at this resolution.",
+        "region": {
+          "x": 0.05,
+          "y": 0.45,
+          "width": 0.9,
+          "height": 0.4,
+          "units": "normalized"
+        },
+        "scale": "macro",
+        "affects": "AO darkening along tier joints, no geometric relief",
+        "mapsTo": {
+          "type": "material.localOverrides",
+          "ref": "steel-dark/tier-seam-ao"
+        },
+        "evidenceRef": "/Users/steve/Spix3l/age-of-agents/art/img2threejs/core/details/zone-r2c1.png",
+        "confidence": 0.6
+      }
+    ]
+  },
+  "authoringInstruction": "Open each zone crop under zonesDir and replace every detail stub's kind, description, scale, affects, mapsTo, and confidence with what is actually observed. Add more detail entries per zone if a single zone contains multiple distinct marks; do not leave stubs unfilled or unlinked (mapsTo must reference a real component.localFeatures or material.localOverrides entry)."
+}

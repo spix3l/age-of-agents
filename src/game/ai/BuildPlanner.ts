@@ -1,5 +1,6 @@
 import { AI, type AITuning } from '../../data/ai';
 import { BUILDINGS } from '../../data/buildings';
+import { UNITS } from '../../data/units';
 import { validatePlacement, type PlaceableBuildingType } from '../building/PlacementController';
 import type { Random } from '../util/Random';
 import type { BuildingEntity, UnitEntity, Vec2 } from '../types/simulation';
@@ -28,7 +29,16 @@ export class BuildPlanner {
     if (!type || this.isBackedOff(type, snapshot.elapsedSeconds)) return;
     const cost = BUILDINGS[type].cost;
     const balances = view.balances();
-    if (balances.matter < (cost.matter ?? 0) || balances.energy < ('energy' in cost ? cost.energy ?? 0 : 0)) return;
+    // Once the army is the bottleneck (a producer is up and the force is still short), a
+    // non-defense build must not spend the Matter the next Striker needs. With flush-adjacent
+    // placement newly possible the planner could otherwise relay-spam its income away and
+    // freeze the assault for minutes; the reserve keeps production fed while still expanding
+    // whenever income covers both.
+    const armyStarved = type !== 'turret' && snapshot.fabricators > 0
+      && snapshot.army < this.tuning.attackForce;
+    const reserveMatter = armyStarved ? UNITS.striker.cost.matter ?? 0 : 0;
+    if (balances.matter < (cost.matter ?? 0) + reserveMatter) return;
+    if (balances.energy < ('energy' in cost ? cost.energy ?? 0 : 0)) return;
     this.place(view, commands, snapshot, type);
   }
 

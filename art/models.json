@@ -1,0 +1,750 @@
+[
+  {
+    "name": "matter",
+    "band": "resources-hero",
+    "file": "models/matter.png",
+    "box": [
+      27,
+      86,
+      180,
+      230
+    ]
+  },
+  {
+    "name": "energy",
+    "band": "resources-hero",
+    "file": "models/energy.png",
+    "box": [
+      215,
+      87,
+      358,
+      232
+    ]
+  },
+  {
+    "name": "data",
+    "band": "resources-hero",
+    "file": "models/data.png",
+    "box": [
+      387,
+      83,
+      553,
+      240
+    ]
+  },
+  {
+    "name": "matter-tier-1",
+    "band": "resources-tier-a",
+    "file": "models/matter-tier-1.png",
+    "box": [
+      26,
+      291,
+      85,
+      358
+    ]
+  },
+  {
+    "name": "matter-tier-2",
+    "band": "resources-tier-a",
+    "file": "models/matter-tier-2.png",
+    "box": [
+      104,
+      281,
+      184,
+      358
+    ]
+  },
+  {
+    "name": "energy-tier-2",
+    "band": "resources-tier-a",
+    "file": "models/energy-tier-2.png",
+    "box": [
+      204,
+      277,
+      274,
+      359
+    ]
+  },
+  {
+    "name": "energy-tier-3",
+    "band": "resources-tier-a",
+    "file": "models/energy-tier-3.png",
+    "box": [
+      294,
+      278,
+      367,
+      360
+    ]
+  },
+  {
+    "name": "data-tier-1",
+    "band": "resources-tier-a",
+    "file": "models/data-tier-1.png",
+    "box": [
+      376,
+      285,
+      443,
+      358
+    ]
+  },
+  {
+    "name": "data-tier-2",
+    "band": "resources-tier-a",
+    "file": "models/data-tier-2.png",
+    "box": [
+      436,
+      283,
+      504,
+      358
+    ]
+  },
+  {
+    "name": "data-tier-3",
+    "band": "resources-tier-a",
+    "file": "models/data-tier-3.png",
+    "box": [
+      496,
+      276,
+      566,
+      358
+    ]
+  },
+  {
+    "name": "matter-tier-1-alt",
+    "band": "resources-tier-b",
+    "file": "models/matter-tier-1-alt.png",
+    "box": [
+      15,
+      386,
+      89,
+      456
+    ]
+  },
+  {
+    "name": "matter-tier-2-alt",
+    "band": "resources-tier-b",
+    "file": "models/matter-tier-2-alt.png",
+    "box": [
+      103,
+      379,
+      184,
+      459
+    ]
+  },
+  {
+    "name": "energy-tier-2-alt",
+    "band": "resources-tier-b",
+    "file": "models/energy-tier-2-alt.png",
+    "box": [
+      198,
+      381,
+      279,
+      459
+    ]
+  },
+  {
+    "name": "energy-tier-3-alt",
+    "band": "resources-tier-b",
+    "file": "models/energy-tier-3-alt.png",
+    "box": [
+      288,
+      380,
+      371,
+      461
+    ]
+  },
+  {
+    "name": "core",
+    "band": "core",
+    "file": "models/core.png",
+    "box": [
+      584,
+      40,
+      740,
+      239
+    ]
+  },
+  {
+    "name": "relay-node",
+    "band": "economy",
+    "file": "models/relay-node.png",
+    "box": [
+      750,
+      87,
+      887,
+      240
+    ]
+  },
+  {
+    "name": "power-generator",
+    "band": "economy",
+    "file": "models/power-generator.png",
+    "box": [
+      895,
+      86,
+      1045,
+      241
+    ]
+  },
+  {
+    "name": "supply-depot",
+    "band": "economy",
+    "file": "models/supply-depot.png",
+    "box": [
+      1051,
+      108,
+      1192,
+      232
+    ]
+  },
+  {
+    "name": "fabricator",
+    "band": "production",
+    "file": "models/fabricator.png",
+    "box": [
+      583,
+      338,
+      728,
+      475
+    ]
+  },
+  {
+    "name": "ranger-facility",
+    "band": "production",
+    "file": "models/ranger-facility.png",
+    "box": [
+      739,
+      344,
+      881,
+      475
+    ]
+  },
+  {
+    "name": "drone-bay",
+    "band": "production",
+    "file": "models/drone-bay.png",
+    "box": [
+      894,
+      342,
+      1026,
+      477
+    ]
+  },
+  {
+    "name": "heavy-foundry",
+    "band": "production",
+    "file": "models/heavy-foundry.png",
+    "box": [
+      1044,
+      333,
+      1189,
+      476
+    ]
+  },
+  {
+    "name": "defense-turret",
+    "band": "defense-hero",
+    "file": "models/defense-turret.png",
+    "box": [
+      1224,
+      93,
+      1348,
+      240
+    ]
+  },
+  {
+    "name": "wall-segment",
+    "band": "defense-hero",
+    "file": "models/wall-segment.png",
+    "box": [
+      1374,
+      110,
+      1505,
+      240
+    ]
+  },
+  {
+    "name": "defense-turret-level-1",
+    "band": "defense-a",
+    "file": "models/defense-turret-level-1.png",
+    "box": [
+      1214,
+      252,
+      1299,
+      340
+    ]
+  },
+  {
+    "name": "wall-segment-level-2",
+    "band": "defense-a",
+    "file": "models/wall-segment-level-2.png",
+    "box": [
+      1316,
+      256,
+      1404,
+      337
+    ]
+  },
+  {
+    "name": "wall-segment-level-3",
+    "band": "defense-a",
+    "file": "models/wall-segment-level-3.png",
+    "box": [
+      1421,
+      253,
+      1517,
+      338
+    ]
+  },
+  {
+    "name": "defense-turret-level-1-alt",
+    "band": "defense-b",
+    "file": "models/defense-turret-level-1-alt.png",
+    "box": [
+      1214,
+      360,
+      1298,
+      444
+    ]
+  },
+  {
+    "name": "wall-segment-level-2-alt",
+    "band": "defense-b",
+    "file": "models/wall-segment-level-2-alt.png",
+    "box": [
+      1315,
+      360,
+      1412,
+      441
+    ]
+  },
+  {
+    "name": "wall-segment-level-3-alt",
+    "band": "defense-b",
+    "file": "models/wall-segment-level-3-alt.png",
+    "box": [
+      1421,
+      360,
+      1521,
+      448
+    ]
+  },
+  {
+    "name": "worker-agent",
+    "band": "units-economy-hero",
+    "file": "models/worker-agent.png",
+    "box": [
+      44,
+      578,
+      123,
+      683
+    ]
+  },
+  {
+    "name": "worker-agent-alt",
+    "band": "units-economy-hero",
+    "file": "models/worker-agent-alt.png",
+    "box": [
+      145,
+      589,
+      210,
+      672
+    ]
+  },
+  {
+    "name": "harvester",
+    "band": "units-economy-hero",
+    "file": "models/harvester.png",
+    "box": [
+      279,
+      574,
+      422,
+      685
+    ]
+  },
+  {
+    "name": "worker-agent-tier-1",
+    "band": "units-economy-tier",
+    "file": "models/worker-agent-tier-1.png",
+    "box": [
+      11,
+      722,
+      74,
+      814
+    ]
+  },
+  {
+    "name": "worker-agent-tier-2",
+    "band": "units-economy-tier",
+    "file": "models/worker-agent-tier-2.png",
+    "box": [
+      80,
+      725,
+      147,
+      814
+    ]
+  },
+  {
+    "name": "worker-agent-tier-3",
+    "band": "units-economy-tier",
+    "file": "models/worker-agent-tier-3.png",
+    "box": [
+      152,
+      724,
+      221,
+      815
+    ]
+  },
+  {
+    "name": "harvester-tier-1",
+    "band": "units-economy-tier",
+    "file": "models/harvester-tier-1.png",
+    "box": [
+      229,
+      725,
+      305,
+      821
+    ]
+  },
+  {
+    "name": "harvester-tier-2",
+    "band": "units-economy-tier",
+    "file": "models/harvester-tier-2.png",
+    "box": [
+      306,
+      727,
+      389,
+      815
+    ]
+  },
+  {
+    "name": "harvester-tier-3",
+    "band": "units-economy-tier",
+    "file": "models/harvester-tier-3.png",
+    "box": [
+      389,
+      723,
+      474,
+      823
+    ]
+  },
+  {
+    "name": "striker",
+    "band": "units-combat-hero",
+    "file": "models/striker.png",
+    "box": [
+      502,
+      577,
+      620,
+      686
+    ]
+  },
+  {
+    "name": "ranger",
+    "band": "units-combat-hero",
+    "file": "models/ranger.png",
+    "box": [
+      677,
+      577,
+      777,
+      685
+    ]
+  },
+  {
+    "name": "scout-drone",
+    "band": "units-combat-hero",
+    "file": "models/scout-drone.png",
+    "box": [
+      812,
+      582,
+      927,
+      662
+    ]
+  },
+  {
+    "name": "titan",
+    "band": "units-combat-hero",
+    "file": "models/titan.png",
+    "box": [
+      946,
+      570,
+      1090,
+      694
+    ]
+  },
+  {
+    "name": "striker-tier-1",
+    "band": "units-combat-tier-a",
+    "file": "models/striker-tier-1.png",
+    "box": [
+      493,
+      731,
+      567,
+      813
+    ]
+  },
+  {
+    "name": "striker-tier-2",
+    "band": "units-combat-tier-a",
+    "file": "models/striker-tier-2.png",
+    "box": [
+      567,
+      729,
+      644,
+      813
+    ]
+  },
+  {
+    "name": "ranger-tier-2",
+    "band": "units-combat-tier-a",
+    "file": "models/ranger-tier-2.png",
+    "box": [
+      654,
+      732,
+      723,
+      812
+    ]
+  },
+  {
+    "name": "ranger-tier-3",
+    "band": "units-combat-tier-a",
+    "file": "models/ranger-tier-3.png",
+    "box": [
+      727,
+      730,
+      794,
+      813
+    ]
+  },
+  {
+    "name": "scout-drone-tier-1",
+    "band": "units-combat-tier-a",
+    "file": "models/scout-drone-tier-1.png",
+    "box": [
+      799,
+      750,
+      868,
+      806
+    ]
+  },
+  {
+    "name": "scout-drone-tier-3",
+    "band": "units-combat-tier-a",
+    "file": "models/scout-drone-tier-3.png",
+    "box": [
+      871,
+      747,
+      941,
+      806
+    ]
+  },
+  {
+    "name": "titan-tier-1",
+    "band": "units-combat-tier-a",
+    "file": "models/titan-tier-1.png",
+    "box": [
+      945,
+      726,
+      1023,
+      813
+    ]
+  },
+  {
+    "name": "titan-tier-3",
+    "band": "units-combat-tier-a",
+    "file": "models/titan-tier-3.png",
+    "box": [
+      1024,
+      728,
+      1103,
+      814
+    ]
+  },
+  {
+    "name": "striker-tier-1-alt",
+    "band": "units-combat-tier-b",
+    "file": "models/striker-tier-1-alt.png",
+    "box": [
+      493,
+      822,
+      566,
+      902
+    ]
+  },
+  {
+    "name": "striker-tier-2-alt",
+    "band": "units-combat-tier-b",
+    "file": "models/striker-tier-2-alt.png",
+    "box": [
+      567,
+      822,
+      645,
+      903
+    ]
+  },
+  {
+    "name": "ranger-tier-2-alt",
+    "band": "units-combat-tier-b",
+    "file": "models/ranger-tier-2-alt.png",
+    "box": [
+      650,
+      823,
+      724,
+      900
+    ]
+  },
+  {
+    "name": "ranger-tier-3-alt",
+    "band": "units-combat-tier-b",
+    "file": "models/ranger-tier-3-alt.png",
+    "box": [
+      729,
+      823,
+      794,
+      898
+    ]
+  },
+  {
+    "name": "scout-drone-tier-1-alt",
+    "band": "units-combat-tier-b",
+    "file": "models/scout-drone-tier-1-alt.png",
+    "box": [
+      800,
+      841,
+      863,
+      888
+    ]
+  },
+  {
+    "name": "scout-drone-tier-3-alt",
+    "band": "units-combat-tier-b",
+    "file": "models/scout-drone-tier-3-alt.png",
+    "box": [
+      871,
+      839,
+      940,
+      891
+    ]
+  },
+  {
+    "name": "titan-tier-1-alt",
+    "band": "units-combat-tier-b",
+    "file": "models/titan-tier-1-alt.png",
+    "box": [
+      945,
+      818,
+      1022,
+      904
+    ]
+  },
+  {
+    "name": "titan-tier-3-alt",
+    "band": "units-combat-tier-b",
+    "file": "models/titan-tier-3-alt.png",
+    "box": [
+      1023,
+      819,
+      1103,
+      904
+    ]
+  },
+  {
+    "name": "research-array",
+    "band": "special",
+    "file": "models/research-array.png",
+    "box": [
+      1130,
+      572,
+      1232,
+      691
+    ]
+  },
+  {
+    "name": "command-center",
+    "band": "special",
+    "file": "models/command-center.png",
+    "box": [
+      1259,
+      571,
+      1373,
+      696
+    ]
+  },
+  {
+    "name": "shield-generator",
+    "band": "special",
+    "file": "models/shield-generator.png",
+    "box": [
+      1407,
+      574,
+      1506,
+      691
+    ]
+  },
+  {
+    "name": "rally-point",
+    "band": "effects-a",
+    "file": "models/rally-point.png",
+    "box": [
+      1137,
+      800,
+      1213,
+      866
+    ]
+  },
+  {
+    "name": "command-marker",
+    "band": "effects-a",
+    "file": "models/command-marker.png",
+    "box": [
+      1247,
+      798,
+      1312,
+      874
+    ]
+  },
+  {
+    "name": "selection-circle",
+    "band": "effects-a",
+    "file": "models/selection-circle.png",
+    "box": [
+      1340,
+      807,
+      1421,
+      864
+    ]
+  },
+  {
+    "name": "projectile",
+    "band": "effects-a",
+    "file": "models/projectile.png",
+    "box": [
+      1438,
+      799,
+      1511,
+      856
+    ]
+  },
+  {
+    "name": "laser-impact",
+    "band": "effects-b",
+    "file": "models/laser-impact.png",
+    "box": [
+      1253,
+      919,
+      1319,
+      990
+    ]
+  },
+  {
+    "name": "destruction",
+    "band": "effects-b",
+    "file": "models/destruction.png",
+    "box": [
+      1366,
+      918,
+      1466,
+      1006
+    ]
+  }
+]

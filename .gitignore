@@ -3,3 +3,8 @@ dist/
 *.tsbuildinfo
 .DS_Store
 coverage/
+
+# Batch 3D generator scratch output (`scripts/gen3d_batch.py`); regenerate, never commit.
+models/
+models3d/
+__pycache__/

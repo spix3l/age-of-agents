@@ -1,0 +1,85 @@
+{
+  "ok": true,
+  "verdict": "pass",
+  "confidence": 0.86,
+  "estimatedFidelity": 0.86,
+  "targetThreshold": 0.7,
+  "materialId": "emissive-amber",
+  "sourceImage": "/Users/steve/Spix3l/age-of-agents/art/img2threejs/core/material-crops/emissive-amber.png",
+  "outDir": "/Users/steve/Spix3l/age-of-agents/art/img2threejs/core/pbr-evidence",
+  "palette": [
+    "#26221D",
+    "#111212",
+    "#050607",
+    "#583C1F",
+    "#CA9646"
+  ],
+  "maps": {
+    "albedo": {
+      "path": "/Users/steve/Spix3l/age-of-agents/art/img2threejs/core/pbr-evidence/emissive-amber_albedo.png",
+      "url": "emissive-amber_albedo.png",
+      "channel": "albedo",
+      "source": "reference-pixel-extraction"
+    },
+    "roughness": {
+      "path": "/Users/steve/Spix3l/age-of-agents/art/img2threejs/core/pbr-evidence/emissive-amber_roughness.png",
+      "url": "emissive-amber_roughness.png",
+      "channel": "roughness",
+      "source": "reference-pixel-extraction"
+    },
+    "height": {
+      "path": "/Users/steve/Spix3l/age-of-agents/art/img2threejs/core/pbr-evidence/emissive-amber_height.png",
+      "url": "emissive-amber_height.png",
+      "channel": "height",
+      "source": "reference-pixel-extraction"
+    },
+    "normal": {
+      "path": "/Users/steve/Spix3l/age-of-agents/art/img2threejs/core/pbr-evidence/emissive-amber_normal.png",
+      "url": "emissive-amber_normal.png",
+      "channel": "normal",
+      "source": "reference-pixel-extraction"
+    },
+    "ao": {
+      "path": "/Users/steve/Spix3l/age-of-agents/art/img2threejs/core/pbr-evidence/emissive-amber_ao.png",
+      "url": "emissive-amber_ao.png",
+      "channel": "ao",
+      "source": "reference-pixel-extraction"
+    }
+  },
+  "diagnostics": {
+    "sourceWidth": 34,
+    "sourceHeight": 16,
+    "mapSize": 1024,
+    "cropBBoxPixels": {
+      "x": 0,
+      "y": 0,
+      "width": 34,
+      "height": 16
+    },
+    "mask": {
+      "backgroundColor": "#32322F",
+      "backgroundNoise": 55.48,
+      "transparentPixelFraction": 0.0,
+      "foregroundCoverage": 0.636
+    },
+    "mapStats": {
+      "valueRange": 0.507,
+      "heightP90Gradient": 0.0252,
+      "roughnessBase": 0.688,
+      "roughnessVariation": 0.05,
+      "normalStrength": 0.186,
+      "blurRadius": 21
+    },
+    "palette": [
+      "#26221D",
+      "#111212",
+      "#050607",
+      "#583C1F",
+      "#CA9646"
+    ]
+  },
+  "warnings": [
+    "single-image inverse rendering cannot prove true physical PBR; confidence is capped"
+  ],
+  "limitation": "single-image PBR extraction is an estimate; 70%+ extraction confidence still needs render screenshot review"
+}

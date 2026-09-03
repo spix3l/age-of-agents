@@ -2,7 +2,7 @@
 id: EPIC-05
 title: "The Other Intelligence"
 day: 5
-status: REVIEW
+status: DONE
 ---
 
 # EPIC-05 — The Other Intelligence
@@ -25,7 +25,7 @@ status: REVIEW
 - [x] [D5-04 — Implement AI military production and army assembly](../tasks/D5-04.md) — P0 / M — depends on D5-03
 - [x] [D5-05 — Implement AI scouting, defense, attack, and recovery](../tasks/D5-05.md) — P0 / L — depends on D5-04
 - [x] [D5-06 — Add AI observability and deterministic soak scenario](../tasks/D5-06.md) — P0 / M — depends on D5-05
-- [ ] [D5-07 — Balance and prove the Day 5 opponent gate](../tasks/D5-07.md) — P0 / L — depends on D5-06
+- [x] [D5-07 — Balance and prove the Day 5 opponent gate](../tasks/D5-07.md) — P0 / L — depends on D5-06
 
 ## Gate status
 

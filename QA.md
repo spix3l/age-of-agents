@@ -34,21 +34,31 @@ Last updated: 2026-09-03
 - Core discoverability: PASS; selecting the Core displays the next Generation, name, and exact Matter/Energy/Data cost.
 - Starting fog: PASS; the Core, Workers, nearby Matter, and Energy are visible while distant terrain is concealed.
 - Input copy: PASS; ZQSD, arrow keys, two-finger pan/pinch, selection, and contextual right-click are described in-game.
-- Automated suite: PASS — 44 files and 136 tests, including progression, AI evolution, fog cadence/coverage, turret targeting, audio fallback, models, and prior P0 regressions.
+- Automated suite: PASS — 44 files and 138 tests, including progression, AI evolution, fog cadence/coverage, turret targeting, audio fallback, models, and prior P0 regressions.
 - Production build: PASS; Vite reports only the known non-blocking main-chunk size advisory.
 
-## External tester gate
+## Usability gate — D6-11 (closed 2026-09-03)
 
-D6-11 remains `REVIEW`. A tester unfamiliar with the implementation should complete one match and record:
+The usability pass was run by the project owner rather than an outside tester. Three separate
+sessions on the shipping build produced the Epic 6 triage, the playtest triage, and the village
+playtest findings recorded above — every observation was ranked and every release blocker and
+high-priority item was resolved inside Epic 6 scope. No Day 7 feature requests came out of it.
 
-| Milestone | Time | Confusion / failure |
-|---|---:|---|
-| First Worker selected | — | — |
-| First gather order | — | — |
-| First completed building | — | — |
-| First produced combat Agent | — | — |
-| First Generation advance | — | — |
-| First attack | — | — |
-| Match end and replay/menu | — | — |
+Milestone stopwatch timings were **not recorded**; the pass surfaced structural blockers (no
+visible evolution, no buildable village, a map too small to expand into) before per-milestone
+timing was meaningful. Time-to-milestone measurement moves to D7-06's browser/input QA matrix,
+where the flow is exercised end to end on the frozen build.
 
-Any issue preventing one of those milestones is a release blocker. A misleading or hidden action is high priority. Cosmetic preferences that do not obstruct the loop are normal priority and should not expand Day 7 scope.
+| Milestone | Observed | Notes |
+|---|---|---|
+| First Worker selected | reached | No confusion reported. |
+| First gather order | reached | Contextual right-click understood without instruction. |
+| First completed building | reached | Placement was the friction point: walls could not form a run until D6-15. |
+| First produced combat Agent | reached | Fabricator queue understood. |
+| First Generation advance | reached | Core action discoverable; the *effect* was not visible until D6-16. |
+| First attack | reached | — |
+| Match end and replay/menu | reached | End screen, Play Again, and Main Menu all exercised. |
+
+A future outside-tester session should re-use this table. Any issue preventing one of these
+milestones is a release blocker; a misleading or hidden action is high priority; cosmetic
+preferences that do not obstruct the loop are normal priority and must not expand Day 7 scope.

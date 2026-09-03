@@ -1,0 +1,30 @@
+[
+ {
+  "id": "radial-repetition",
+  "score": 0.85,
+  "tier": "critical",
+  "threshold": 0.8,
+  "notes": "All five rings hold from every azimuth, and the micro level now carries the per-member detail: a cap plate on each pod, a lamp on each foot, a bar on each fascia band and each fin, an inlay on each collar plate."
+ },
+ {
+  "id": "beam-and-basin",
+  "score": 0.8,
+  "tier": "critical",
+  "threshold": 0.8,
+  "notes": "The beam is axial, rooted at the aperture, and reads cyan; the basin is a real concave dish with the emitter torus lying flat in it. Residual: the beam is a hard-edged cylinder where the reference is a soft column that widens at its base and fades out at the top -- that is the additive/alpha work of the material pass, not geometry."
+ },
+ {
+  "id": "chamfer-read",
+  "score": 0.7,
+  "tier": "important",
+  "threshold": 0.65,
+  "notes": "The plinth rim chamfer is real geometry -- a profile step in the 6-sided lathe, widened this iteration from a 0.045 to a 0.07 radial step -- and now reads as a continuous bright band around the hexagon under the key light, which is what the reference shows."
+ },
+ {
+  "id": "ramp-and-rubble",
+  "score": 0.68,
+  "tier": "important",
+  "threshold": 0.6,
+  "notes": "The ramp is present with four lit treads, and the plinth gravel is now 14 real faceted chips scattered deterministically (seed 20260903) across the front arc at radius 0.56-0.90, which is where the reference shows it. Its own detail entry had called for geometry rather than a texture patch; until this iteration it was a localFeature that could never render."
+ }
+]

@@ -8,8 +8,18 @@ export type PlaceableBuildingType = Exclude<BuildingTypeId, 'core'>;
 export type PlacementFailure = 'OUT_OF_BOUNDS' | 'BLOCKED' | 'RESOURCE_OVERLAP' | 'BUILDING_OVERLAP';
 export interface PlacementResult { readonly valid: boolean; readonly position: Vec2; readonly rotated: boolean; readonly failure?: PlacementFailure }
 
-export function snappedPlacement(position: Vec2): Vec2 {
-  return { x: Math.floor(position.x) + 0.5, z: Math.floor(position.z) + 0.5 };
+/**
+ * Snaps a raw world position onto the building's footprint alignment: even-sized axes center
+ * on cell boundaries (an integer), odd-sized axes on cell centers (half-integer). A 2x1 wall
+ * therefore covers exactly two whole cells, which is what lets the next wall sit flush against
+ * it; the old cell-center-only snap made even footprints straddle three half-covered cells and
+ * the boundary cells' blockage rejected every neighbour.
+ */
+export function snappedPlacement(position: Vec2, footprint?: { readonly x: number; readonly z: number }): Vec2 {
+  if (!footprint) return { x: Math.floor(position.x) + 0.5, z: Math.floor(position.z) + 0.5 };
+  const snapAxis = (value: number, size: number): number =>
+    size % 2 === 0 ? Math.round(value) : Math.floor(value) + 0.5;
+  return { x: snapAxis(position.x, footprint.x), z: snapAxis(position.z, footprint.z) };
 }
 
 export function validatePlacement(
@@ -20,18 +30,23 @@ export function validatePlacement(
   resources: readonly ResourceNodeEntity[],
   rotated = false,
 ): PlacementResult {
-  const position = snappedPlacement(rawPosition);
   const footprint = footprintFor(type, rotated);
+  const position = snappedPlacement(rawPosition, footprint);
   const halfX = footprint.x / 2;
   const halfZ = footprint.z / 2;
   if (position.x - halfX < grid.minX || position.x + halfX > grid.maxX || position.z - halfZ < grid.minZ || position.z + halfZ > grid.maxZ) {
     return { valid: false, position, rotated, failure: 'OUT_OF_BOUNDS' };
   }
 
-  const minCell = grid.worldToCell({ x: position.x - halfX + 0.01, z: position.z - halfZ + 0.01 });
-  const maxCell = grid.worldToCell({ x: position.x + halfX - 0.01, z: position.z + halfZ - 0.01 });
+  // Same cell-center coverage rule as NavigationGrid.setBlockedRect, so the placement check and
+  // the occupancy claim always agree on which cells a building owns.
+  const minCell = grid.worldToCell({ x: position.x - halfX, z: position.z - halfZ });
+  const maxCell = grid.worldToCell({ x: position.x + halfX, z: position.z + halfZ });
   for (let row = minCell.row; row <= maxCell.row; row += 1) {
     for (let col = minCell.col; col <= maxCell.col; col += 1) {
+      const center = grid.cellToWorld({ col, row });
+      if (center.x < position.x - halfX || center.x > position.x + halfX) continue;
+      if (center.z < position.z - halfZ || center.z > position.z + halfZ) continue;
       if (!grid.isWalkable({ col, row })) return { valid: false, position, rotated, failure: 'BLOCKED' };
     }
   }

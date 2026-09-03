@@ -1,0 +1,87 @@
+{
+  "ok": true,
+  "verdict": "pass",
+  "confidence": 0.813,
+  "estimatedFidelity": 0.813,
+  "targetThreshold": 0.7,
+  "materialId": "beam-light",
+  "sourceImage": "/Users/steve/Spix3l/age-of-agents/art/img2threejs/core/material-crops/beam-light.png",
+  "outDir": "/Users/steve/Spix3l/age-of-agents/art/img2threejs/core/pbr-evidence",
+  "palette": [
+    "#081A23",
+    "#0B2B3B",
+    "#0F4864",
+    "#178BB3",
+    "#8AEAF6"
+  ],
+  "maps": {
+    "albedo": {
+      "path": "/Users/steve/Spix3l/age-of-agents/art/img2threejs/core/pbr-evidence/beam-light_albedo.png",
+      "url": "beam-light_albedo.png",
+      "channel": "albedo",
+      "source": "reference-pixel-extraction"
+    },
+    "roughness": {
+      "path": "/Users/steve/Spix3l/age-of-agents/art/img2threejs/core/pbr-evidence/beam-light_roughness.png",
+      "url": "beam-light_roughness.png",
+      "channel": "roughness",
+      "source": "reference-pixel-extraction"
+    },
+    "height": {
+      "path": "/Users/steve/Spix3l/age-of-agents/art/img2threejs/core/pbr-evidence/beam-light_height.png",
+      "url": "beam-light_height.png",
+      "channel": "height",
+      "source": "reference-pixel-extraction"
+    },
+    "normal": {
+      "path": "/Users/steve/Spix3l/age-of-agents/art/img2threejs/core/pbr-evidence/beam-light_normal.png",
+      "url": "beam-light_normal.png",
+      "channel": "normal",
+      "source": "reference-pixel-extraction"
+    },
+    "ao": {
+      "path": "/Users/steve/Spix3l/age-of-agents/art/img2threejs/core/pbr-evidence/beam-light_ao.png",
+      "url": "beam-light_ao.png",
+      "channel": "ao",
+      "source": "reference-pixel-extraction"
+    }
+  },
+  "diagnostics": {
+    "sourceWidth": 20,
+    "sourceHeight": 52,
+    "mapSize": 1024,
+    "cropBBoxPixels": {
+      "x": 0,
+      "y": 0,
+      "width": 20,
+      "height": 52
+    },
+    "mask": {
+      "backgroundColor": "#0B3852",
+      "backgroundNoise": 67.985,
+      "transparentPixelFraction": 0.0,
+      "foregroundCoverage": 1.0
+    },
+    "mapStats": {
+      "valueRange": 0.7298,
+      "heightP90Gradient": 0.01734,
+      "roughnessBase": 0.685,
+      "roughnessVariation": 0.05,
+      "normalStrength": 0.177,
+      "blurRadius": 21
+    },
+    "palette": [
+      "#081A23",
+      "#0B2B3B",
+      "#0F4864",
+      "#178BB3",
+      "#8AEAF6"
+    ]
+  },
+  "warnings": [
+    "image is not clearly isolated from background; using most pixels as material evidence",
+    "object/background separation is weak",
+    "single-image inverse rendering cannot prove true physical PBR; confidence is capped"
+  ],
+  "limitation": "single-image PBR extraction is an estimate; 70%+ extraction confidence still needs render screenshot review"
+}

@@ -1,9 +1,17 @@
 import * as THREE from 'three';
 import { MAP_BOUNDS, START_POSITIONS } from '../world/map';
 
-// Equal X/Y/Z offsets produce the classic orthographic isometric elevation:
-// atan(1 / sqrt(2)) = ~35.3 degrees above the ground plane.
-const CAMERA_OFFSET = new THREE.Vector3(32, 32, 32);
+/**
+ * A perspective camera that looks straight down the map's depth axis from a raised, tilted
+ * position. Buildings sit square to the screen and the ground recedes toward a real horizon,
+ * which is what gives a low-poly world its diorama feel. Zoom moves the camera along its
+ * viewing ray rather than changing the projection.
+ */
+const PITCH = THREE.MathUtils.degToRad(60);
+const FIELD_OF_VIEW = 34;
+const DEFAULT_DISTANCE = 72;
+const MIN_DISTANCE = 26;
+const MAX_DISTANCE = 170;
 
 export type PanDirection = 'up' | 'down' | 'left' | 'right';
 
@@ -18,16 +26,13 @@ export function panDirectionForKey(key: string): PanDirection | null {
 }
 
 export class RTSCameraController {
-  readonly camera: THREE.OrthographicCamera;
-  private readonly focus = new THREE.Vector3(START_POSITIONS.player.x + 4, 0, START_POSITIONS.player.z - 4);
+  readonly camera: THREE.PerspectiveCamera;
+  private readonly focus = new THREE.Vector3(START_POSITIONS.player.x + 6, 0, START_POSITIONS.player.z - 6);
   private readonly pressed = new Set<string>();
-  private zoom = 1;
-  private readonly viewSize = 30;
+  private distance = DEFAULT_DISTANCE;
 
   constructor(private readonly canvas: HTMLCanvasElement) {
-    this.camera = new THREE.OrthographicCamera(-20, 20, 15, -15, 0.1, 420);
-    this.camera.position.copy(this.focus).add(CAMERA_OFFSET);
-    this.camera.lookAt(this.focus);
+    this.camera = new THREE.PerspectiveCamera(FIELD_OF_VIEW, 16 / 9, 1, 700);
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
     canvas.addEventListener('wheel', this.onWheel, { passive: false });
@@ -37,8 +42,8 @@ export class RTSCameraController {
     this.sync();
   }
 
-  /** Current zoom factor; the shadow frustum widens with it as the view opens up. */
-  get zoomLevel(): number { return this.zoom; }
+  /** Relative magnification: 1 at the default distance, above 1 when closer. */
+  get zoomLevel(): number { return DEFAULT_DISTANCE / this.distance; }
 
   /** World-space point the camera is centred on; the sun and shadows follow it. */
   get focusPoint(): THREE.Vector3 { return this.focus; }
@@ -51,7 +56,7 @@ export class RTSCameraController {
     if (this.pressed.has('right')) dx += 1;
     if (dx === 0 && dz === 0) return;
     const length = Math.hypot(dx, dz);
-    const speed = 34 / this.zoom;
+    const speed = 36 / this.zoomLevel;
     this.focus.x += (dx / length) * speed * delta;
     this.focus.z += (dz / length) * speed * delta;
     this.clampFocus();
@@ -84,27 +89,22 @@ export class RTSCameraController {
     event.preventDefault();
     if (event.ctrlKey) {
       // macOS exposes trackpad pinch as a ctrl-modified wheel gesture.
-      this.zoom = THREE.MathUtils.clamp(this.zoom * Math.exp(-event.deltaY * 0.01), 0.28, 2.2);
-      this.resize();
+      this.distance = THREE.MathUtils.clamp(this.distance * Math.exp(event.deltaY * 0.01), MIN_DISTANCE, MAX_DISTANCE);
+      this.sync();
       return;
     }
 
-    // Two-finger trackpad scrolling pans in screen space. The camera looks
-    // diagonally across the XZ plane, so combine both world axes per gesture.
-    const factor = 0.022 / this.zoom;
-    this.focus.x += (event.deltaX - event.deltaY * 0.72) * factor;
-    this.focus.z += (-event.deltaX - event.deltaY * 0.72) * factor;
+    // Two-finger trackpad scrolling pans in screen space. The camera looks straight down
+    // the depth axis, so screen X is world X and screen Y is world Z.
+    const factor = 0.024 / this.zoomLevel;
+    this.focus.x += event.deltaX * factor;
+    this.focus.z += event.deltaY * factor;
     this.clampFocus();
     this.sync();
   };
 
   readonly resize = (): void => {
-    const aspect = Math.max(0.25, this.canvas.clientWidth / Math.max(1, this.canvas.clientHeight));
-    const halfHeight = this.viewSize / (2 * this.zoom);
-    this.camera.left = -halfHeight * aspect;
-    this.camera.right = halfHeight * aspect;
-    this.camera.top = halfHeight;
-    this.camera.bottom = -halfHeight;
+    this.camera.aspect = Math.max(0.25, this.canvas.clientWidth / Math.max(1, this.canvas.clientHeight));
     this.camera.updateProjectionMatrix();
   };
 
@@ -114,7 +114,11 @@ export class RTSCameraController {
   }
 
   private sync(): void {
-    this.camera.position.copy(this.focus).add(CAMERA_OFFSET);
+    this.camera.position.set(
+      this.focus.x,
+      this.focus.y + Math.sin(PITCH) * this.distance,
+      this.focus.z + Math.cos(PITCH) * this.distance,
+    );
     this.camera.lookAt(this.focus);
     this.camera.updateMatrixWorld();
   }

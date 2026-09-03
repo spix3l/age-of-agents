@@ -49,10 +49,24 @@ export class NavigationGrid {
   }
 
   setBlockedRect(center: Vec2, size: Vec2, value: boolean, padding = 0): void {
-    const min = this.worldToCell({ x: center.x - size.x / 2 - padding, z: center.z - size.z / 2 - padding });
-    const max = this.worldToCell({ x: center.x + size.x / 2 + padding, z: center.z + size.z / 2 + padding });
+    const minX = center.x - size.x / 2 - padding;
+    const maxX = center.x + size.x / 2 + padding;
+    const minZ = center.z - size.z / 2 - padding;
+    const maxZ = center.z + size.z / 2 + padding;
+    const min = this.worldToCell({ x: minX, z: minZ });
+    const max = this.worldToCell({ x: maxX, z: maxZ });
     for (let row = min.row; row <= max.row; row += 1) {
-      for (let col = min.col; col <= max.col; col += 1) this.setBlocked({ col, row }, value);
+      for (let col = min.col; col <= max.col; col += 1) {
+        // A cell is covered when its CENTER lies inside the rect (inclusive, so legacy
+        // half-cell-straddled positions keep their old coverage). The old inclusive min/max
+        // CELL range swallowed a boundary cell the rect only touched, which blocked the cell
+        // an adjacent flush wall needed -- walls could never sit edge to edge. For
+        // parity-snapped footprints the boundary is an integer and cell centers are
+        // half-integers, so inclusion is exact and never leaks into the neighbour.
+        const world = this.cellToWorld({ col, row });
+        if (world.x < minX || world.x > maxX || world.z < minZ || world.z > maxZ) continue;
+        this.setBlocked({ col, row }, value);
+      }
     }
   }
 

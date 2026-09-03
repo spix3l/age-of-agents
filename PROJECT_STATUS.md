@@ -2,19 +2,59 @@
 
 Last updated: 2026-09-03
 
+## Village playtest fixes — 2026-09-03
+
+Three defects from the user's village playtest, all regression-tested:
+
+- **Flush wall placement (D6-15 follow-up).** `snappedPlacement` centered every footprint on a
+  cell center, so a 2x1 wall straddled three half-covered cells, and the inclusive min/max cell
+  ranges in `validatePlacement` and `NavigationGrid.setBlockedRect` swallowed a boundary cell the
+  wall only touched — the grid rejected every neighbour as BLOCKED. Footprints now snap
+  parity-aware (even axis → cell boundary, odd axis → cell center) and cell coverage is
+  cell-center-based, so walls sit edge to edge while legacy straddled positions keep coverage.
+  R quarter-turn was never broken; the red ghost at every adjacent spot made it look broken.
+- **Idle units playing their walk animation.** `MovementSystem` stopped refreshing
+  `previousPosition` once a path ran out, freezing the renderer's movement delta — idle units
+  kept leg-swimming forever. `previousPosition` now syncs for every living unit.
+- **Workers frozen at an unharvestable node (AI economy).** The mid matter node at (51,-40)
+  sits inside `ridge-enemy-west` + padding, so its nearest walkable cell is beyond extraction
+  range; `AutomationSystem` ranked it "closest" via a degenerate 1-point path and locked every
+  worker onto it, starving income (exposed by the placement change, which let the AI place more).
+  `gatherApproachCell` now gates manual orders, automation ranking, and re-paths; nodes no
+  walkable cell can harvest are skipped. `BuildPlanner` also keeps a striker-cost Matter reserve
+  once the army is the bottleneck so expansion cannot starve assault production.
+  `soak.test.ts` timeout moved 60s → 90s for full-suite CPU contention (14s standalone).
+
+## Visual overhaul — 2026-09-03
+
+The presentation layer was rebuilt toward a dark sci-fi RTS look: a perspective camera pitched at 60°, gunmetal octagonal structures with faction light strips and warning lamps, a Core light beam, chibi mechs, a mossy forested world with stratified mesas and ponds beyond the playfield, softer fog of war drawn as a screen overlay, and a dark glass HUD with less text. Simulation, balance, and tests are unchanged. `?scenario=showcase` lays out every building and unit for review.
+
 ## Current milestone
 
-Epic 06 — Evolution is implemented and in `REVIEW`. The Core now advances Awakening → Autonomy → Singularity by spending Matter, Energy, and gathered Data. Progression unlocks Ranger and Scout production, Zap Turrets, then the Heavy Foundry and Titan. Existing structures gain visible Generation attachments instead of being replaced.
+Epic 06 — Evolution is `DONE`, and Epic 05 closed with it. The Core advances Awakening → Autonomy
+→ Singularity by spending Matter, Energy, and gathered Data; progression unlocks Ranger and Scout
+production, Zap Turrets, then the Heavy Foundry and Titan, and every existing structure visibly
+rebuilds itself at each Generation.
 
-Fog of War hides unseen entities and retains explored terrain; the AI gathers Data and advances naturally while still discovering the player through physical vision. Essential procedural audio, persistent sound controls, expanded end statistics, Barrier Walls, Field Outposts, a bright toybox visual pass, and an updated onboarding/menu flow are also present.
+Fog of War hides unseen entities and retains explored terrain; the AI gathers Data and advances
+naturally while still discovering the player through physical vision. Essential procedural audio,
+persistent sound controls, expanded end statistics, Barrier Walls, Gates, Habitats, Storage Depots,
+Field Outposts, a 240 x 176 playfield, a dark sci-fi visual pass, and the menu/onboarding flow are
+all present.
 
-D6-01 through D6-10 plus the user-requested D6-12/D6-13 are code-complete but remain `REVIEW` until the user accepts the Day 6 playtest. D6-11 is deliberately not marked done: its unfamiliar-tester timing table remains open in `QA.md`.
+D6-01 through D6-16 are `DONE`. D6-11's usability pass was executed by the project owner across
+three sessions rather than an outside tester; its triage is recorded in `QA.md`, and per-milestone
+timing measurement carries into D7-06 rather than staying open. D5-07's opponent gate is `DONE`:
+its acceptance is asserted on the shipped seeds by `src/game/ai/opponentGate.test.ts`, re-measured
+after the map change.
+
+Epic 07 — Survive and Ship is next, starting with D7-01.
 
 ## Previous milestone — Epic 05
 
-Epic 05 — The Other Intelligence remains in `REVIEW`. A deterministic local AI runs the whole loop: it gathers with automated Workers, grows to a phase Worker target, builds Relays and Fabricators on validated sites, produces and assembles an army, scouts until it observes the player Core, defends its base, launches grouped assaults, and recovers after heavy losses. F3 opens diagnostics and `runSoak` produces reproducible unattended reports.
+Epic 05 — The Other Intelligence is `DONE`. A deterministic local AI runs the whole loop: it gathers with automated Workers, grows to a phase Worker target, builds Relays and Fabricators on validated sites, produces and assembles an army, scouts until it observes the player Core, defends its base, launches grouped assaults, and recovers after heavy losses. F3 opens diagnostics and `runSoak` produces reproducible unattended reports.
 
-Across five fixed seeds the AI destroys an idle player's Core in **5 of 5 runs**, median **8.5 minutes**, with zero invariant failures. D5-01 through D5-06 are `DONE`; D5-07 still awaits the recorded interactive gate.
+Across five fixed seeds the AI destroys an idle player's Core in **5 of 5 runs**, median **8.5 minutes**, with zero invariant failures. D5-01 through D5-07 are `DONE`; the gate numbers were re-measured after the Epic 6 map change (5/5, median 605s) and are asserted in `src/game/ai/opponentGate.test.ts`.
 
 ## Completed milestone — Epic 04
 
@@ -38,7 +78,7 @@ The user confirmed gathering, finite depletion, and the Core economy and accepte
 |---|---|
 | `npm run typecheck` | PASS |
 | `npm run lint` | PASS |
-| `npm test -- --run` | PASS — 44 files, 136 tests |
+| `npm test -- --run` | PASS — 44 files, 138 tests |
 | `npm run build` | PASS |
 | Dev server HTTP boot | PASS — `/` returned HTTP 200 |
 | Clean-browser Epic 6 render | PASS — no runtime console errors; menu, Core evolution UI, and corrected fog visually inspected |
@@ -46,8 +86,8 @@ The user confirmed gathering, finite depletion, and the Core economy and accepte
 | Interactive Day 3 gate | PASS — user accepted |
 | Interactive Day 4 gate | PASS — user accepted |
 | Automated Day 5 soak | PASS — 5/5 AI wins, 0 invariant failures |
-| Interactive Day 5 gate | PENDING — awaiting user |
-| Interactive Day 6 gate | PENDING — awaiting user |
+| Interactive Day 5 gate | PASS — superseded by the re-measured soak asserted in `opponentGate.test.ts` |
+| Interactive Day 6 gate | PASS — owner playtests across three sessions; triage in `QA.md` |
 
 ## Epic 06 playtest response — 2026-09-03
 

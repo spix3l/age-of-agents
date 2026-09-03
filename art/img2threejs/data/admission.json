@@ -1,0 +1,14 @@
+{
+  "admitted": true,
+  "reasons": [],
+  "provenance": {
+    "viewpoint": "reference",
+    "sourcePath": "/Users/steve/Spix3l/age-of-agents/art/img2threejs/data/reference.png",
+    "width": 226,
+    "height": 217,
+    "foregroundCoverage": 0.4307,
+    "largestComponentFraction": 0.6148,
+    "pHash": 17265317345931993640,
+    "duplicateOfHash": null
+  }
+}

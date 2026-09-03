@@ -36,7 +36,7 @@ describe('procedural models', () => {
 
     const striker = buildUnitModel(cache, 'striker', 'enemy', 's-1');
     expect(striker.legs.length).toBe(2);
-    expect(striker.turret).not.toBeNull();
+    expect(striker.arms.length).toBe(2);
     expect(striker.barrel).not.toBeNull();
 
     const ranger = buildUnitModel(cache, 'ranger', 'player', 'r-1');
@@ -82,9 +82,9 @@ describe('procedural models', () => {
     const matter = buildResourceModel(cache, 'matter', 'node-1');
     const energy = buildResourceModel(cache, 'energy', 'node-2');
     const data = buildResourceModel(cache, 'data', 'node-3');
-    expect(matter.shards.length).toBeGreaterThan(4);
-    // Energy adds a halo ring on top of its crystal blades.
-    expect(energy.shards.length).toBeGreaterThan(matter.shards.length - 2);
+    // Matter pairs every boulder with an ore nugget; Energy adds a halo ring to its crystals.
+    expect(matter.shards.length).toBeGreaterThan(8);
+    expect(energy.shards.length).toBeGreaterThan(4);
     expect(data.shards.length).toBeGreaterThan(2);
     expect(buildConstructionScaffold(cache, 'fabricator', 'player').children.length).toBe(5);
 

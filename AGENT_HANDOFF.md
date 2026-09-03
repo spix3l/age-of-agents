@@ -35,7 +35,10 @@ npm run build
 - `src/game/systems/GatheringSystem.ts`, `ConstructionSystem.ts`, `AutomationSystem.ts`, `ProductionSystem.ts`, `CombatSystem.ts`, and `TurretSystem.ts` advance only from fixed simulation delta time.
 - `src/game/economy/CapacityProviders.ts` applies and removes completed-building capacity without coupling it to rendering or destruction effects.
 - `src/game/scenarios/economy.ts` is the shipping opening scenario; `battle.ts` holds the mirrored Day 4 debug armies (`?scenario=battle`); `day1.ts` remains the 30-unit navigation fixture. Build units only through `createUnitEntity`/`createWorkerEntity`, never entity literals.
-- `src/game/world/createMatch.ts` is the seeded match entrypoint; `WorldScene.ts` is presentation only. `src/game/world/map.ts` owns the 240 x 176 playfield, start positions, and handcrafted terrain.
+- `src/game/world/createMatch.ts` is the seeded match entrypoint; `WorldScene.ts` is presentation only. `src/game/world/map.ts` owns the 240 x 176 playfield, start positions, and handcrafted terrain. `src/game/world/environment.ts` builds all scenery once (rolling terrain beyond the bounds, stratified mesas over the navigation obstacles, instanced forests, ground cover, ponds); it never touches simulation state.
+- `src/game/camera/RTSCameraController.ts` is a perspective camera pitched 60° looking down -Z; zoom moves the camera distance, `zoomLevel` is relative magnification for the shadow frustum.
+- `src/game/rendering/models/` holds the procedural art. `palette.ts` defines the dark gunmetal + faction glow language (cyan vs orange) and the shared `ResourceCache`; `buildings.ts` assembles structures from a small `Kit` (octagonal drums, bevelled slabs, light strips, warning lamps); `units.ts` builds chibi mechs in light armour. `?scenario=showcase` (`src/game/scenarios/showcase.ts`) spawns every structure and Agent kind for art review.
+- `art/` is the reference-art pipeline (sheet → per-model crops → `src/game/rendering/models/generated/`), documented in `art/README.md`. `src/showcase/` plus `model-lab.html` is the standalone Model Lab build entry that reviews a generated factory beside the crop it came from; it is separate from the game entry and the match still renders the hand-written models. `scripts/` holds the generator/capture CLIs; their bulk outputs (`models/`, `models3d/`) are gitignored scratch.
 - `src/game/navigation/occupancy.ts` owns building navigation occupancy for every caller.
 - `src/game/input/InputManager.ts` is the only raw pointer-event adapter. Right-click is contextual in `Game.ts`.
 - `src/ui/store.ts` exposes throttled HUD snapshots and command callbacks; never publish per-frame transforms there.
@@ -84,13 +87,13 @@ Select the Core to evolve from **Awakening** to **Autonomy** and then **Singular
 
 Selected Workers can place Relay Nodes, Fabricators, Habitats, Storage Depots, Barrier Walls, Gates, and Field Outposts in Generation I; Zap Turrets unlock in Generation II and the Heavy Foundry in Generation III. **R** quarter-turns the pending footprint, and wall, gate, and habitat placement stays armed so a run can be clicked or dragged out in one gesture. Every structure visibly rebuilds itself at each Generation. Fabricators produce Strikers plus unlocked Rangers/Scouts; Foundries produce Titans. The top bar shows Generation and all three resources. Sound can be muted and adjusted from the top-right controls.
 
-Epic 06 and D6-01 through D6-13 are in `REVIEW`, not `DONE`. An integration review pass on 2026-09-03 re-ran every check and fixed a turret target lock, an AI production stall, and a selection-lookup regression; the findings are recorded in `QA.md` and `PROJECT_STATUS.md`. D6-11 requires the unfamiliar-player timing pass in `QA.md`; after the user accepts the manual Day 6 checklist in `PROJECT_STATUS.md`, update task checklists and roll up the epic. No Epic 6 commit has been made yet.
+Epics 01 through 06 are `DONE`. Epic 06 closed on 2026-09-03 with all sixteen tasks complete, every automated check green (typecheck, lint, 44 files / 138 tests, production build), and the usability triage recorded in `QA.md`. D6-11's pass was run by the project owner rather than an outside tester; per-milestone timing carries into D7-06's QA matrix. Epic 07 — Survive and Ship is the active epic; start at D7-01 and treat the feature set as frozen.
 
 ## Day 5 controls and completion state
 
 The shipping match now opens against the local AI. **F3** toggles the diagnostics overlay (FPS, entity counts, AI state and goal, AI economy, forces, intel, effect pool). All Day 4 controls are unchanged.
 
-Epics 01 through 04 are complete. D5-01 through D5-06 are `DONE`; D5-07 is `REVIEW` until the user accepts the Day 5 opponent gate recorded in `PROJECT_STATUS.md`. Begin Epic 06 with D6-01, and treat `MatchSimulation` as the place for new simulation behavior.
+D5-01 through D5-07 are `DONE`. The Day 5 gate numbers are asserted on the shipped seeds by `src/game/ai/opponentGate.test.ts` and were re-measured after the Epic 6 map change. Treat `MatchSimulation` as the place for new simulation behavior.
 
 ## Day 4 controls and completion state
 

@@ -5,7 +5,8 @@ import type { BuildingEntity, Team, UnitEntity, Vec2 } from '../types/simulation
 import type { Generation } from '../types/simulation';
 import { BUILDINGS } from '../../data/buildings';
 import type { PlaceableBuildingType } from '../building/PlacementController';
-import { MAP_BOUNDS, MAP_SIZE, WORLD_OBSTACLES } from './map';
+import { MAP_SIZE } from './map';
+import { Environment } from './environment';
 import { EffectsManager } from '../rendering/EffectsManager';
 import { ResourceCache } from '../rendering/models/palette';
 import { buildUnitModel, type UnitModel } from '../rendering/models/units';
@@ -40,6 +41,13 @@ interface StaticVisual {
   readonly resource?: ResourceModel;
 }
 
+/** Sun direction relative to the camera focus: high, from the right and behind, so
+ * shadows fall toward the viewer's lower-left the way the reference diorama lights its valley. */
+const SUN_OFFSET = Object.freeze({ x: 30, y: 54, z: -22 });
+/** Fog-of-war alpha: unexplored is dark but never black, explored is a dusk tint. */
+const FOG_UNKNOWN = 178;
+const FOG_EXPLORED = 92;
+
 export class WorldScene {
   readonly scene = new THREE.Scene();
   readonly ground: THREE.Mesh;
@@ -53,8 +61,13 @@ export class WorldScene {
   private animationTime = 0;
   private placementGhost: THREE.Group | null = null;
   private placementGhostType: PlaceableBuildingType | null = null;
+  private readonly ghostMaterials = [
+    new THREE.MeshBasicMaterial({ color: 0x63efbd, transparent: true, opacity: 0.45, depthWrite: false }),
+    new THREE.MeshBasicMaterial({ color: 0x63efbd, transparent: true, opacity: 0.3, depthWrite: false }),
+  ];
   private readonly sun: THREE.DirectionalLight;
   private readonly cache = new ResourceCache();
+  private readonly environment: Environment;
   private readonly effects: EffectsManager;
   private readonly billboardQuaternion = new THREE.Quaternion();
   private readonly parentQuaternion = new THREE.Quaternion();
@@ -66,54 +79,38 @@ export class WorldScene {
   private readonly fogPixels: Uint8Array;
 
   constructor() {
-    this.scene.background = new THREE.Color(0xa8c9c5);
-    this.scene.fog = new THREE.Fog(0xa8c9c5, 150, 330);
-    this.scene.add(new THREE.HemisphereLight(0xe6f5dc, 0x42522d, 2.2));
-    // A broad fill keeps the toy-like palette readable even inside the long,
-    // dramatic shadows cast by cliffs and oversized colony structures.
-    this.scene.add(new THREE.AmbientLight(0xfff6d7, 1.15));
-    this.sun = new THREE.DirectionalLight(0xffe5b2, 3.7);
-    this.sun.position.set(-28, 42, 22);
+    // The canvas is transparent: the sky gradient behind it shows above the horizon, and
+    // distance fog fades the far hills into the same pale blue.
+    this.scene.background = new THREE.Color(0x13202a);
+    this.scene.fog = new THREE.Fog(0x13202a, 160, 420);
+    this.scene.add(new THREE.HemisphereLight(0xa9cde3, 0x33452e, 1.0));
+    this.scene.add(new THREE.AmbientLight(0xbfd6e6, 0.3));
+    this.sun = new THREE.DirectionalLight(0xffe9cc, 2.1);
+    this.sun.position.set(SUN_OFFSET.x, SUN_OFFSET.y, SUN_OFFSET.z);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
+    this.sun.shadow.bias = 0.0006;
+    this.sun.shadow.normalBias = 0.08;
     // The shadow frustum stays tight and travels with the camera, so a large map keeps
     // crisp shadows instead of stretching one huge low-resolution map across it.
-    this.sun.shadow.camera.left = -34; this.sun.shadow.camera.right = 34;
-    this.sun.shadow.camera.top = 30; this.sun.shadow.camera.bottom = -30;
+    this.sun.shadow.camera.left = -38; this.sun.shadow.camera.right = 38;
+    this.sun.shadow.camera.top = 34; this.sun.shadow.camera.bottom = -34;
+    this.sun.shadow.camera.near = 1;
     this.sun.shadow.camera.far = 260;
     this.scene.add(this.sun, this.sun.target);
 
-    const terrain = new THREE.PlaneGeometry(MAP_SIZE.width, MAP_SIZE.depth, Math.round(MAP_SIZE.width / 2), Math.round(MAP_SIZE.depth / 2));
-    const terrainPositions = terrain.getAttribute('position');
-    const colors: number[] = [];
-    const color = new THREE.Color();
-    for (let index = 0; index < terrainPositions.count; index += 1) {
-      const shade = 0.82 + this.noise(index * 7 + 13) * 0.18;
-      color.setRGB(0.34 * shade, 0.50 * shade, 0.19 * shade);
-      colors.push(color.r, color.g, color.b);
-    }
-    terrain.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-    this.ground = new THREE.Mesh(terrain, new THREE.MeshStandardMaterial({
-      vertexColors: true,
-      roughness: 1,
-      metalness: 0,
-      flatShading: true,
-      emissive: 0x294018,
-      emissiveIntensity: 0.55,
-    }));
-    this.ground.rotation.x = -Math.PI / 2;
-    this.ground.receiveShadow = true;
-    this.ground.name = 'terrain';
-    this.scene.add(this.ground);
+    this.environment = new Environment();
+    this.scene.add(this.environment.group);
+    this.ground = this.environment.terrain;
 
     const fogWidth = Math.ceil(MAP_SIZE.width / 4);
     const fogHeight = Math.ceil(MAP_SIZE.depth / 4);
     this.fogPixels = new Uint8Array(fogWidth * fogHeight * 4);
     for (let index = 0; index < fogWidth * fogHeight; index += 1) {
       const offset = index * 4;
-      this.fogPixels[offset] = 235;
-      this.fogPixels[offset + 1] = 235;
-      this.fogPixels[offset + 2] = 235;
+      this.fogPixels[offset] = FOG_UNKNOWN;
+      this.fogPixels[offset + 1] = FOG_UNKNOWN;
+      this.fogPixels[offset + 2] = FOG_UNKNOWN;
       this.fogPixels[offset + 3] = 255;
     }
     this.fogTexture = new THREE.DataTexture(this.fogPixels, fogWidth, fogHeight, THREE.RGBAFormat);
@@ -124,23 +121,15 @@ export class WorldScene {
     this.fogTexture.needsUpdate = true;
     const fogPlane = new THREE.Mesh(
       new THREE.PlaneGeometry(MAP_SIZE.width, MAP_SIZE.depth),
-      new THREE.MeshBasicMaterial({ alphaMap: this.fogTexture, transparent: true, depthWrite: false, color: 0x172724 }),
+      // Drawn as a screen overlay after the world, so grass, mesas, and trees inside the
+      // unexplored region are dimmed with the ground instead of poking through it.
+      new THREE.MeshBasicMaterial({ alphaMap: this.fogTexture, transparent: true, depthWrite: false, depthTest: false, color: 0x0a1116 }),
     );
     fogPlane.rotation.x = -Math.PI / 2;
     fogPlane.position.y = 0.12;
-    fogPlane.renderOrder = 1;
+    fogPlane.renderOrder = 5;
     fogPlane.name = 'fog-of-war';
     this.scene.add(fogPlane);
-
-    const grid = new THREE.GridHelper(Math.max(MAP_SIZE.width, MAP_SIZE.depth), Math.max(MAP_SIZE.width, MAP_SIZE.depth), 0xbad689, 0x6f9148);
-    grid.position.y = 0.015;
-    const gridMaterials = Array.isArray(grid.material) ? grid.material : [grid.material];
-    gridMaterials.forEach((material) => { material.transparent = true; material.opacity = 0.055; });
-    this.scene.add(grid);
-    this.addPerimeterForest();
-    this.addBoundaryCliffs();
-    this.addTerrainDetails();
-    WORLD_OBSTACLES.forEach((obstacle, index) => this.addObstacle(obstacle, index));
 
     this.marker = new THREE.Mesh(
       new THREE.RingGeometry(0.65, 0.88, 24),
@@ -158,7 +147,7 @@ export class WorldScene {
     view.getWorldQuaternion(this.billboardQuaternion);
     if (!focus) return;
     this.sun.target.position.set(focus.x, 0, focus.z);
-    this.sun.position.set(focus.x - 28, 46, focus.z + 22);
+    this.sun.position.set(focus.x + SUN_OFFSET.x, SUN_OFFSET.y, focus.z + SUN_OFFSET.z);
     this.sun.target.updateMatrixWorld();
     // The frustum tracks the visible area so a wide view still casts shadows at its edges.
     const half = THREE.MathUtils.clamp(38 / zoom, 38, 130);
@@ -233,7 +222,7 @@ export class WorldScene {
     for (let index = 0; index < cells; index += 1) {
       const state = snapshot.states[index];
       const offset = index * 4;
-      const opacity = state === 2 ? 0 : state === 1 ? 115 : 235;
+      const opacity = state === 2 ? 0 : state === 1 ? FOG_EXPLORED : FOG_UNKNOWN;
       // Alpha maps sample the green channel. Mirroring into RGB keeps this
       // portable across WebGL implementations and texture swizzles.
       this.fogPixels[offset] = opacity;
@@ -280,6 +269,17 @@ export class WorldScene {
 
     const scaffold = buildConstructionScaffold(this.cache, building.kind, building.team);
     scaffold.visible = !building.operational;
+
+    // A trodden soil yard grounds each structure in the meadow; walls and gates sit flush.
+    if (building.kind !== 'wall' && building.kind !== 'gate') {
+      const yard = new THREE.Mesh(
+        this.cache.roundedBox(`yard-${building.footprint.x}-${building.footprint.z}`, building.footprint.x + 0.7, 0.08, building.footprint.z + 0.7, 0.04),
+        this.cache.standard('yard-soil', { color: 0x4a5057, roughness: 0.95, metalness: 0.05 }),
+      );
+      yard.position.y = 0.02;
+      yard.receiveShadow = true;
+      group.add(yard);
+    }
 
     const radius = Math.max(building.footprint.x, building.footprint.z) / 2 + 0.4;
     const ring = new THREE.Mesh(
@@ -374,22 +374,22 @@ export class WorldScene {
     visual.yaw = approachAngle(visual.yaw, desiredYaw, 7 * frame);
     visual.group.rotation.y = visual.yaw;
 
-    // Gait: legs swing while walking, tracks bob slightly, everything settles when idle.
-    visual.phase = moving ? visual.phase + Math.min(speed, 8) * frame * 3.2 : 0;
+    // Gait: legs swing while walking, arms counter-swing, everything settles when idle.
+    visual.phase = moving ? visual.phase + Math.min(speed, 8) * frame * 3.4 : 0;
+    const walker = unit.kind !== 'scout';
     visual.model.legs.forEach((leg, index) => {
       const swing = moving ? Math.sin(visual.phase + index * Math.PI) : 0;
-      if (unit.kind === 'worker') {
-        leg.rotation.x = swing * 0.55;
-        leg.position.y = 0.5 + Math.abs(swing) * 0.05;
-      } else if (unit.kind === 'striker') {
-        leg.position.y = 0.3 + swing * 0.03;
-      } else if (unit.kind === 'ranger' || unit.kind === 'titan') {
-        leg.rotation.x = swing * (unit.kind === 'titan' ? 0.18 : 0.42);
-      } else {
-        leg.rotation.z += frame * 1.8;
-      }
+      if (!walker) { leg.rotation.z += frame * 2.2; return; }
+      const stride = unit.kind === 'titan' ? 0.2 : unit.kind === 'ranger' ? 0.45 : 0.6;
+      leg.rotation.x = swing * stride;
+      const rest = typeof leg.userData.restY === 'number' ? leg.userData.restY : leg.position.y;
+      leg.position.y = rest + Math.max(0, swing) * 0.05;
     });
-    if (unit.kind === 'worker') visual.group.position.y = moving ? Math.abs(Math.sin(visual.phase)) * 0.045 : 0;
+    visual.model.arms.forEach((arm, index) => {
+      const swing = moving ? Math.sin(visual.phase + index * Math.PI + Math.PI) : 0;
+      arm.rotation.x = unit.kind === 'worker' ? swing * 0.5 : swing * 0.12;
+    });
+    if (walker) visual.group.position.y = moving ? Math.abs(Math.sin(visual.phase)) * (unit.kind === 'titan' ? 0.03 : 0.05) : 0;
     if (visual.model.hover) visual.model.hover.position.y = 1.15 + Math.sin(this.animationTime * 3 + unit.position.x) * 0.12;
 
     // Cargo pod fills with what the Worker is carrying.
@@ -444,7 +444,8 @@ export class WorldScene {
         const working = building.productionQueue.length > 0;
         visual.parts.arm.visible = true;
         visual.parts.arm.position.x = working ? Math.sin(this.animationTime * 2.6) * 1.1 : 0;
-        visual.parts.arm.position.y = 2.1 - (working ? Math.abs(Math.cos(this.animationTime * 2.6)) * 0.25 : 0);
+        const rest = typeof visual.parts.arm.userData.restY === 'number' ? visual.parts.arm.userData.restY : visual.parts.arm.position.y;
+        visual.parts.arm.position.y = rest - (working ? Math.abs(Math.cos(this.animationTime * 2.6)) * 0.25 : 0);
       }
     }
 
@@ -502,24 +503,28 @@ export class WorldScene {
       this.removePlacementGhost();
       const config = BUILDINGS[type];
       const group = new THREE.Group();
-      const material = new THREE.MeshBasicMaterial({ color: 0x63efbd, transparent: true, opacity: 0.38, depthWrite: false });
-      const footprint = new THREE.Mesh(new THREE.BoxGeometry(config.footprint[0], 0.08, config.footprint[1]), material);
-      footprint.position.y = 0.07;
-      const mass = new THREE.Mesh(new THREE.BoxGeometry(config.footprint[0] * 0.72, type === 'relay' ? 2.2 : 2.8, config.footprint[1] * 0.7), material);
-      mass.position.y = type === 'relay' ? 1.15 : 1.45;
-      const crown = new THREE.Mesh(type === 'relay' ? new THREE.OctahedronGeometry(0.55, 0) : new THREE.CylinderGeometry(0.7, 0.95, 0.7, 6), material);
-      crown.position.y = type === 'relay' ? 2.65 : 3.05;
-      group.add(footprint, mass, crown);
+      // The ghost is the real model in translucent faction glass, so what you see is what you get.
+      const model = buildBuildingModel(this.cache, type, 'player', 'placement-ghost');
+      for (const entry of model.generationParts) entry.part.visible = (this.generations.get('player') ?? 1) >= entry.min;
+      model.group.traverse((object) => {
+        if (!(object instanceof THREE.Mesh)) return;
+        object.material = this.ghostMaterials[0];
+        object.castShadow = false;
+        object.receiveShadow = false;
+        delete object.userData.entityId;
+      });
+      const footprint = new THREE.Mesh(new THREE.BoxGeometry(config.footprint[0], 0.06, config.footprint[1]), this.ghostMaterials[1]);
+      footprint.position.y = 0.05;
+      group.add(model.group, footprint);
       this.scene.add(group);
       this.placementGhost = group;
       this.placementGhostType = type;
     }
     this.placementGhost.position.set(x, 0, z);
     this.placementGhost.rotation.y = rotated ? Math.PI / 2 : 0;
-    for (const child of this.placementGhost.children) {
-      const material = (child as THREE.Mesh).material as THREE.MeshBasicMaterial;
+    for (const material of this.ghostMaterials) {
       material.color.setHex(valid ? 0x63efbd : 0xff665c);
-      material.opacity = valid ? 0.42 : 0.58;
+      material.opacity = valid ? 0.45 : 0.55;
       material.wireframe = !valid;
     }
     this.placementGhost.visible = true;
@@ -554,6 +559,8 @@ export class WorldScene {
 
   dispose(): void {
     this.effects.dispose();
+    this.environment.dispose();
+    this.ghostMaterials.forEach((material) => material.dispose());
     this.scene.traverse((object) => {
       if (object instanceof THREE.Mesh) {
         object.geometry.dispose();
@@ -569,24 +576,6 @@ export class WorldScene {
     this.resources.clear();
     this.placementGhost = null;
     this.placementGhostType = null;
-  }
-
-  private addObstacle(obstacle: (typeof WORLD_OBSTACLES)[number], index: number): void {
-    const group = new THREE.Group();
-    const rockMaterial = new THREE.MeshStandardMaterial({ color: index % 2 === 0 ? 0x9a7950 : 0x796d52, roughness: 0.93, metalness: 0.03, flatShading: true });
-    const pieces = Math.max(3, Math.round(obstacle.size.x));
-    for (let part = 0; part < pieces; part += 1) {
-      const geometry = new THREE.DodecahedronGeometry(1, 0);
-      const rock = new THREE.Mesh(geometry, rockMaterial);
-      const ratio = pieces === 1 ? 0 : part / (pieces - 1) - 0.5;
-      rock.position.set(ratio * obstacle.size.x * 0.85, obstacle.height * (0.28 + (part % 3) * 0.08), Math.sin(part * 2.2) * obstacle.size.z * 0.25);
-      rock.scale.set(1.3 + (part % 2) * 0.55, obstacle.height * 0.42, Math.max(1.4, obstacle.size.z * 0.2));
-      rock.rotation.set(part * 0.13, part * 0.58, part * 0.09);
-      rock.castShadow = true; rock.receiveShadow = true; group.add(rock);
-    }
-    group.position.set(obstacle.center.x, 0, obstacle.center.z);
-    group.rotation.y = obstacle.rotation ?? 0;
-    this.scene.add(group);
   }
 
   private createHealthBar(width: number, height: number): HealthBar {
@@ -638,96 +627,10 @@ export class WorldScene {
   private removePlacementGhost(): void {
     if (!this.placementGhost) return;
     this.scene.remove(this.placementGhost);
-    this.placementGhost.traverse((object) => {
-      if (!(object instanceof THREE.Mesh)) return;
-      object.geometry.dispose();
-      const materials = Array.isArray(object.material) ? object.material : [object.material];
-      materials.forEach((material) => material.dispose());
-    });
+    // Ghost geometry belongs to the shared cache; only the two ghost materials are ours.
     this.placementGhost = null;
   }
 
-  private addTerrainDetails(): void {
-    this.addMachineRuins();
-  }
-
-  private addPerimeterForest(): void {
-    const count = 210;
-    const trunkGeometry = new THREE.CylinderGeometry(0.16, 0.28, 1.5, 5);
-    const crownGeometry = new THREE.IcosahedronGeometry(0.9, 0);
-    const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x4e3d28, roughness: 1, flatShading: true });
-    const crownMaterial = new THREE.MeshStandardMaterial({ color: 0x315c2c, roughness: 0.96, flatShading: true });
-    const trunks = new THREE.InstancedMesh(trunkGeometry, trunkMaterial, count);
-    const crowns = new THREE.InstancedMesh(crownGeometry, crownMaterial, count);
-    const matrix = new THREE.Matrix4();
-    const position = new THREE.Vector3();
-    const scale = new THREE.Vector3();
-    const rotation = new THREE.Quaternion();
-    const euler = new THREE.Euler();
-    const tint = new THREE.Color();
-    for (let index = 0; index < count; index += 1) {
-      const edge = index % 4;
-      const along = this.noise(index * 5 + 1);
-      const edgeOffset = -1.5 + this.noise(index * 5 + 2) * 3;
-      if (edge < 2) position.set(MAP_BOUNDS.minX + along * MAP_SIZE.width, 0, edge === 0 ? MAP_BOUNDS.minZ + edgeOffset : MAP_BOUNDS.maxZ - edgeOffset);
-      else position.set(edge === 2 ? MAP_BOUNDS.minX + edgeOffset : MAP_BOUNDS.maxX - edgeOffset, 0, MAP_BOUNDS.minZ + along * MAP_SIZE.depth);
-      const height = 0.8 + this.noise(index * 5 + 3) * 1.35;
-      euler.set(0, this.noise(index * 5 + 4) * Math.PI * 2, 0);
-      rotation.setFromEuler(euler);
-      scale.set(0.75 * height, height, 0.75 * height);
-      matrix.compose(new THREE.Vector3(position.x, 0.75 * height, position.z), rotation, scale);
-      trunks.setMatrixAt(index, matrix);
-      matrix.compose(new THREE.Vector3(position.x, 2.05 * height, position.z), rotation, scale);
-      crowns.setMatrixAt(index, matrix);
-      tint.setHSL(0.25 + this.noise(index + 600) * 0.06, 0.42, 0.25 + this.noise(index + 700) * 0.12);
-      crowns.setColorAt(index, tint);
-    }
-    trunks.castShadow = true; trunks.receiveShadow = true;
-    crowns.castShadow = true; crowns.receiveShadow = true;
-    this.scene.add(trunks, crowns);
-  }
-
-  private addBoundaryCliffs(): void {
-    const material = new THREE.MeshStandardMaterial({ color: 0xa67b45, roughness: 0.98, flatShading: true });
-    const geometry = new THREE.DodecahedronGeometry(1, 0);
-    const northCount = Math.round(MAP_SIZE.width / 4.3);
-    const westCount = Math.round(MAP_SIZE.depth / 4.8);
-    const total = northCount + westCount;
-    const cliffs = new THREE.InstancedMesh(geometry, material, total);
-    const matrix = new THREE.Matrix4();
-    const rotation = new THREE.Quaternion();
-    for (let index = 0; index < total; index += 1) {
-      const north = index < northCount;
-      const x = north ? MAP_BOUNDS.minX + index * 4.3 : MAP_BOUNDS.minX + 1 + this.noise(index + 40) * 4;
-      const z = north ? MAP_BOUNDS.minZ - 1.5 + this.noise(index + 50) : MAP_BOUNDS.minZ + (index - northCount) * 4.8;
-      const height = 2.3 + this.noise(index + 70) * 2.2;
-      rotation.setFromEuler(new THREE.Euler(this.noise(index) * 0.2, this.noise(index + 10) * Math.PI, 0));
-      matrix.compose(new THREE.Vector3(x, height * 0.55, z), rotation, new THREE.Vector3(2.6, height, 2.8));
-      cliffs.setMatrixAt(index, matrix);
-    }
-    cliffs.castShadow = true; cliffs.receiveShadow = true;
-    this.scene.add(cliffs);
-  }
-
-  private addMachineRuins(): void {
-    const group = new THREE.Group();
-    const metal = new THREE.MeshStandardMaterial({ color: 0x5d6657, roughness: 0.7, metalness: 0.45, flatShading: true });
-    const glow = new THREE.MeshStandardMaterial({ color: 0x5dd7c3, emissive: 0x247d70, emissiveIntensity: 1.2 });
-    const locations = [[-52, -4], [51, 5], [24, 34], [-25, -35], [2, 2]] as const;
-    for (const [x, z] of locations) {
-      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 1.1, 0.6, 6), metal);
-      const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.22, 3.2, 5), metal);
-      const lamp = new THREE.Mesh(new THREE.OctahedronGeometry(0.32, 0), glow);
-      base.position.set(x, 0.3, z); mast.position.set(x, 2, z); lamp.position.set(x, 3.7, z);
-      base.castShadow = true; mast.castShadow = true; group.add(base, mast, lamp);
-    }
-    this.scene.add(group);
-  }
-
-  private noise(seed: number): number {
-    const value = Math.sin(seed * 12.9898 + 78.233) * 43_758.5453;
-    return value - Math.floor(value);
-  }
 }
 
 /** Shortest-path rotation toward a target angle, so units never spin the long way round. */

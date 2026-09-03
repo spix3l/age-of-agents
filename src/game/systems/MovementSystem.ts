@@ -7,9 +7,13 @@ export class MovementSystem {
 
   update(units: readonly UnitEntity[], delta: number): void {
     for (const unit of units) {
-      if (!unit.alive || unit.pathIndex >= unit.path.length) continue;
+      if (!unit.alive) continue;
+      // Synced for every living unit, not only movers: the renderer derives the walk cycle from
+      // position - previousPosition, so once a path ran out the frozen last delta kept idle
+      // units playing their walking animation forever.
       unit.previousPosition.x = unit.position.x;
       unit.previousPosition.z = unit.position.z;
+      if (unit.pathIndex >= unit.path.length) continue;
       const waypoint = unit.path[unit.pathIndex];
       if (!waypoint) continue;
       const dx = waypoint.x - unit.position.x;

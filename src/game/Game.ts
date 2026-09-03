@@ -7,6 +7,7 @@ import { BUILDING_GENERATION, GENERATIONS } from '../data/technologies';
 import { useUiStore, type SelectionSnapshot } from '../ui/store';
 import { RTSCameraController } from './camera/RTSCameraController';
 import { PlacementController, snappedPlacement, validatePlacement, type PlaceableBuildingType, type PlacementFailure } from './building/PlacementController';
+import { footprintFor } from '../data/buildings';
 import type { BuildRejection } from './commands/BuildCommand';
 import { issueGatherCommand } from './commands/GatherCommand';
 import { issueMoveCommand } from './commands/MoveCommand';
@@ -357,7 +358,7 @@ export class Game {
     // Releasing at the end of a drag must not try to place a second piece on the last cell.
     const laid = this.lastDragCell;
     this.lastDragCell = null;
-    const snapped = snappedPlacement(world);
+    const snapped = this.placementSnap(world);
     if (laid && laid.x === snapped.x && laid.z === snapped.z) return true;
     return this.placement.confirm(world);
   };
@@ -371,7 +372,7 @@ export class Game {
     if (!type || !REPEATABLE_BUILDINGS.has(type)) return false;
     const world = this.groundPoint(point);
     if (!world) return true;
-    const snapped = snappedPlacement(world);
+    const snapped = this.placementSnap(world);
     if (this.lastDragCell && this.lastDragCell.x === snapped.x && this.lastDragCell.z === snapped.z) return true;
     this.lastDragCell = snapped;
     this.placement.confirm(world);
@@ -379,6 +380,12 @@ export class Game {
   };
 
   private readonly rotatePlacement = (): boolean => this.placement.rotate();
+
+  /** The drag de-dup key must match the real placement snap, which is footprint-aware. */
+  private placementSnap(world: { x: number; z: number }): { x: number; z: number } {
+    const type = this.placement.type;
+    return snappedPlacement(world, type ? footprintFor(type, this.placement.rotated) : undefined);
+  }
 
   private readonly cancelPlacement = (): boolean => {
     this.lastDragCell = null;

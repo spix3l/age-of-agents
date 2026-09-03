@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "kind": "interior-difference",
+  "baseline": "/Users/steve/Spix3l/age-of-agents/art/models/core.png",
+  "render": "/Users/steve/Spix3l/age-of-agents/art/img2threejs/core/renders/core-az215.png",
+  "band": {
+    "from": 0.0,
+    "to": 1.0
+  },
+  "grid": 192,
+  "cellsCompared": 33892,
+  "warnings": [
+    "image is not clearly isolated from background; using most pixels as material evidence",
+    "image is not clearly isolated from background; using most pixels as material evidence"
+  ],
+  "interiorDifference": 0.09792238577374902,
+  "status": "measured"
+}

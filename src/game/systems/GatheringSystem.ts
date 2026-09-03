@@ -14,6 +14,19 @@ export const ARRIVAL_RADIUS = 2.4;
 /** Deposits are drawn as a cluster roughly this wide. */
 const NODE_RADIUS = 1.6;
 
+/**
+ * The cell a Worker can actually harvest a node from, or null when terrain+padding keep every
+ * walkable cell outside extraction range (e.g. a node that spawned against a ridge). Without
+ * this check a node whose approach cell sits beyond the extraction range traps automation
+ * workers in an endless walk-stop-repath loop that starves the whole economy.
+ */
+export function gatherApproachCell(grid: NavigationGrid, node: ResourceNodeEntity): Vec2 | null {
+  const cell = grid.findNearestWalkable(node.position);
+  if (!cell) return null;
+  const world = grid.cellToWorld(cell);
+  return distance(world, node.position) <= ARRIVAL_RADIUS + NODE_RADIUS ? world : null;
+}
+
 export class GatheringSystem {
   constructor(
     private readonly resources: EntityRegistry<ResourceNodeEntity>,
@@ -98,7 +111,13 @@ export class GatheringSystem {
   }
 
   private moveToNode(worker: UnitEntity, node: ResourceNodeEntity): void {
-    this.setPath(worker, node.position);
+    const approach = gatherApproachCell(this.grid, node);
+    if (!approach) {
+      // Unharvestable node (terrain keeps every approach outside extraction range): release
+      // the order so automation can pick a different node on its next search.
+      return this.idle(worker);
+    }
+    this.setPath(worker, approach);
     if (!worker.gatherOrder) return;
     worker.gatherOrder.state = 'moving-to-node';
     worker.activity = `Gathering ${node.resourceType === 'matter' ? 'Matter' : node.resourceType === 'energy' ? 'Energy' : 'Data'}`;

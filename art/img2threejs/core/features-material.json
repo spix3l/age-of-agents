@@ -1,0 +1,8 @@
+[
+ {"id":"emissive-layout","score":0.78,"tier":"critical","threshold":0.8,
+  "notes":"Both hues are present and in the right places: amber on the plinth fascia, the foot lamps, the pod bars, the fin bars and the pylon stack; cyan on the pod slots, the collar inlays, the ramp treads, the emitter ring and the beam. Short of threshold because the reference's glow blooms into the plating around each strip and the render's does not -- the generator emits no bloom pass, so the strips read as bright paint rather than as light."},
+ {"id":"beam-and-basin","score":0.8,"tier":"critical","threshold":0.8,
+  "notes":"The beam is now a core plus a wider, dimmer halo shell, which approximates the reference's radial falloff without a blend mode. It still ends abruptly at the top where the reference fades to nothing."},
+ {"id":"trim-material-split","score":0.72,"tier":"critical","threshold":0.78,
+  "notes":"The caps were enlarged and given to the buttress feet as well as the pods, and trim-silver moved from metalness 0.85 to 0.35 because at 0.85 the caps depended entirely on a probe that had to stay dim to keep the plating dark. They read lighter than the plating now, but not as the brightest thing on the model, which is what the reference shows."}
+]

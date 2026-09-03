@@ -35,14 +35,13 @@ export function GameHud() {
           <div className="resource data"><span className="resource-glyph">✦</span><small>DATA</small><strong>{Math.floor(data)}</strong></div>
           <div className="resource agents"><span className="resource-glyph">⬡</span><small>AGENTS</small><strong>{used}{reserved > 0 ? `+${reserved}` : ''} / {max}</strong></div>
         </div>
-        <div className="hud-status"><div className="status-chip"><i /> OPPONENT ONLINE</div><button type="button" className="audio-toggle" onClick={toggleAudio} aria-pressed={audioMuted}>{audioMuted ? 'SOUND OFF' : 'SOUND ON'}</button><input className="volume-slider" aria-label="Sound volume" type="range" min="0" max="1" step="0.05" value={audioVolume} onChange={(event) => setAudioVolume(Number(event.target.value))} /></div>
+        <div className="hud-status"><button type="button" className="audio-toggle" onClick={toggleAudio} aria-pressed={audioMuted} title={audioMuted ? 'Sound off' : 'Sound on'}>{audioMuted ? '🔇' : '🔊'}</button><input className="volume-slider" aria-label="Sound volume" type="range" min="0" max="1" step="0.05" value={audioVolume} onChange={(event) => setAudioVolume(Number(event.target.value))} /></div>
       </header>
 
       <aside className="objective-panel">
         <span className="eyebrow">COLONY DIRECTIVE</span>
         <strong>Destroy the enemy Core</strong>
-        <p>A rival intelligence is building its own colony. Expand, mass Strikers, and strike first.</p>
-        <div className="cost-row"><span>WORKER COST</span><b>{UNITS.worker.cost.matter} MATTER</b></div>
+        <div className="cost-row"><span>WORKER</span><b>◆ {UNITS.worker.cost.matter}</b></div>
       </aside>
 
       {generation > 1 && <div key={generation} className="generation-banner" role="status">
@@ -52,7 +51,7 @@ export function GameHud() {
       <footer className="command-deck">
         <SelectionPanel />
         <div className="order-readout"><small>LAST DIRECTIVE</small><span>{lastOrder}</span></div>
-        {selection.constructionSite ? <ConstructionActions /> : selection.producer ? <ProductionActions unitTypes={selection.producer} isCore={selection.isPlayerCore} /> : selection.canBuild ? <WorkerActions /> : <div className="controls"><kbd>ZQSD / ↑↓←→</kbd><span>MOVE VIEW</span><kbd>2 FINGERS</kbd><span>PAN · PINCH ZOOM</span><kbd>RMB</kbd><span>MOVE / GATHER / ATTACK</span></div>}
+        {selection.constructionSite ? <ConstructionActions /> : selection.producer ? <ProductionActions unitTypes={selection.producer} isCore={selection.isPlayerCore} /> : selection.canBuild ? <WorkerActions /> : <div className="controls"><span><kbd>RMB</kbd> MOVE · GATHER · ATTACK</span><span><kbd>ZQSD</kbd> PAN</span><span><kbd>PINCH</kbd> ZOOM</span></div>}
       </footer>
       <SelectionBox />
       <DebugPanel />
