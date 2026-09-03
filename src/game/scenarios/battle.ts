@@ -10,7 +10,7 @@ import { createUnitEntity, type EconomyScenario } from './economy';
  * Deterministic two-army fixture for the Day 4 battle gate and headless combat tests.
  * Both factions are mirrored so an outcome reflects orders, never a starting advantage.
  */
-export function createBattleScenario(seed = 20_260_904, strikersPerSide = 6): EconomyScenario {
+export function createBattleScenario(seed = 20_260_904, strikersPerSide: number = 6): EconomyScenario {
   const buildings: BuildingEntity[] = [
     createCore(entityId('player-core'), 'player', START_POSITIONS.player),
     createCore(entityId('enemy-core'), 'enemy', START_POSITIONS.enemy),

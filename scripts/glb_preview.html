@@ -4,6 +4,13 @@
 <style>body{margin:0;background:#22262e}canvas{display:block}</style>
 </head>
 <body>
+<script type="importmap">
+{"imports": {"three": "https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js"}}
+</script>
+<script>
+window.addEventListener('error', e => { window.__stats = {loaded: false, error: String(e.error || e.message)}; });
+window.addEventListener('unhandledrejection', e => { window.__stats = {loaded: false, error: String(e.reason)}; });
+</script>
 <script type="module">
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js";
 import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/loaders/GLTFLoader.js";
