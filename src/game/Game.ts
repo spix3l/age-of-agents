@@ -37,6 +37,8 @@ function isBuilding(entity: SelectableEntity): entity is BuildingEntity { return
 
 export interface GameOptions {
   readonly difficulty?: AIDifficulty;
+  /** Match seed. Drives the map layout and the opponent's opening; replayable when shared. */
+  readonly seed?: number;
 }
 
 export class Game {
@@ -65,6 +67,9 @@ export class Game {
     this.audio = new AudioManager(this.renderer.instance.domElement);
     this.simulation = new MatchSimulation({
       difficulty: options.difficulty,
+      // Drawn per match by the store, so the map layout and the opponent's opening both change
+      // from game to game -- and can be replayed by anyone the result is shared with.
+      seed: options.seed,
       hooks: {
         onUnitAdded: (unit) => {
           this.world.addUnit(unit);

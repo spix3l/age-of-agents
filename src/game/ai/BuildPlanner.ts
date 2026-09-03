@@ -44,9 +44,12 @@ export class BuildPlanner {
     // placement newly possible the planner could otherwise relay-spam its income away and
     // freeze the assault for minutes; the reserve keeps production fed while still expanding
     // whenever income covers both.
-    const armyStarved = type !== 'turret' && type !== 'wall' && snapshot.fabricators > 0
+    // Walls are cheap enough to never contend with the army budget; everything else, Turrets
+    // included, waits behind it. The colony fills out with whatever income is left over, which is
+    // what stops a long build list from quietly replace production and stalling the next assault.
+    const armyStarved = type !== 'wall' && snapshot.fabricators > 0
       && snapshot.army < this.tuning.attackForce;
-    const reserveMatter = armyStarved ? UNITS.striker.cost.matter ?? 0 : 0;
+    const reserveMatter = armyStarved ? (UNITS.striker.cost.matter ?? 0) * AI.armyReserveStrikers : 0;
     if (balances.matter < (cost.matter ?? 0) + reserveMatter) return;
     if (balances.energy < ('energy' in cost ? cost.energy ?? 0 : 0)) return;
     this.place(view, commands, snapshot, type);
@@ -106,7 +109,7 @@ export class BuildPlanner {
     if (snapshot.fabricators < AI.maxFabricators && matter > 260) return 'fabricator';
     // Turrets need Generation II. A colony that has not got there yet still needs something
     // between a raid and its Workers, so it fences the approach.
-    if (count('wall') < AI.maxWalls && matter > 140) return 'wall';
+    if (count('wall') < AI.maxWalls && matter > 90) return 'wall';
     if (count('depot') < AI.maxDepots && matter > 200) return 'depot';
     if (count('habitat') < AI.maxHabitats && matter > 220) return 'habitat';
     if (count('relay') < this.tuning.maxRelays && capacityFree <= AI.capacityHeadroom * 2) return 'relay';

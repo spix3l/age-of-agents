@@ -68,7 +68,12 @@ describe('self-defense', () => {
   it('resumes a gather trip that combat interrupted instead of mining empty ground', () => {
     const sim = arena();
     const worker = sim.unitsOf('player').find((unit) => unit.kind === 'worker')!;
-    const node = sim.state.resources.alive().find((resource) => resource.id === 'player-matter-1')!;
+    // Node ids come from the seeded generator now, so the fixture picks by position, not by name.
+    const start = sim.coreOf('player')!.position;
+    const node = sim.state.resources.alive()
+      .filter((resource) => resource.resourceType === 'matter')
+      .sort((a, b) => Math.hypot(a.position.x - start.x, a.position.z - start.z)
+        - Math.hypot(b.position.x - start.x, b.position.z - start.z))[0]!;
     const ledger = sim.economy('player')!.ledger;
     expect(issueGatherCommand([worker], node, sim.navigation).issued).toBe(1);
 

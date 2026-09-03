@@ -11,7 +11,8 @@ export function App() {
   useEffect(() => {
     if (!gameRoot.current || menuOpen) return;
     // Difficulty is read once per match, at construction, so a live match never shifts under the player.
-    const game = new Game(gameRoot.current, { difficulty: useUiStore.getState().difficulty });
+    const { difficulty, matchSeed } = useUiStore.getState();
+    const game = new Game(gameRoot.current, { difficulty, seed: matchSeed });
     game.start();
     return () => game.dispose();
   }, [matchNonce, menuOpen]);

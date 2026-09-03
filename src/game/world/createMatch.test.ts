@@ -21,10 +21,12 @@ describe('economy match', () => {
     first.buildings.forEach((building) => grid.setBlockedRect(building.position, building.footprint, true, 0.35));
     for (const team of ['player', 'enemy'] as const) {
       const worker = first.units.find((unit) => unit.team === team)!;
-      const home = first.resources.filter((resource) => /^\w+-(matter-1|matter-2|energy-1|data-1)$/.test(resource.id) && resource.id.startsWith(team));
-      expect(home).toHaveLength(4);
+      const home = first.resources.filter((resource) => resource.id.startsWith(`${team}-home-`));
+      // The opening cluster: enough of all three to start, evolve once, and begin a village.
+      expect(home.length).toBeGreaterThanOrEqual(4);
+      expect(new Set(home.map((node) => node.resourceType)).size).toBe(3);
       for (const node of home) {
-        expect(Math.hypot(worker.position.x - node.position.x, worker.position.z - node.position.z)).toBeLessThan(16);
+        expect(Math.hypot(worker.position.x - node.position.x, worker.position.z - node.position.z)).toBeLessThan(34);
         expect(findPath(grid, worker.position, node.position).length).toBeGreaterThan(0);
       }
       // The contested middle is reachable from both bases.

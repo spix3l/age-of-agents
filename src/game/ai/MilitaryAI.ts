@@ -86,7 +86,10 @@ export class MilitaryAI {
     if (this.shouldSaveForGeneration(snapshot)) return;
     const balances = view.balances();
     const units = view.units();
-    const titanWanted = view.generation() >= 3 && units.filter((unit) => unit.kind === 'titan').length < 1;
+    // A colony with no army left rebuilds bodies before it saves for one expensive one. Massing
+    // for a Titan from nothing is a multi-minute silence, which reads as having given up.
+    const rebuilding = snapshot.army < AI.minimumAssault;
+    const titanWanted = !rebuilding && view.generation() >= 3 && units.filter((unit) => unit.kind === 'titan').length < 1;
     const scoutWanted = view.generation() >= 2 && units.every((unit) => unit.kind !== 'scout');
     const rangerWanted = view.generation() >= 2 && units.filter((unit) => unit.kind === 'ranger').length * 3 < units.filter((unit) => unit.kind === 'striker').length;
     // Ordered by preference, then filtered by what is actually affordable and buildable: a
@@ -96,6 +99,7 @@ export class MilitaryAI {
     // fallback list so a missing producer or a Data shortage can never stall the queue.
     const wanted: UnitTypeId[] = [];
     for (const preferred of this.plan.unitBias) {
+      if (rebuilding && preferred !== 'striker') continue;
       if (preferred === 'titan' && !titanWanted) continue;
       if (preferred === 'scout' && !scoutWanted) continue;
       if (preferred === 'ranger' && !rangerWanted) continue;

@@ -25,6 +25,8 @@ export const AI = Object.freeze({
   maxDepots: 2,
   /** Wall segments the opponent fences its approach with before Turrets unlock. */
   maxWalls: 8,
+  /** Strikers' worth of Matter held back from the build plan while the army is short. */
+  armyReserveStrikers: 2,
   /** Foundations the opponent will keep open at once. One at a time built a base far too slowly. */
   concurrentSites: 2,
   /** Half-angle, in radians, of the arc a Turret is placed within, facing the map's interior. */

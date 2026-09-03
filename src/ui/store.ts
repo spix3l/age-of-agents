@@ -126,6 +126,8 @@ interface UiState {
   matchResult: MatchResult | null;
   matchSummary: MatchSummary;
   matchNonce: number;
+  /** This match's seed. Drawn fresh per match, so the map and the opponent differ every game. */
+  matchSeed: number;
   menuOpen: boolean;
   helpOpen: boolean;
   difficulty: AIDifficulty;
@@ -163,6 +165,14 @@ interface UiState {
   setAudioVolume: (volume: number) => void;
 }
 
+/**
+ * A fresh seed per match. Nothing was passing one, so every game ran the scenario generator's and
+ * the opponent's default seeds: the same map, in the same places, opened the same way, every time.
+ */
+function newSeed(): number {
+  return Math.floor(Math.random() * 0x7fff_ffff) + 1;
+}
+
 const EMPTY_SELECTION: SelectionSnapshot = { type: 'none', name: 'NO SELECTION', activity: 'Select a Worker, Core, or resource node', isPlayerCore: false, canBuild: false };
 
 export const useUiStore = create<UiState>((set, get) => ({
@@ -170,6 +180,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   selectedCount: 0, totalUnits: 0, selection: EMPTY_SELECTION,
   queue: { count: 0, progress: 0, label: 'QUEUE EMPTY', items: [] },
   minimap: EMPTY_MINIMAP, income: { matter: 0, energy: 0, data: 0 }, minimapJumpRequest: null,
+  matchSeed: newSeed(),
   selectionBox: null, lastOrder: 'AWAITING COMMAND', matchResult: null, matchSummary: EMPTY_MATCH_SUMMARY, matchNonce: 0,
   menuOpen: true, helpOpen: false, difficulty: DEFAULT_DIFFICULTY, debugVisible: false, debug: EMPTY_DEBUG, productionRequest: null, buildRequest: null, automationRequest: null, unitProductionRequest: null, cancelProductionRequest: null, cancelConstructionRequest: null, advanceGenerationRequest: null, audioToggleRequest: null, audioVolumeRequest: null, audioMuted: false, audioVolume: 0.66, placementMode: null,
   setEconomySnapshot: (snapshot) => set(snapshot),
@@ -178,7 +189,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   startMatch: () => set((state) => ({
     menuOpen: false, helpOpen: false, matchResult: null, matchSummary: EMPTY_MATCH_SUMMARY,
     matchNonce: state.matchNonce + 1, lastOrder: 'COLONY ONLINE // AWAITING COMMAND',
-    selectionBox: null, placementMode: null, minimap: EMPTY_MINIMAP,
+    selectionBox: null, placementMode: null, minimap: EMPTY_MINIMAP, matchSeed: newSeed(),
   })),
   returnToMenu: () => set({ menuOpen: true, helpOpen: false, matchResult: null, selectionBox: null, placementMode: null }),
   setDebugSnapshot: (debug) => set({ debug }),
@@ -187,6 +198,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   restartMatch: () => set((state) => ({
     matchResult: null, matchSummary: EMPTY_MATCH_SUMMARY, matchNonce: state.matchNonce + 1,
     lastOrder: 'NEW MATCH // AWAITING COMMAND', selectionBox: null, placementMode: null, minimap: EMPTY_MINIMAP,
+    matchSeed: newSeed(),
   })),
   setSelectionBox: (selectionBox) => set({ selectionBox }),
   setMinimap: (minimap) => set({ minimap }),
