@@ -6,6 +6,7 @@ import type { NavigationGrid } from '../navigation/NavigationGrid';
 import type { SpatialHash } from '../spatial/SpatialHash';
 import type { EntityId } from '../types/ids';
 import type { CombatTarget, UnitEntity } from '../types/simulation';
+import { entityPhase } from '../util/phase';
 
 export interface CombatSystemDeps {
   readonly targets: SpatialHash<CombatTarget>;
@@ -86,7 +87,7 @@ export class CombatSystem {
     const combat = unit.combat;
     if (combat.acquireCooldown > 0) return null;
     if (unit.gatherOrder || unit.buildOrder || unit.automation || unit.destination) return null;
-    combat.acquireCooldown = COMBAT.acquisitionInterval;
+    combat.acquireCooldown = COMBAT.acquisitionInterval * (0.75 + 0.5 * entityPhase(unit.id));
     return this.retarget(unit, combat.autoAcquires ? combat.vision : COMBAT.defensivePursuit);
   }
 
@@ -94,7 +95,8 @@ export class CombatSystem {
     const found = this.deps.targets.nearestHostile(unit.position, radius, unit.team, (candidate) => candidate.hp > 0);
     if (!found) return null;
     unit.combat.targetId = found.id;
-    unit.combat.repathCooldown = 0;
+    // Not zero: a freshly-ordered army would otherwise repath in lockstep forever.
+    unit.combat.repathCooldown = COMBAT.repathInterval * entityPhase(unit.id) * 0.5;
     return found;
   }
 
@@ -130,7 +132,9 @@ export class CombatSystem {
     unit.activity = 'Engaging';
     const needsPath = !unit.destination || distance > stopDistance + COMBAT.rangeTolerance;
     if (!needsPath || combat.repathCooldown > 0) return;
-    combat.repathCooldown = COMBAT.repathInterval;
+    // Jittered around the nominal interval so the cost of a large army's pursuit is spread over
+    // the whole interval instead of spiking on one step. Mean cadence is unchanged.
+    combat.repathCooldown = COMBAT.repathInterval * (0.75 + 0.5 * entityPhase(unit.id));
     if (!pursueTarget(unit, target, this.deps.grid)) {
       combat.targetId = null;
       combat.ordered = false;

@@ -1,0 +1,49 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>GLB preview</title>
+<style>body{margin:0;background:#22262e}canvas{display:block}</style>
+</head>
+<body>
+<script type="module">
+import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js";
+import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/loaders/GLTFLoader.js";
+
+const tile = new URLSearchParams(location.search).get("tile") || "tile_1_1";
+const dir = new URLSearchParams(location.search).get("dir") || "textured";
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x22262e);
+const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 100);
+const renderer = new THREE.WebGLRenderer({antialias: true, preserveDrawingBuffer: true});
+renderer.setSize(512, 512);
+document.body.appendChild(renderer.domElement);
+
+const key = new THREE.DirectionalLight(0xffffff, 2.2);
+key.position.set(2, 4, 2);
+scene.add(key, new THREE.AmbientLight(0xffffff, 1.1));
+
+new GLTFLoader().load(`http://127.0.0.1:8741/${dir}/${tile}.glb`, (gltf) => {
+  const obj = gltf.scene;
+  // center and frame the model
+  const box = new THREE.Box3().setFromObject(obj);
+  const size = box.getSize(new THREE.Vector3()), center = box.getCenter(new THREE.Vector3());
+  obj.position.sub(center);
+  const radius = Math.max(size.x, size.y, size.z);
+  camera.position.set(radius * 1.1, radius * 1.2, radius * 1.6);
+  camera.lookAt(0, 0, 0);
+  scene.add(obj);
+  renderer.render(scene, camera);
+  // report stats: average lit pixel color of the render
+  const gl = renderer.getContext();
+  const px = new Uint8Array(4 * 512 * 512);
+  gl.readPixels(0, 0, 512, 512, gl.RGBA, gl.UNSIGNED_BYTE, px);
+  let r = 0, g = 0, b = 0, n = 0;
+  for (let i = 0; i < px.length; i += 4) {
+    if (px[i + 3] > 0) { r += px[i]; g += px[i + 1]; b += px[i + 2]; n++; }
+  }
+  window.__stats = {loaded: true, drawnPx: n, avg: n ? [Math.round(r/n), Math.round(g/n), Math.round(b/n)] : null};
+  document.title = "loaded";
+}, undefined, (err) => { window.__stats = {loaded: false, error: String(err)}; document.title = "error"; });
+</script>
+</body>
+</html>

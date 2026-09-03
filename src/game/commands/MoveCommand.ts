@@ -4,8 +4,11 @@ import { NavigationGrid } from '../navigation/NavigationGrid';
 import type { GridCell } from '../navigation/NavigationGrid';
 
 export interface MoveCommandResult {
+  /** Units that actually received a route. A unit with no route is not an issued order. */
   readonly issued: number;
   readonly destinationSlots: readonly Vec2[];
+  /** Units the grid could not route to the target, e.g. one walled into its own colony. */
+  readonly unreachable: number;
 }
 
 export function issueMoveCommand(units: readonly UnitEntity[], target: Vec2, grid: NavigationGrid): MoveCommandResult {
@@ -13,6 +16,7 @@ export function issueMoveCommand(units: readonly UnitEntity[], target: Vec2, gri
   const spacing = 1.35;
   const slots: Vec2[] = [];
   const reserved = new Set<number>();
+  let unreachable = 0;
 
   liveUnits.forEach((unit, index) => {
     const ring = Math.ceil((Math.sqrt(index + 1) - 1) / 2);
@@ -24,8 +28,7 @@ export function issueMoveCommand(units: readonly UnitEntity[], target: Vec2, gri
       z: target.z + Math.sin(angle) * ring * spacing,
     };
     const cell = findAvailableCell(grid, desired, reserved);
-    if (!cell) return;
-    reserved.add(grid.index(cell));
+    if (!cell) { unreachable += 1; return; }
     const slot = grid.cellToWorld(cell);
     const path = findPath(grid, unit.position, slot);
     unit.path = path;
@@ -33,10 +36,15 @@ export function issueMoveCommand(units: readonly UnitEntity[], target: Vec2, gri
     unit.destination = path.length > 0 ? slot : null;
     unit.stuckSeconds = 0;
     unit.repathCount = 0;
+    // An unroutable order is a refusal, not a quiet success: counting it as issued reserved the
+    // slot, drew a destination marker, and left the Agent reading "Moving" for the rest of the
+    // match. Callers need to tell the two apart to say so.
+    if (path.length === 0) { unreachable += 1; return; }
+    reserved.add(grid.index(cell));
     slots.push(slot);
   });
 
-  return { issued: slots.length, destinationSlots: slots };
+  return { issued: slots.length, destinationSlots: slots, unreachable };
 }
 
 function findAvailableCell(grid: NavigationGrid, desired: Vec2, reserved: ReadonlySet<number>): GridCell | null {

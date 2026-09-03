@@ -1,4 +1,6 @@
 import { findPath } from '../navigation/AStar';
+import { COMBAT } from '../../data/combat';
+import { entityPhase } from '../util/phase';
 import type { NavigationGrid } from '../navigation/NavigationGrid';
 import { distanceBetween, isHostile, targetRadius } from '../combat/hostility';
 import type { CombatTarget, UnitEntity, Vec2 } from '../types/simulation';
@@ -49,7 +51,7 @@ export function issueAttackCommand(units: readonly UnitEntity[], target: CombatT
     unit.automation = null;
     unit.combat.targetId = target.id;
     unit.combat.ordered = true;
-    unit.combat.repathCooldown = 0;
+    unit.combat.repathCooldown = COMBAT.repathInterval * entityPhase(unit.id) * 0.5;
     const inRange = distanceBetween(unit, target) <= engagementDistance(unit, target);
     if (inRange) {
       unit.path = [];

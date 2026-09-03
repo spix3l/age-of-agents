@@ -321,12 +321,26 @@ export class Game {
     const hit = this.raycaster.intersectObject(this.world.ground, false)[0];
     if (!hit) return;
     const target = { x: hit.point.x, z: hit.point.z };
-    for (const worker of selectedWorkers) { worker.gatherOrder = null; this.cancelWorkerBuild(worker); worker.automation = null; worker.activity = 'Moving'; }
+    for (const worker of selectedWorkers) { worker.gatherOrder = null; this.cancelWorkerBuild(worker); worker.automation = null; }
     const result = issueMoveCommand(selectedWorkers, target, this.navigation);
+    // Activity follows the routes the grid actually produced. Marking every selected Agent
+    // "Moving" up front left an Agent that could not be routed -- walled in, or ordered onto an
+    // unreachable pocket -- reading as en route for the rest of the match.
+    for (const worker of selectedWorkers) {
+      if (worker.destination === null) worker.activity = 'Idle';
+      else worker.activity = 'Moving';
+    }
     if (result.issued > 0) {
       this.world.showMoveMarker(target.x, target.z);
       this.audio.play('command');
-      useUiStore.getState().setLastOrder(`MOVE // ${result.issued} AGENTS`);
+      useUiStore.getState().setLastOrder(
+        result.unreachable > 0
+          ? `MOVE // ${result.issued} AGENTS // ${result.unreachable} NO ROUTE`
+          : `MOVE // ${result.issued} AGENTS`,
+      );
+      this.publishUi();
+    } else if (result.unreachable > 0) {
+      useUiStore.getState().setLastOrder('NO ROUTE // TARGET UNREACHABLE');
       this.publishUi();
     }
   };
