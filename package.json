@@ -6,9 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "preview": "vite preview",
     "typecheck": "tsc -b --pretty false",
     "lint": "eslint .",
-    "test": "vitest"
+    "test": "vitest",
+    "qa": "node scripts/browser-qa.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",

@@ -117,6 +117,28 @@ new GLTFLoader().parse(bytes.buffer, "", (gltf) => {
     c2.getContext('2d').drawImage(src, 0, 0, 256, 256);
     return c2.toDataURL('image/png');
   };
+  // ---- flat-shot export: unlit render over magenta bg (for verification) ----
+  window.__shotFlat = () => {
+    const oldBg = scene.background;
+    scene.background = new THREE.Color(0xff00ff);
+    const orig = new Map();
+    obj.traverse(o => {
+      if (o.isMesh) {
+        orig.set(o, o.material);
+        o.material = new THREE.MeshBasicMaterial({map: o.material.map, vertexColors: !!o.geometry.attributes.color, side: THREE.DoubleSide});
+      }
+    });
+    renderer.render(scene, camera);
+    const src = renderer.domElement;
+    const c2 = document.createElement('canvas');
+    c2.width = 256; c2.height = 256;
+    c2.getContext('2d').drawImage(src, 0, 0, 256, 256);
+    const url = c2.toDataURL('image/png');
+    for (const [mesh, mat] of orig) mesh.material = mat;
+    scene.background = oldBg;
+    renderer.render(scene, camera);
+    return url;
+  };
 }, (err) => { window.__stats = {state: "error", error: String(err)}; });
 </script>
 </body>

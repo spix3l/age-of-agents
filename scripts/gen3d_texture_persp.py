@@ -84,19 +84,28 @@ def project_perspective(pts: np.ndarray, yaw: float, pitch: float, dist: float):
     return sx, sy, z
 
 
-def mesh_silhouette_persp(pts: np.ndarray, yaw: float, pitch: float, dist: float, res: int = 160):
+def mesh_silhouette_persp(pts: np.ndarray, yaw: float, pitch: float, dist: float,
+                          shape, margin: float = 1.0):
+    """Silhouette at TRUE aspect, uniformly scaled to fit `shape` (h, w).
+
+    Both mesh silhouette and target mask are rendered with uniform scaling
+    (longest side -> shape longest side * margin), centered, so IoU compares
+    genuine geometry without square distortion.
+    """
+    res_h, res_w = shape
     sx, sy, z = project_perspective(pts, yaw, pitch, dist)
     keep = z > 1e-6
     sx, sy = sx[keep], sy[keep]
 
-    def norm(v):
-        v0, v1 = v.min(), v.max()
-        return (v - v0) / max(v1 - v0, 1e-9)
-
-    px = (norm(sx) * (res - 1)).astype(int)
-    py = ((1 - norm(sy)) * (res - 1)).astype(int)
-    grid = np.zeros((res, res), dtype=bool)
-    grid[py, px] = True
+    x0, x1 = sx.min(), sx.max()
+    y0, y1 = sy.min(), sy.max()
+    scale = min((res_w - 1) / max(x1 - x0, 1e-9), (res_h - 1) / max(y1 - y0, 1e-9)) * margin
+    cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+    px = np.round((sx - cx) * scale + (res_w - 1) / 2).astype(int)
+    py = np.round((cy - sy) * scale + (res_h - 1) / 2).astype(int)
+    ok = (px >= 0) & (px < res_w) & (py >= 0) & (py < res_h)
+    grid = np.zeros((res_h, res_w), dtype=bool)
+    grid[py[ok], px[ok]] = True
     for _ in range(2):
         grid = grid | np.roll(grid, 1, 0) | np.roll(grid, -1, 0) | np.roll(grid, 1, 1) | np.roll(grid, -1, 1)
     return grid
@@ -118,7 +127,7 @@ def fit_perspective(pts: np.ndarray, target: np.ndarray, yaw0: float, pitch0: fl
         for dp in np.linspace(-0.25, 0.25, 7):
             for dd in np.linspace(0.75, 1.6, 6):
                 d = dist0 * dd
-                s = mesh_silhouette_persp(pts, yaw0 + dy, pitch0 + dp, d, target.shape[0])
+                s = mesh_silhouette_persp(pts, yaw0 + dy, pitch0 + dp, d, target.shape)
                 v = iou(s, target)
                 if v > best[0]:
                     best = (v, yaw0 + dy, pitch0 + dp, d)
@@ -128,7 +137,7 @@ def fit_perspective(pts: np.ndarray, target: np.ndarray, yaw0: float, pitch0: fl
         for yy in np.linspace(y0 - span_y, y0 + span_y, 5):
             for pp in np.linspace(max(0.05, p0 - span_p), p0 + span_p, 5):
                 for ddist in np.linspace(max(0.3, d0 * (1 - span_d)), d0 * (1 + span_d), 5):
-                    s = mesh_silhouette_persp(pts, yy, pp, ddist, target.shape[0])
+                    s = mesh_silhouette_persp(pts, yy, pp, ddist, target.shape)
                     v = iou(s, target)
                     if v > best[0]:
                         best = (v, yy, pp, ddist)
@@ -138,7 +147,11 @@ def fit_perspective(pts: np.ndarray, target: np.ndarray, yaw0: float, pitch0: fl
 # ---------------------------------------------------------------- image mask / texture
 
 def image_mask_and_crop(img: Image.Image, res: int = 160):
-    """Return (mask res x res of the content crop, content crop RGBA image)."""
+    """Return (mask of content crop at TRUE aspect, content crop RGBA).
+
+    The mask is uniform-scaled so its longest side is `res`, preserving the
+    content crop's aspect ratio (no square distortion).
+    """
     px = np.asarray(img.convert("RGBA"))
     a = px[..., 3]
     if a.min() < 250:
@@ -151,8 +164,9 @@ def image_mask_and_crop(img: Image.Image, res: int = 160):
     ys, xs = np.nonzero(opaque)
     x0, x1, y0, y1 = xs.min(), xs.max(), ys.min(), ys.max()
     crop = img.convert("RGBA").crop((x0, y0, x1 + 1, y1 + 1))
-    m = opaque[y0:y1 + 1, x0:x1 + 1]
-    mim = Image.fromarray((m * 255).astype(np.uint8)).resize((res, res), Image.BILINEAR)
+    scale = res / max(crop.width, crop.height)
+    tw, th = max(1, round(crop.width * scale)), max(1, round(crop.height * scale))
+    mim = Image.fromarray((opaque[y0:y1 + 1, x0:x1 + 1] * 255).astype(np.uint8)).resize((tw, th), Image.BILINEAR)
     return np.asarray(mim) > 127, crop
 
 
@@ -189,13 +203,23 @@ def bake(glb_path: Path, png_path: Path, out_path: Path):
     pts = pos - center
     yaw, pitch, dist, score = fit_perspective(pts, mask, yaw0, pitch0)
 
-    # UVs: perspective projection with the fitted camera. Must match the
-    # silhouette normalization: content bbox -> [0,1], y flipped.
+    # UVs: perspective projection with the fitted camera, mapped into the
+    # square texture canvas exactly like square_canvas maps the crop: the
+    # content crop is centered at scale 1 on a side=max(w,h) canvas, then
+    # resized to 512. So u/v = position on the content crop mapped through
+    # that centering: u in [pad_x/(side), (pad_x+w)/side] etc.
     sx, sy, _ = project_perspective(pts, yaw, pitch, dist)
     x0, x1 = sx.min(), sx.max()
     y0, y1 = sy.min(), sy.max()
-    u = (sx - x0) / max(x1 - x0, 1e-9)
-    v = 1.0 - (sy - y0) / max(y1 - y0, 1e-9)
+    side = max(crop.width, crop.height)
+    pad_x = (side - crop.width) / 2
+    pad_y = (side - crop.height) / 2
+    # glTF v=0 is the TOP row of the image. A vertex at the top of the
+    # silhouette (sy = y1) must sample the top of the content area.
+    fx = (sx - x0) / max(x1 - x0, 1e-9)
+    fy = 1.0 - (sy - y0) / max(y1 - y0, 1e-9)  # canvas y fraction from top
+    u = (pad_x + fx * crop.width) / side
+    v = (pad_y + fy * crop.height) / side
     uvs = np.stack([np.clip(u, 0, 1), np.clip(v, 0, 1)], axis=1)
 
     canvas = square_canvas(crop)

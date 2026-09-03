@@ -234,19 +234,25 @@ async function main() {
         const summary = await page.locator('.end-screen').first().innerText();
         record('lifecycle', 'end screen reports match statistics', /\d/.test(summary),
           summary.replace(/\s+/g, ' ').slice(0, 120));
+        // Both exits are checked before either is taken: clicking Play Again dismisses the end
+        // screen, so Main Menu has to be observed while it is still on screen.
         const again = page.getByRole('button', { name: /PLAY AGAIN/i });
-        if (await again.count()) {
-          await again.first().click();
-          await page.waitForSelector('.hud', { timeout: 20_000 });
-          const canvases = await page.locator('canvas').count();
-          record('lifecycle', 'replay leaves exactly one canvas', canvases === 1, `${canvases} canvas`);
-        }
         const menu = page.getByRole('button', { name: /MAIN MENU/i });
-        if (await menu.count()) {
-          await menu.first().click();
-          await page.waitForSelector('.main-menu', { timeout: 20_000 });
-          record('lifecycle', 'end screen returns to the main menu', true);
-        }
+        record('lifecycle', 'end screen offers Play Again and Main Menu',
+          (await again.count()) > 0 && (await menu.count()) > 0);
+
+        await menu.first().click();
+        await page.waitForSelector('.main-menu', { timeout: 20_000 });
+        record('lifecycle', 'Main Menu returns to the menu', true);
+
+        await page.getByRole('button', { name: 'PLAY', exact: true }).click();
+        await page.waitForSelector('.hud', { timeout: 20_000 });
+        const canvases = await page.locator('canvas').count();
+        record('lifecycle', 'a new match leaves exactly one canvas', canvases === 1, `${canvases} canvas`);
+        // A leftover directive from the finished match would mean the store was not reset.
+        const freshOrder = (await page.locator('.order-readout span').innerText()).trim();
+        record('lifecycle', 'a new match starts with no leftover directive',
+          /AWAITING COMMAND$/.test(freshOrder), freshOrder);
       }
       record('lifecycle', 'no console errors across the lifecycle', errors.length === 0, errors.slice(0, 2).join(' | '));
       await lifeContext.close();

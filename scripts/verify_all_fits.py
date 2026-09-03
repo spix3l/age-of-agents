@@ -52,14 +52,14 @@ def main():
         subprocess.run(["browser-control", "tab", "open", BROWSER, url],
                        capture_output=True, text=True, timeout=60)
         time.sleep(4)
-        shot = bc_eval("window.__shot()")
+        shot = bc_eval("window.__shotFlat ? window.__shotFlat() : window.__shot()")
         if not shot.startswith("data:image/png"):
             print(json.dumps({"tile": tile, "error": "no shot"}), flush=True)
             continue
         render = RENDERS / f"{tile}.png"
         render.write_bytes(base64.b64decode(shot.split(",", 1)[1]))
         out = subprocess.run(
-            [sys.executable, str(ROOT / "scripts" / "verify_fit.py"), tile, str(render)],
+            [sys.executable, str(ROOT / "scripts" / "verify_fit.py"), tile, str(render), "--flat"],
             capture_output=True, text=True, timeout=60,
         )
         line = next((l for l in out.stdout.splitlines() if l.startswith("JSON:")), None)
