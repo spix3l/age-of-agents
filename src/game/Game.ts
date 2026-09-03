@@ -4,7 +4,7 @@ import { BUILDINGS } from '../data/buildings';
 import { RESOURCES } from '../data/resources';
 import { UNITS } from '../data/units';
 import { BUILDING_GENERATION, GENERATIONS } from '../data/technologies';
-import { useUiStore, type SelectionSnapshot } from '../ui/store';
+import { useUiStore, type MinimapBlip, type SelectionSnapshot } from '../ui/store';
 import { RTSCameraController } from './camera/RTSCameraController';
 import { PlacementController, snappedPlacement, validatePlacement, type PlaceableBuildingType, type PlacementFailure } from './building/PlacementController';
 import { footprintFor } from '../data/buildings';
@@ -532,9 +532,39 @@ export class Game {
     return hit ? { x: hit.point.x, z: hit.point.z } : null;
   }
 
+  /**
+   * Collected totals sampled a few seconds apart, so the HUD can show income per second. Rates
+   * are read from the ledger's cumulative totals rather than tracked per deposit, which keeps
+   * the gathering system unaware that a HUD exists.
+   */
+  private incomeSample: { at: number; matter: number; energy: number; data: number } | null = null;
+  private income = { matter: 0, energy: 0, data: 0 };
+
+  private sampleIncome(): void {
+    const ledger = this.simulation.economy('player')?.ledger;
+    if (!ledger) return;
+    const now = this.simulation.elapsedSeconds;
+    const totals = ledger.collectedSnapshot();
+    const previous = this.incomeSample;
+    if (!previous) {
+      this.incomeSample = { at: now, matter: totals.matter, energy: totals.energy, data: totals.data };
+      return;
+    }
+    const span = now - previous.at;
+    if (span < 4) return;
+    this.income = {
+      matter: (totals.matter - previous.matter) / span,
+      energy: (totals.energy - previous.energy) / span,
+      data: (totals.data - previous.data) / span,
+    };
+    this.incomeSample = { at: now, matter: totals.matter, energy: totals.energy, data: totals.data };
+  }
+
   private publishUi(): void {
     const economy = this.simulation.economy('player');
     if (!economy) return;
+    this.sampleIncome();
+    this.publishMinimap();
     const balances = economy.ledger.snapshot();
     const capacity = economy.capacity.snapshot();
     const selected = this.selection?.selected() ?? [];
@@ -549,6 +579,7 @@ export class Game {
       capacityReserved: capacity.reserved,
       capacityMax: capacity.max,
       totalUnits: this.state.units.alive().filter((unit) => unit.team === 'player').length,
+      income: this.income,
       selectedCount: selected.length,
       selection: this.selectionSnapshot(selected),
       queue: {
@@ -557,6 +588,39 @@ export class Game {
         label: producer?.productionQueue.length ? `${producer.productionQueue.length} IN QUEUE` : 'QUEUE EMPTY',
         items: producer?.productionQueue.map((order) => ({ id: order.id, unitType: order.unitType, label: UNITS[order.unitType].label })) ?? [],
       },
+    });
+  }
+
+  /**
+   * Feeds the minimap. Hostiles are filtered through the same vision predicate the world and
+   * selection use, so the minimap can never reveal something the battlefield is hiding.
+   */
+  private publishMinimap(): void {
+    const blips: MinimapBlip[] = [];
+    for (const unit of this.state.units.alive()) {
+      if (unit.team === 'player') blips.push({ x: unit.position.x, z: unit.position.z, kind: 'own', building: false });
+      else if (this.isRevealed(unit)) blips.push({ x: unit.position.x, z: unit.position.z, kind: 'hostile', building: false });
+    }
+    for (const building of this.state.buildings.alive()) {
+      if (building.team === 'player') blips.push({ x: building.position.x, z: building.position.z, kind: 'own', building: true });
+      else if (building.team !== 'neutral' && this.isRevealed(building)) {
+        blips.push({ x: building.position.x, z: building.position.z, kind: 'hostile', building: true });
+      }
+    }
+    for (const node of this.state.resources.alive()) {
+      if (this.vision.stateAt(node.position) === 0) continue;
+      blips.push({ x: node.position.x, z: node.position.z, kind: node.resourceType, building: false });
+    }
+    const fog = this.vision.snapshot();
+    const focus = this.camera.focusPoint;
+    useUiStore.getState().setMinimap({
+      blips,
+      fog: fog.states,
+      fogWidth: fog.width,
+      fogHeight: fog.height,
+      focusX: focus.x,
+      focusZ: focus.z,
+      viewHalf: 42 / this.camera.zoomLevel,
     });
   }
 

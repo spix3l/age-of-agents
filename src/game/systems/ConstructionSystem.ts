@@ -15,6 +15,7 @@ export class ConstructionSystem {
 
   assign(worker: UnitEntity, site: BuildingEntity): boolean {
     if (!worker.alive || worker.kind !== 'worker' || !site.alive || site.operational) return false;
+    this.releasePreviousSite(worker);
     const target = this.approachPoint(site, worker.position);
     const cell = this.grid.findNearestWalkable(target, 8);
     if (!cell) return false;
@@ -45,7 +46,55 @@ export class ConstructionSystem {
       site.hp = site.maxHp;
       this.clearWorker(worker);
       this.onComplete(site);
+      // A player who drags out a wall run places many sites with one Worker. Rolling onto the
+      // next unclaimed site is what turns that gesture into a built wall instead of one finished
+      // segment and a row of foundations nobody ever returns to.
+      this.claimNextSite(worker);
     }
+    this.adoptOrphanedSites(workers);
+  }
+
+  /**
+   * Sites whose builder has wandered off -- reassigned to a newer site, or pulled onto a gather
+   * order -- are handed to a free Worker. Without this a stale `builderId` leaves a foundation
+   * that can never be finished and never be cleaned up.
+   */
+  private adoptOrphanedSites(workers: readonly UnitEntity[]): void {
+    const sites = this.buildings.alive().filter((building) => !building.operational);
+    if (sites.length === 0) return;
+    for (const site of sites) {
+      const builder = site.builderId ? workers.find((worker) => worker.id === site.builderId) : undefined;
+      if (builder?.alive && builder.buildOrder?.buildingId === site.id) continue;
+      site.builderId = null;
+      const free = this.nearestFreeWorker(workers, site);
+      if (free) this.assign(free, site);
+    }
+  }
+
+  /** The nearest idle Worker of the site's own faction, if there is one to spare. */
+  private nearestFreeWorker(workers: readonly UnitEntity[], site: BuildingEntity): UnitEntity | undefined {
+    return workers
+      .filter((worker) => worker.alive && worker.kind === 'worker' && worker.team === site.team
+        && !worker.buildOrder && !worker.gatherOrder && !worker.automation && worker.destination === null)
+      .sort((a, b) => distanceTo(a.position, site.position) - distanceTo(b.position, site.position)
+        || a.id.localeCompare(b.id))[0];
+  }
+
+  /** After finishing, take the closest unclaimed site of the same faction. */
+  private claimNextSite(worker: UnitEntity): void {
+    const next = this.buildings.alive()
+      .filter((building) => !building.operational && building.team === worker.team && !building.builderId)
+      .sort((a, b) => distanceTo(a.position, worker.position) - distanceTo(b.position, worker.position)
+        || a.id.localeCompare(b.id))[0];
+    if (next) this.assign(worker, next);
+  }
+
+  /** Releases the site a Worker was building before it is pointed at a new one. */
+  private releasePreviousSite(worker: UnitEntity): void {
+    const previousId = worker.buildOrder?.buildingId;
+    if (!previousId) return;
+    const previous = this.buildings.get(previousId);
+    if (previous && previous.builderId === worker.id) previous.builderId = null;
   }
 
   private approachPoint(site: BuildingEntity, from: Vec2): Vec2 {
@@ -63,6 +112,10 @@ export class ConstructionSystem {
     worker.pathIndex = 0;
     worker.destination = null;
   }
+}
+
+function distanceTo(a: Vec2, b: Vec2): number {
+  return Math.hypot(a.x - b.x, a.z - b.z);
 }
 
 export function constructionRefund(site: BuildingEntity): ResourceCost {

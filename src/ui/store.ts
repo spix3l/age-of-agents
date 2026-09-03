@@ -62,6 +62,32 @@ export interface SelectionSnapshot {
   readonly constructionSite?: boolean;
 }
 
+/** One dot on the minimap. Kept deliberately small: this ships at 10 Hz for every visible entity. */
+export interface MinimapBlip {
+  readonly x: number;
+  readonly z: number;
+  /** `own` and `ally` draw in faction colour, `hostile` in the enemy's, `resource` by type. */
+  readonly kind: 'own' | 'hostile' | 'matter' | 'energy' | 'data';
+  readonly building: boolean;
+}
+
+export interface MinimapSnapshot {
+  readonly blips: readonly MinimapBlip[];
+  /** Explored/visible mask, one byte per vision cell, row-major from the map's min corner. */
+  readonly fog: Uint8Array;
+  readonly fogWidth: number;
+  readonly fogHeight: number;
+  /** The camera's ground focus, so the viewport marker can be drawn. */
+  readonly focusX: number;
+  readonly focusZ: number;
+  /** Half-extent of the visible ground footprint, in world units. */
+  readonly viewHalf: number;
+}
+
+export const EMPTY_MINIMAP: MinimapSnapshot = {
+  blips: [], fog: new Uint8Array(0), fogWidth: 0, fogHeight: 0, focusX: 0, focusZ: 0, viewHalf: 40,
+};
+
 export interface QueueSnapshot { readonly count: number; readonly progress: number; readonly label: string; readonly items: readonly { readonly id: EntityId; readonly unitType: UnitTypeId; readonly label: string }[] }
 
 interface UiState {
@@ -78,6 +104,13 @@ interface UiState {
   queue: QueueSnapshot;
   selectionBox: ScreenRect | null;
   lastOrder: string;
+  minimap: MinimapSnapshot;
+  /** Income over the last sampling window, per second, for the resource bar. */
+  income: { readonly matter: number; readonly energy: number; readonly data: number };
+  setMinimap: (minimap: MinimapSnapshot) => void;
+  minimapJumpRequest: ((x: number, z: number) => void) | null;
+  setMinimapJumpRequest: (request: ((x: number, z: number) => void) | null) => void;
+  jumpTo: (x: number, z: number) => void;
   productionRequest: (() => void) | null;
   buildRequest: ((type: PlaceableBuildingType) => void) | null;
   automationRequest: ((type: HarvestableResourceType) => void) | null;
@@ -106,7 +139,7 @@ interface UiState {
   toggleDebug: () => void;
   setMatchOutcome: (result: MatchResult, summary: MatchSummary) => void;
   restartMatch: () => void;
-  setEconomySnapshot: (snapshot: Pick<UiState, 'matter' | 'energy' | 'data' | 'generation' | 'capacityUsed' | 'capacityReserved' | 'capacityMax' | 'totalUnits' | 'selection' | 'selectedCount' | 'queue'>) => void;
+  setEconomySnapshot: (snapshot: Pick<UiState, 'matter' | 'energy' | 'data' | 'generation' | 'capacityUsed' | 'capacityReserved' | 'capacityMax' | 'totalUnits' | 'selection' | 'selectedCount' | 'queue' | 'income'>) => void;
   setSelectionBox: (rect: ScreenRect | null) => void;
   setLastOrder: (order: string) => void;
   setProductionRequest: (request: (() => void) | null) => void;
@@ -136,6 +169,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   matter: 0, energy: 0, data: 0, generation: 1, capacityUsed: 0, capacityReserved: 0, capacityMax: 0,
   selectedCount: 0, totalUnits: 0, selection: EMPTY_SELECTION,
   queue: { count: 0, progress: 0, label: 'QUEUE EMPTY', items: [] },
+  minimap: EMPTY_MINIMAP, income: { matter: 0, energy: 0, data: 0 }, minimapJumpRequest: null,
   selectionBox: null, lastOrder: 'AWAITING COMMAND', matchResult: null, matchSummary: EMPTY_MATCH_SUMMARY, matchNonce: 0,
   menuOpen: true, helpOpen: false, difficulty: DEFAULT_DIFFICULTY, debugVisible: false, debug: EMPTY_DEBUG, productionRequest: null, buildRequest: null, automationRequest: null, unitProductionRequest: null, cancelProductionRequest: null, cancelConstructionRequest: null, advanceGenerationRequest: null, audioToggleRequest: null, audioVolumeRequest: null, audioMuted: false, audioVolume: 0.66, placementMode: null,
   setEconomySnapshot: (snapshot) => set(snapshot),
@@ -144,7 +178,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   startMatch: () => set((state) => ({
     menuOpen: false, helpOpen: false, matchResult: null, matchSummary: EMPTY_MATCH_SUMMARY,
     matchNonce: state.matchNonce + 1, lastOrder: 'COLONY ONLINE // AWAITING COMMAND',
-    selectionBox: null, placementMode: null,
+    selectionBox: null, placementMode: null, minimap: EMPTY_MINIMAP,
   })),
   returnToMenu: () => set({ menuOpen: true, helpOpen: false, matchResult: null, selectionBox: null, placementMode: null }),
   setDebugSnapshot: (debug) => set({ debug }),
@@ -152,9 +186,12 @@ export const useUiStore = create<UiState>((set, get) => ({
   setMatchOutcome: (matchResult, matchSummary) => set({ matchResult, matchSummary }),
   restartMatch: () => set((state) => ({
     matchResult: null, matchSummary: EMPTY_MATCH_SUMMARY, matchNonce: state.matchNonce + 1,
-    lastOrder: 'NEW MATCH // AWAITING COMMAND', selectionBox: null, placementMode: null,
+    lastOrder: 'NEW MATCH // AWAITING COMMAND', selectionBox: null, placementMode: null, minimap: EMPTY_MINIMAP,
   })),
   setSelectionBox: (selectionBox) => set({ selectionBox }),
+  setMinimap: (minimap) => set({ minimap }),
+  setMinimapJumpRequest: (minimapJumpRequest) => set({ minimapJumpRequest }),
+  jumpTo: (x, z) => get().minimapJumpRequest?.(x, z),
   setLastOrder: (lastOrder) => set({ lastOrder }),
   setProductionRequest: (productionRequest) => set({ productionRequest }),
   setBuildRequest: (buildRequest) => set({ buildRequest }),

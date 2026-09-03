@@ -9,7 +9,9 @@ import { MAP_BOUNDS, MAP_SIZE, WORLD_OBSTACLES, type WorldObstacle } from './map
 
 /** Rolling hills and forest continue this far past the playable bounds before the fog eats them. */
 const MARGIN = 76;
-const TERRAIN_STEP = 2;
+// The ground carries most of the frame's texture, so it is meshed finely enough to hold real
+// colour variation per vertex rather than large flat facets.
+const TERRAIN_STEP = 1.25;
 
 interface Pond { readonly x: number; readonly z: number; readonly radius: number }
 const PONDS: readonly Pond[] = [
@@ -34,6 +36,9 @@ const FAR_RANGES: readonly WorldObstacle[] = [
 // Cold slate rock. The mesas are backdrop: they must never out-brighten a structure.
 const SANDSTONE = [0x6a6f74, 0x7a8087, 0x8a9099];
 const GRASS_CAP = 0x5a8a3c;
+/** Bare earth under thin grass, and the scoured rock that shows on a slope. */
+const EARTH = new THREE.Color(0x6b5738);
+const SCREE = new THREE.Color(0x6e7269);
 
 function hash(seed: number): number {
   const value = Math.sin(seed * 12.9898 + 78.233) * 43_758.5453;
@@ -139,13 +144,27 @@ export class Environment {
       const height = terrainHeight(x, z);
       positions.setY(index, height);
 
-      // Lush meadow green with broad patches and fine speckle. The gunmetal structures are the
-      // dark shapes in the frame, so the field is what supplies its light and colour.
-      const patch = fbm(x * 0.02 + 40, z * 0.02 + 40);
-      const speckle = hash2(Math.round(x), Math.round(z));
-      const hue = 0.245 + patch * 0.03;
-      const lightness = 0.235 + patch * 0.085 + speckle * 0.035;
-      color.setHSL(hue, 0.46, lightness);
+      // Layered meadow. Three scales of noise do three different jobs: broad drifts set where the
+      // field is lush and where it is worn, a mid band lays bare earth through the thin places,
+      // and per-vertex speckle keeps any single patch from reading as a flat fill.
+      const drift = fbm(x * 0.012 + 40, z * 0.012 + 40);
+      const mid = fbm(x * 0.055 - 18, z * 0.055 + 26);
+      const speckle = hash2(Math.round(x * 2), Math.round(z * 2));
+
+      // Grass: deep and saturated in the drifts, paler and yellower on the high, dry ground.
+      const hue = 0.238 + drift * 0.042 - mid * 0.012;
+      const saturation = 0.34 + drift * 0.24;
+      const lightness = 0.19 + drift * 0.1 + mid * 0.05 + speckle * 0.028;
+      color.setHSL(hue, saturation, lightness);
+
+      // Bare earth shows through wherever the grass thins out, which is what stops a large field
+      // from reading as one printed colour.
+      const bare = smoothstep(0.56, 0.78, mid * 0.65 + (1 - drift) * 0.35);
+      if (bare > 0) color.lerp(EARTH, bare * 0.72);
+      // Slopes are scoured: the steeper the ground, the more rock and the less grass.
+      const slope = Math.min(1, Math.abs(terrainHeight(x + 1.5, z) - terrainHeight(x - 1.5, z))
+        + Math.abs(terrainHeight(x, z + 1.5) - terrainHeight(x, z - 1.5)));
+      if (slope > 0.12) color.lerp(SCREE, Math.min(0.6, (slope - 0.12) * 1.5));
       const outside = distanceOutside(x, z);
       if (outside > 0) {
         // Beyond the map the land is forever unexplored: colder and darker, matching the fog.

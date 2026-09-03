@@ -1,4 +1,4 @@
-import { footprintFor, placementClearance } from '../../data/buildings';
+import { footprintFor, placementClearance, resourceClearance } from '../../data/buildings';
 import type { ResourceNodeEntity } from '../entities/resources/ResourceNode';
 import type { NavigationGrid } from '../navigation/NavigationGrid';
 import type { BuildingTypeId } from '../types/ids';
@@ -61,12 +61,17 @@ export function validatePlacement(
   }
   for (const resource of resources) {
     if (!resource.alive) continue;
-    if (overlaps(position, footprint, resource.position, { x: 3, z: 3 }, 0.5)) {
+    // Village pieces may run right up to a deposit; anything else keeps its distance so a node
+    // is never walled off from the colony that has to harvest it.
+    if (overlaps(position, footprint, resource.position, RESOURCE_BODY, resourceClearance(type))) {
       return { valid: false, position, rotated, failure: 'RESOURCE_OVERLAP' };
     }
   }
   return { valid: true, position, rotated };
 }
+
+/** The footprint a resource node occupies for placement purposes. */
+const RESOURCE_BODY: Vec2 = { x: 2.4, z: 2.4 };
 
 function overlaps(a: Vec2, aSize: Vec2, b: Vec2, bSize: Vec2, padding: number): boolean {
   return Math.abs(a.x - b.x) < (aSize.x + bSize.x) / 2 + padding && Math.abs(a.z - b.z) < (aSize.z + bSize.z) / 2 + padding;

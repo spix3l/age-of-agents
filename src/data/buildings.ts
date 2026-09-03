@@ -57,3 +57,16 @@ export function footprintPadding(kind: BuildingTypeId): number {
 export function placementClearance(a: BuildingTypeId, b: BuildingTypeId): number {
   return Math.min(BUILDINGS[a].clearance, BUILDINGS[b].clearance);
 }
+
+/**
+ * How much room a building must leave around a resource node.
+ *
+ * A node's harvestable body is about two units across, and a Worker has to be able to stand next
+ * to it. Ordinary structures keep a wide berth so they never wall a deposit off from the colony
+ * that needs it. A wall or gate is a thin barrier a player runs *past* a deposit on the way round
+ * their base -- holding it three units clear made it impossible to enclose a colony that had a
+ * deposit anywhere near its edge, which is most of them.
+ */
+export function resourceClearance(kind: BuildingTypeId): number {
+  return BUILDINGS[kind].clearance === 0 ? 0 : 0.5;
+}
