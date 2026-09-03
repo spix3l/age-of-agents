@@ -38,6 +38,17 @@ export const AI = Object.freeze({
   defendRadius: 22,
   /** Seconds spent rebuilding after heavy losses before attacking again. */
   recoverSeconds: 30,
+  /**
+   * Longest the opponent will keep massing between assaults before committing with whatever it
+   * has. Without this the required force stays pinned at `attackForce` while the map depletes,
+   * so each rebuild takes longer than the last and the gap between waves grows without bound --
+   * which from the player's chair is indistinguishable from "it never attacked again".
+   */
+  reattackSeconds: 150,
+  /** Force required for a follow-up assault, as a share of the nominal attack force. */
+  reattackForceRatio: 0.6,
+  /** Half-life, in seconds, of the peak-army figure the RECOVER loss ratio is measured against. */
+  peakArmyHalfLife: 90,
   /** Army share that must be lost inside the loss window to trigger RECOVER. */
   recoverLossRatio: 0.6,
   recoverLossWindowSeconds: 25,

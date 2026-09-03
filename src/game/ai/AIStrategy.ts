@@ -32,6 +32,10 @@ export interface AISnapshot {
   readonly productionQueued: number;
   readonly peakArmy: number;
   readonly recoveringUntil: number;
+  /** Assaults committed so far. Zero until the opponent has attacked once. */
+  readonly assaultsLaunched: number;
+  /** Seconds since the last assault ended. `Infinity` before the first one, and while one is live. */
+  readonly secondsSinceAssault: number;
 }
 
 export interface AIDecision {
@@ -57,8 +61,12 @@ export function scoreStates(snapshot: AISnapshot, tuning: AITuning): Record<AISt
       : 0,
     // A stalled economy must never deadlock the match: commit with a smaller force instead.
     ATTACK: snapshot.enemyCoreKnown && snapshot.elapsedSeconds >= tuning.earliestAttackSeconds && (
-      snapshot.army >= tuning.attackForce
+      snapshot.army >= attackThreshold(snapshot, tuning)
       || (snapshot.army >= AI.minimumAssault && snapshot.reinforceStalledSeconds >= AI.reinforceStallSeconds && snapshot.productionQueued === 0)
+      // Patience runs out. After the first assault the opponent keeps the pressure on rather
+      // than massing forever toward a force a depleted map can no longer supply.
+      || (snapshot.assaultsLaunched > 0 && snapshot.army >= AI.minimumAssault
+        && snapshot.secondsSinceAssault >= AI.reattackSeconds)
     ) ? 80 : 0,
     SCOUT: !snapshot.enemyCoreKnown && !snapshot.scoutActive && snapshot.secondsSinceScout >= AI.scoutInterval && snapshot.army + snapshot.workers > 3
       ? 70
@@ -67,6 +75,16 @@ export function scoreStates(snapshot: AISnapshot, tuning: AITuning): Record<AISt
     TECH: techReady(snapshot) ? 62 : 0,
     EXPAND_ECONOMY: 30 + workerDeficit * 40 + (snapshot.fabricators === 0 ? 15 : 0),
   };
+}
+
+/**
+ * Force the opponent masses before committing. The opening assault is worth waiting for at full
+ * strength; every one after it is sized to what the colony can still sustain, because the map is
+ * finite and a fixed threshold turns into an ever-longer silence.
+ */
+export function attackThreshold(snapshot: AISnapshot, tuning: AITuning): number {
+  if (snapshot.assaultsLaunched === 0) return tuning.attackForce;
+  return Math.max(AI.minimumAssault, Math.round(tuning.attackForce * AI.reattackForceRatio));
 }
 
 export function decideState(snapshot: AISnapshot, tuning: AITuning): AIDecision {
@@ -80,9 +98,9 @@ function reasonFor(state: AIState, snapshot: AISnapshot, tuning: AITuning): stri
   switch (state) {
     case 'DEFEND': return `${snapshot.threatsNearBase} hostiles near base`;
     case 'RECOVER': return `lost ${snapshot.armyLostRecently} of ${snapshot.peakArmy} agents`;
-    case 'ATTACK': return snapshot.army >= tuning.attackForce
-      ? `${snapshot.army} strikers ready, core known`
-      : `${snapshot.army} strikers committed, cannot reinforce`;
+    case 'ATTACK': return snapshot.army >= attackThreshold(snapshot, tuning)
+      ? `wave ${snapshot.assaultsLaunched + 1}: ${snapshot.army} agents ready, core known`
+      : `wave ${snapshot.assaultsLaunched + 1}: ${snapshot.army} agents committed, out of patience`;
     case 'SCOUT': return 'enemy core undiscovered';
     case 'BUILD_ARMY': return `${snapshot.army}/${tuning.attackForce} strikers`;
     case 'TECH': return `resources ready for Generation ${snapshot.generation + 1}`;

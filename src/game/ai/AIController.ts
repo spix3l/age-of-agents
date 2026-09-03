@@ -57,6 +57,10 @@ export class AIController {
   private lastScoutAt = -AI.scoutInterval;
   private lastSnapshot: AISnapshot | null = null;
   private reinforceStalledSince: number | null = null;
+  private assaultsLaunched = 0;
+  private lastAssaultEndedAt: number | null = null;
+  private assaultActive = false;
+  private peakArmyAt = 0;
 
   constructor(
     simulation: MatchSimulation,
@@ -127,6 +131,17 @@ export class AIController {
   private onStateChange(next: AIState, snapshot: AISnapshot): void {
     if (next === 'RECOVER') this.recoveringUntil = snapshot.elapsedSeconds + AI.recoverSeconds;
     if (next === 'DEFEND' || next === 'RECOVER') this.military.reset();
+    if (next === 'ATTACK') {
+      this.assaultsLaunched += 1;
+      this.assaultActive = true;
+      return;
+    }
+    // Leaving ATTACK is where a wave ends, whether it was wiped out, retreated, or was
+    // interrupted by a base defence. That instant starts the clock on the next one.
+    if (this.assaultActive) {
+      this.assaultActive = false;
+      this.lastAssaultEndedAt = snapshot.elapsedSeconds;
+    }
   }
 
   private buildSnapshot(elapsed: number): AISnapshot {
@@ -170,6 +185,10 @@ export class AIController {
       productionQueued: buildings.reduce((sum, building) => sum + building.productionQueue.length, 0),
       peakArmy: this.peakArmy,
       recoveringUntil: this.recoveringUntil,
+      assaultsLaunched: this.assaultsLaunched,
+      secondsSinceAssault: this.assaultActive || this.lastAssaultEndedAt === null
+        ? Number.POSITIVE_INFINITY
+        : elapsed - this.lastAssaultEndedAt,
     };
   }
 
@@ -202,7 +221,16 @@ export class AIController {
   }
 
   private trackLosses(army: number, elapsed: number): void {
-    this.peakArmy = Math.max(this.peakArmy, army);
+    // The peak decays toward the present. Held as a running maximum it made the RECOVER loss
+    // ratio meaningless late in a match: an army lost twenty minutes ago kept setting the bar.
+    const sincePeak = Math.max(0, elapsed - this.peakArmyAt);
+    const decayed = this.peakArmy * 2 ** (-sincePeak / AI.peakArmyHalfLife);
+    if (army >= decayed) {
+      this.peakArmy = army;
+      this.peakArmyAt = elapsed;
+    } else {
+      this.peakArmy = decayed;
+    }
     const lost = Math.max(0, this.lastArmy - army);
     if (lost > 0) this.losses.push({ at: elapsed, lost });
     this.lastArmy = army;

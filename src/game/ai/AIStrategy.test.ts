@@ -14,6 +14,7 @@ function snapshot(overrides: Partial<AISnapshot> = {}): AISnapshot {
     fabricators: 0, relays: 1, constructionSites: 0,
     threatsNearBase: 0, enemyCoreKnown: false, scoutActive: false, secondsSinceScout: 0,
     armyLostRecently: 0, peakArmy: 0, recoveringUntil: 0, reinforceStalledSeconds: 0, productionQueued: 0,
+    assaultsLaunched: 0, secondsSinceAssault: Number.POSITIVE_INFINITY,
     ...overrides,
   };
 }
