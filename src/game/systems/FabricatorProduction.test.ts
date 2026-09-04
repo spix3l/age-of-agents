@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { UNITS } from '../../data/units';
 import { Capacity } from '../economy/Capacity';
 import { EconomyLedger } from '../economy/EconomyLedger';
 import { createBuildingSite } from '../entities/buildings/Building';
@@ -11,7 +12,8 @@ describe('Fabricator production', () => {
     const system = new ProductionSystem();
     const fabricator = createBuildingSite(entityId('operational-fabricator'), 'fabricator', 'player', { x: 8, z: 8 }, entityId('builder'));
     fabricator.operational = true; fabricator.constructionProgress = 1;
-    const ledger = new EconomyLedger({ matter: 120, energy: 40 });
+    // Exactly two Strikers' worth, whatever a Striker costs today.
+    const ledger = new EconomyLedger({ matter: UNITS.striker.cost.matter! * 2, energy: UNITS.striker.cost.energy! * 2 });
     const capacity = new Capacity(8, 3);
     expect(system.enqueue(fabricator, 'striker', ledger, capacity)).toEqual({ ok: true });
     expect(system.enqueue(fabricator, 'striker', ledger, capacity)).toEqual({ ok: true });
@@ -30,11 +32,11 @@ describe('Fabricator production', () => {
     const system = new ProductionSystem();
     const fabricator = createBuildingSite(entityId('cancel-fabricator'), 'fabricator', 'player', { x: 8, z: 8 }, entityId('cancel-builder'));
     fabricator.operational = true;
-    const ledger = new EconomyLedger({ matter: 60, energy: 20 });
+    const ledger = new EconomyLedger({ matter: UNITS.striker.cost.matter!, energy: UNITS.striker.cost.energy! });
     const capacity = new Capacity(8, 3);
     system.enqueue(fabricator, 'striker', ledger, capacity);
     expect(system.cancelOrder(fabricator, fabricator.productionQueue[0]!.id, ledger, capacity)).toBe(true);
-    expect(ledger.snapshot()).toMatchObject({ matter: 60, energy: 20 });
+    expect(ledger.snapshot()).toMatchObject({ matter: UNITS.striker.cost.matter, energy: UNITS.striker.cost.energy });
     expect(capacity.snapshot().reserved).toBe(0);
   });
 
@@ -42,13 +44,14 @@ describe('Fabricator production', () => {
     const system = new ProductionSystem();
     const fabricator = createBuildingSite(entityId('destroyed-fabricator'), 'fabricator', 'player', { x: 8, z: 8 }, entityId('destroy-builder'));
     fabricator.operational = true;
-    const ledger = new EconomyLedger({ matter: 120, energy: 40 });
+    // Exactly two Strikers' worth, whatever a Striker costs today.
+    const ledger = new EconomyLedger({ matter: UNITS.striker.cost.matter! * 2, energy: UNITS.striker.cost.energy! * 2 });
     const capacity = new Capacity(8, 3);
     system.enqueue(fabricator, 'striker', ledger, capacity);
     system.enqueue(fabricator, 'striker', ledger, capacity);
     fabricator.alive = false;
     expect(system.cancelAll(fabricator, ledger, capacity)).toBe(2);
     expect(capacity.snapshot().reserved).toBe(0);
-    expect(ledger.snapshot()).toMatchObject({ matter: 120, energy: 40 });
+    expect(ledger.snapshot()).toMatchObject({ matter: UNITS.striker.cost.matter! * 2, energy: UNITS.striker.cost.energy! * 2 });
   });
 });

@@ -1,8 +1,8 @@
-export type AudioCue = 'select' | 'command' | 'build' | 'shot' | 'destroy' | 'evolve' | 'victory' | 'defeat';
+export type AudioCue = 'select' | 'command' | 'build' | 'shot' | 'destroy' | 'evolve' | 'victory' | 'defeat' | 'alarm';
 
 const FREQUENCY: Readonly<Record<AudioCue, readonly [number, number]>> = {
   select: [520, 0.045], command: [360, 0.07], build: [240, 0.12], shot: [760, 0.04],
-  destroy: [110, 0.18], evolve: [440, 0.45], victory: [660, 0.55], defeat: [92, 0.6],
+  destroy: [110, 0.18], evolve: [440, 0.45], victory: [660, 0.55], defeat: [92, 0.6], alarm: [300, 0.5],
 };
 
 /** Tiny procedural sound palette: no asset request can ever block gameplay or replay. */
@@ -37,7 +37,7 @@ export class AudioManager {
     const [frequency, duration] = FREQUENCY[cue];
     const oscillator = this.context.createOscillator();
     const envelope = this.context.createGain();
-    oscillator.type = cue === 'destroy' || cue === 'defeat' ? 'sawtooth' : cue === 'shot' ? 'square' : 'triangle';
+    oscillator.type = cue === 'destroy' || cue === 'defeat' || cue === 'alarm' ? 'sawtooth' : cue === 'shot' ? 'square' : 'triangle';
     oscillator.frequency.setValueAtTime(frequency, this.context.currentTime);
     if (cue === 'evolve' || cue === 'victory') oscillator.frequency.exponentialRampToValueAtTime(frequency * 2, this.context.currentTime + duration);
     envelope.gain.setValueAtTime(0.7, this.context.currentTime);

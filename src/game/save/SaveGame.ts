@@ -49,6 +49,12 @@ export interface SavedBuilding {
   readonly rotated: boolean;
   readonly operational: boolean;
   readonly progress: number;
+  /**
+   * A synthesis plant the player switched off. It is a standing policy rather than an in-flight
+   * order, so it survives the save the way Worker automation does. Absent in saves written before
+   * plants existed, which read back as running -- the same state such a match was left in.
+   */
+  readonly synthesisPaused: boolean;
   readonly queue: readonly { readonly unitType: UnitTypeId; readonly elapsed: number }[];
 }
 
@@ -147,6 +153,7 @@ export function captureSave(source: SaveSource, meta: SaveMeta): SavedGame {
       id: building.id, kind: building.kind, team: building.team,
       x: building.position.x, z: building.position.z, hp: building.hp,
       rotated: building.rotated, operational: building.operational, progress: building.constructionProgress,
+      synthesisPaused: building.synthesisPaused,
       queue: building.productionQueue.map((order) => ({ unitType: order.unitType, elapsed: order.elapsed })),
     });
   }
@@ -201,6 +208,7 @@ export function savedScenario(save: SavedGame): EconomyScenario {
       building.operational = saved.operational;
       building.constructionProgress = saved.operational ? 1 : Math.max(0, Math.min(1, saved.progress));
       building.capacityApplied = saved.operational;
+      building.synthesisPaused = saved.synthesisPaused;
     }
     building.hp = Math.max(1, Math.min(building.maxHp, saved.hp));
     buildings.push(building);
@@ -311,6 +319,7 @@ export function parseSave(value: unknown): SavedGame | null {
       rotated: raw.rotated === true,
       operational: kind === 'core' || raw.operational === true,
       progress: Math.max(0, Math.min(1, finite(raw.progress, 1))),
+      synthesisPaused: raw.synthesisPaused === true,
       queue,
     });
   }

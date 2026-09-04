@@ -73,9 +73,18 @@ export class EconomyAI {
   }
 }
 
-/** A Worker already travelling under an explicit order is busy, not idle. */
+/**
+ * A Worker already travelling under an explicit order is busy, not idle.
+ *
+ * The exception is a Worker holding a bare gather order with no automation behind it: a recalled
+ * scout or a cancelled build leaves one outside the colony's standing policy, and now that a
+ * gather order survives the deposit it was aimed at, such a Worker would keep mining on its own
+ * initiative forever and never be counted in the Matter/Energy split again. Adopting it back is
+ * safe mid-trip -- automation only acts once the order it is holding finishes.
+ */
 function isFree(worker: UnitEntity): boolean {
-  return !worker.automation && !worker.gatherOrder && !worker.buildOrder && !worker.destination;
+  if (worker.automation || worker.buildOrder) return false;
+  return worker.gatherOrder !== null || !worker.destination;
 }
 
 function automationType(worker: UnitEntity): 'matter' | 'energy' | 'data' | null {

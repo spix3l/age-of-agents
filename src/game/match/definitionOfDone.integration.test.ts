@@ -104,9 +104,17 @@ describe('Definition of Done', () => {
     expect(sim.technology.canProduce('player', 'ranger')).toBe(true);
     expect(sim.technology.canBuild('player', 'foundry')).toBe(false);
 
-    // --- Build an army, find the enemy, and destroy its Core -----------------------------------
-    for (let order = 0; order < 8; order += 1) sim.enqueue(fabricator, 'striker');
-    expect(runUntil(sim, 300, () => strikers().length >= 6)).toBe(true);
+    // --- Raise the Agent cap, build an army, and destroy the enemy Core -------------------------
+    // A Core is a fortified objective, not a health bar on legs: 3200 HP, it shoots back, and its
+    // Workers join in. Measured, eight Strikers leave it at roughly a fifth health and die trying,
+    // so a colony that means to end the match has to house a real army first -- which is the whole
+    // point of Habitats, and the reason this gate builds them before it masses.
+    const houseBuilder = () => workers().find((unit) => !unit.buildOrder) ?? workers()[0]!;
+    for (let house = 0; house < 2; house += 1) expect(place(sim, houseBuilder(), 'habitat', core.position)).not.toBeNull();
+    expect(runUntil(sim, 400, () => economy.capacity.snapshot().max >= 20)).toBe(true);
+
+    for (let order = 0; order < 16; order += 1) sim.enqueue(fabricator, 'striker');
+    expect(runUntil(sim, 900, () => strikers().length >= 12)).toBe(true);
 
     const enemyCore = sim.coreOf('enemy')!;
     expect(sim.attack(strikers(), enemyCore)).toBeGreaterThan(0);

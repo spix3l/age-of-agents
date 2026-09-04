@@ -111,7 +111,11 @@ export function checkInvariants(simulation: MatchSimulation): string[] {
     const capacity = economy.capacity.snapshot();
     if (capacity.used < 0 || capacity.reserved < 0) failures.push(`${at}s ${team} negative capacity`);
     const liveUnits = simulation.unitsOf(team).length;
-    if (capacity.used < liveUnits) failures.push(`${at}s ${team} capacity ${capacity.used} below ${liveUnits} live agents`);
+    // Crewed structures occupy slots alongside Agents, so the floor is both together: a plant
+    // whose crew leaked on destruction or was never charged shows up here as a shortfall.
+    const crew = simulation.buildingsOf(team)
+      .reduce((total, building) => total + (building.capacityApplied ? building.capacityUse : 0), 0);
+    if (capacity.used < liveUnits + crew) failures.push(`${at}s ${team} capacity ${capacity.used} below ${liveUnits} live agents and ${crew} crew`);
   }
   for (const unit of simulation.state.units.all()) {
     if (!unit.alive) failures.push(`${at}s dead unit ${unit.id} still registered`);

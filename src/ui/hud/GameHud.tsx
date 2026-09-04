@@ -2,6 +2,7 @@ import { UNITS } from '../../data/units';
 import { ProductionActions } from '../actions/ProductionActions';
 import { ConstructionActions } from '../actions/ConstructionActions';
 import { RelocateAction } from '../actions/RelocateAction';
+import { SynthesisActions } from '../actions/SynthesisActions';
 import { SelectionPanel } from '../selection/SelectionPanel';
 import { SelectionBox } from '../selection/SelectionBox';
 import { useUiStore } from '../store';
@@ -43,6 +44,7 @@ export function GameHud() {
   const audioMuted = useUiStore((state) => state.audioMuted);
   const toggleAudio = useUiStore((state) => state.toggleAudio);
   const income = useUiStore((state) => state.income);
+  const alert = useUiStore((state) => state.alert);
   const audioVolume = useUiStore((state) => state.audioVolume);
   const setAudioVolume = useUiStore((state) => state.setAudioVolume);
   const mode = useUiStore((state) => state.mode);
@@ -68,6 +70,11 @@ export function GameHud() {
         <div className="cost-row"><span>WORKER</span><b>◆ {UNITS.worker.cost.matter}</b></div>
       </aside>
 
+      {alert && <div key={alert.nonce} className="combat-alert" role="alert">
+        <span className="alert-mark" aria-hidden="true">⚠</span>
+        <div><strong>{alert.text}</strong><small>PRESS SPACE TO LOOK</small></div>
+      </div>}
+
       {generation > 1 && <div key={generation} className="generation-banner" role="status">
         <small>COGNITION BLOOM COMPLETE</small><strong>GENERATION {generation}</strong><span>{GENERATIONS[generation].label}</span>
       </div>}
@@ -78,6 +85,7 @@ export function GameHud() {
         <SelectionPanel />
         <div className="order-readout"><small>LAST DIRECTIVE</small><span>{lastOrder}</span></div>
         <div className="deck-actions">
+          {selection.synthesis && <SynthesisActions plant={selection.synthesis} />}
           {selection.canRelocate && <RelocateAction />}
           {selection.constructionSite ? <ConstructionActions /> : selection.producer ? <ProductionActions unitTypes={selection.producer} isCore={selection.isPlayerCore} /> : selection.canBuild ? <WorkerActions /> : selection.canRelocate ? null : <div className="controls"><span><kbd>RMB</kbd> MOVE · GATHER · ATTACK</span><span><kbd>ZQSD</kbd> PAN</span><span><kbd>PINCH</kbd> ZOOM</span></div>}
         </div>

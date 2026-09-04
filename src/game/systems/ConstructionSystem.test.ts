@@ -1,13 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import { Capacity } from '../economy/Capacity';
 import { EntityRegistry } from '../entities/core/EntityRegistry';
+import { BUILDINGS } from '../../data/buildings';
 import { createBuildingSite } from '../entities/buildings/Building';
 import { NavigationGrid } from '../navigation/NavigationGrid';
 import { createWorkerEntity } from '../scenarios/economy';
 import { entityId } from '../types/ids';
 import type { BuildingEntity } from '../types/simulation';
 import { MovementSystem } from './MovementSystem';
-import { ConstructionSystem, constructionRefund } from './ConstructionSystem';
+import { ConstructionSystem, constructionRefund, CONSTRUCTION_REFUND_RATIO } from './ConstructionSystem';
 
 describe('construction', () => {
   it('routes a Worker, advances simulation progress, and activates Relay capacity only on completion', () => {
@@ -36,7 +37,11 @@ describe('construction', () => {
 
   it('documents the 75 percent construction cancellation refund', () => {
     const site = createBuildingSite(entityId('fabricator-refund-site'), 'fabricator', 'player', { x: 10, z: 10 }, entityId('refund-worker'));
-    expect(constructionRefund(site)).toEqual({ matter: 120, energy: 60 });
+    const cost = BUILDINGS.fabricator.cost;
+    expect(constructionRefund(site)).toEqual({
+      matter: Math.floor(cost.matter! * CONSTRUCTION_REFUND_RATIO),
+      energy: Math.floor(cost.energy! * CONSTRUCTION_REFUND_RATIO),
+    });
   });
 
   it('clears the previous Worker when a site is reassigned', () => {

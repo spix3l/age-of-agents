@@ -98,6 +98,13 @@ export class BuildPlanner {
     }
     if (snapshot.fabricators < 1) return 'fabricator';
 
+    // Manufactured resources, once the ground nearby is stripped. A colony whose Matter or Data
+    // is gone stops being able to build or evolve at all, and a plant is the only way back.
+    if (generation >= 2) {
+      const plant = this.desiredPlant(view, count);
+      if (plant) return plant;
+    }
+
     // The Foundry is the Generation III unlock and the only way to a Titan, so it outranks any
     // amount of fortification once it is available.
     if (generation >= 3 && count('foundry') === 0) return 'foundry';
@@ -113,6 +120,21 @@ export class BuildPlanner {
     if (count('depot') < AI.maxDepots && matter > 200) return 'depot';
     if (count('habitat') < AI.maxHabitats && matter > 220) return 'habitat';
     if (count('relay') < this.tuning.maxRelays && capacityFree <= AI.capacityHeadroom * 2) return 'relay';
+    return null;
+  }
+
+  /**
+   * A plant, but only for a resource the colony can no longer mine. Synthesis is a loss, so the
+   * opponent builds one exactly when a human would: when the alternative is nothing at all.
+   */
+  private desiredPlant(view: AIView, count: (kind: PlaceableBuildingType) => number): PlaceableBuildingType | null {
+    const core = view.core();
+    if (!core) return null;
+    const exhausted = (type: 'matter' | 'energy' | 'data'): boolean => !view.resources().some((node) =>
+      node.alive && node.resourceType === type && distance(node.position, core.position) <= AI.synthesisSearchRange);
+    // Data first: it is the scarcest thing on the map and the only route to Generation III.
+    if (exhausted('data') && !exhausted('energy') && count('datalab') < AI.maxPlants) return 'datalab';
+    if (exhausted('matter') && !exhausted('energy') && count('reclaimer') < AI.maxPlants) return 'reclaimer';
     return null;
   }
 

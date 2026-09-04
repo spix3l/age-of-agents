@@ -59,7 +59,9 @@ describe('AI military', () => {
 
   it('keeps a defence reserve at home when it launches an assault', () => {
     const simulation = idleMatch(34);
-    for (let step = 0; step < 30 * 600 && simulation.opponent!.state !== 'ATTACK'; step += 1) simulation.step(1 / 30);
+    // The opening runs longer than it used to: an opponent may not commit before its preset's
+    // earliest attack time, which is now late enough for a player to have built something.
+    for (let step = 0; step < 30 * 900 && simulation.opponent!.state !== 'ATTACK'; step += 1) simulation.step(1 / 30);
     expect(simulation.opponent!.state).toBe('ATTACK');
     const debug = simulation.opponent!.debug;
     // The assault group is drawn from every combat Agent, not Strikers alone.

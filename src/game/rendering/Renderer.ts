@@ -14,6 +14,35 @@ import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
  * costs a full depth-normal pass over everything the camera can see, which the isometric framing
  * made far too expensive. `?post=off` disables the chain entirely.
  */
+/** How much frame the machine can afford. Stepped automatically from the measured frame rate. */
+export type RenderQuality = 'high' | 'medium' | 'low';
+
+/** Frame rate below which the frame is too expensive for this machine, and above which it is not. */
+export const QUALITY_FLOOR_FPS = 45;
+export const QUALITY_CEILING_FPS = 58;
+/** Seconds of sustained trouble before stepping down, and of sustained comfort before stepping up. */
+export const QUALITY_DOWN_SECONDS = 3;
+export const QUALITY_UP_SECONDS = 25;
+
+/**
+ * The next quality tier, or null to stay put.
+ *
+ * Asymmetric on purpose: three seconds of poor frames is enough to act on, while going back up
+ * wants twenty-five seconds of comfortable headroom. A symmetric rule oscillates -- the step up
+ * restores exactly the load that caused the step down -- and a flickering resolution is worse to
+ * look at than a permanently lower one.
+ */
+/** Device-pixel-ratio ceiling per tier: the largest multiplier on what a frame costs. */
+function pixelCeiling(quality: RenderQuality): number {
+  return quality === 'high' ? 2 : quality === 'medium' ? 1.5 : 1;
+}
+
+export function nextQuality(current: RenderQuality, slowSeconds: number, fastSeconds: number): RenderQuality | null {
+  if (slowSeconds > QUALITY_DOWN_SECONDS && current !== 'low') return current === 'high' ? 'medium' : 'low';
+  if (fastSeconds > QUALITY_UP_SECONDS && current !== 'high') return current === 'low' ? 'medium' : 'high';
+  return null;
+}
+
 export class Renderer {
   readonly instance: THREE.WebGLRenderer;
   private readonly resizeObserver: ResizeObserver;
@@ -22,6 +51,29 @@ export class Renderer {
   private bloom: UnrealBloomPass | null = null;
   private readonly postEnabled: boolean;
   private readonly aoEnabled: boolean;
+  private quality: RenderQuality = 'high';
+  private readonly pinnedQuality: RenderQuality | null = null;
+
+  /** The current quality tier, for the diagnostics overlay. */
+  get qualityLevel(): RenderQuality { return this.quality; }
+
+  /**
+   * Scales what the frame costs to the machine drawing it.
+   *
+   * A 300x224 battlefield on a Retina panel asks for eight megapixels a frame, and every one of
+   * them goes through a bloom pass; the same scene at 1x is a quarter of the work for a picture
+   * most players would not pick out of a line-up. Resolution goes first because it is the largest
+   * multiplier and the least visible loss, bloom second, and shadow resolution last.
+   */
+  setQuality(quality: RenderQuality): boolean {
+    if (this.pinnedQuality !== null && quality !== this.pinnedQuality) return false;
+    if (quality === this.quality) return false;
+    this.quality = quality;
+    this.instance.setPixelRatio(Math.min(window.devicePixelRatio, pixelCeiling(quality)));
+    if (this.bloom) this.bloom.enabled = quality !== 'low';
+    this.resize();
+    return true;
+  }
 
   constructor(readonly container: HTMLElement) {
     this.instance = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -39,10 +91,24 @@ export class Renderer {
     // sees several times more of the world than the old steep one did: it measured 57 FPS
     // without and 33 with, for an occlusion tuck most players will never notice.
     this.aoEnabled = params.get('ao') === 'on';
+    // `?quality=low` pins the tier instead of letting the frame rate choose it, which is how a
+    // machine-specific report gets reproduced on a machine that never drops a frame.
+    const pinned = params.get('quality');
+    this.pinnedQuality = pinned === 'low' || pinned === 'medium' || pinned === 'high' ? pinned : null;
+    if (this.pinnedQuality) {
+      this.quality = this.pinnedQuality;
+      this.instance.setPixelRatio(Math.min(window.devicePixelRatio, pixelCeiling(this.quality)));
+    }
     container.append(this.instance.domElement);
     this.resizeObserver = new ResizeObserver(this.resize);
     this.resizeObserver.observe(container);
     this.resize();
+  }
+
+  /** Pixels the GPU actually fills each frame: CSS size times device pixel ratio, squared up. */
+  get drawingBufferPixels(): number {
+    const size = this.instance.getDrawingBufferSize(new THREE.Vector2());
+    return Math.round(size.x * size.y);
   }
 
   resize = (): void => {
@@ -72,6 +138,7 @@ export class Renderer {
     // Strength and threshold tuned so only the emissive strips bloom: the reference glows at
     // the seams, it does not wash the whole frame.
     const bloom = new UnrealBloomPass(new THREE.Vector2(width, height), 0.32, 0.5, 0.95);
+    bloom.enabled = this.quality !== 'low';
     composer.addPass(bloom);
     composer.addPass(new OutputPass());
     this.composer = composer;

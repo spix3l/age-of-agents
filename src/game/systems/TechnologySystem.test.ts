@@ -10,9 +10,11 @@ describe('Generation progression', () => {
     const technology = new TechnologySystem(generations);
     const ledger = new EconomyLedger({ matter: 500, energy: 400, data: 160 });
 
-    expect(technology.canBuild('player', 'turret')).toBe(false);
-    expect(technology.advance('player', ledger)).toEqual({ ok: true, generation: 2 });
+    // Defence is a Generation I choice; the Reclamation Plant is the Generation II gate here.
     expect(technology.canBuild('player', 'turret')).toBe(true);
+    expect(technology.canBuild('player', 'reclaimer')).toBe(false);
+    expect(technology.advance('player', ledger)).toEqual({ ok: true, generation: 2 });
+    expect(technology.canBuild('player', 'reclaimer')).toBe(true);
     expect(technology.canProduce('player', 'ranger')).toBe(true);
     expect(technology.canProduce('player', 'scout')).toBe(true);
     expect(technology.advance('player', ledger)).toEqual({ ok: true, generation: 3 });

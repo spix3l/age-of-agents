@@ -3,6 +3,7 @@ import { createCore } from '../entities/buildings/Core';
 import { createUnitEntity } from '../scenarios/economy';
 import { entityId } from '../types/ids';
 import { DamageService } from './DamageService';
+import { BUILDINGS } from '../../data/buildings';
 import { MatchStats } from './MatchStats';
 
 function striker(id: string, team: 'player' | 'enemy') {
@@ -54,6 +55,7 @@ describe('DamageService', () => {
     damage.processDeaths(() => undefined);
     expect(stats.snapshot('player')).toMatchObject({ unitsKilled: 1, buildingsDestroyed: 1, unitsLost: 0 });
     expect(stats.snapshot('enemy')).toMatchObject({ unitsLost: 1, buildingsLost: 1, unitsKilled: 0 });
-    expect(stats.snapshot('player').damageDealt).toBe(120 + 1500);
+    // Overkill is not credited: a Striker's 120 and the Core's full health, nothing beyond.
+    expect(stats.snapshot('player').damageDealt).toBe(120 + BUILDINGS.core.maxHp);
   });
 });

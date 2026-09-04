@@ -128,8 +128,13 @@ export class ResourceCache {
    */
   glow(team: Team, intensity = 1.6): THREE.MeshStandardMaterial {
     const color = paletteFor(team).glow;
-    return this.standard(`glow-${team}-${intensity}`, {
-      color, emissive: color, emissiveIntensity: intensity * 0.8, roughness: 0.22, metalness: 0,
+    // Quantised to half-steps. Every distinct intensity is a distinct material, and a material is
+    // a draw call a structure's meshes cannot be merged across: the models ask for a dozen shades
+    // of the same light strip, and at this range half a step of emissive is not a visible
+    // difference -- it is just a few hundred draw calls in a built-up colony.
+    const step = Math.max(0.5, Math.round(intensity * 2) / 2);
+    return this.standard(`glow-${team}-${step}`, {
+      color, emissive: color, emissiveIntensity: step * 0.8, roughness: 0.22, metalness: 0,
     });
   }
 

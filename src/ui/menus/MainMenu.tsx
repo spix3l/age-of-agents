@@ -13,7 +13,7 @@ const HOW_TO_PLAY: readonly (readonly [string, string])[] = [
   ['GATHER', 'Left-click a Worker, right-click a Matter or Energy deposit. Use AUTO MATTER / AUTO ENERGY to keep it looping forever.'],
   ['BUILD', 'With a Worker selected, place a Relay Node for Agent Capacity and a Fabricator to make Strikers. Right-click a site to add another builder.'],
   ['EVOLVE', 'Harvest violet Data archives, select the Core, and evolve through Awakening, Autonomy, and Singularity. New Generations unlock new Agents and structures.'],
-  ['DEFEND', 'Walls shape approaches, Outposts receive distant cargo, and Generation II Zap Turrets automatically engage hostiles.'],
+  ['DEFEND', 'Zap Turrets engage hostiles on their own and your Core shoots back. Fortify while you build \u2014 an assault is coming, and the alarm plus SPACE puts the camera on it.'],
   ['FIGHT', 'Queue Strikers at the Fabricator, then right-click an enemy Agent or structure to attack. Idle Strikers defend themselves.'],
   ['WIN', 'Destroy the enemy Core before it destroys yours — or play Freestyle and just build.'],
   ['VIEW', 'ZQSD or arrow keys pan, two-finger scroll pans, pinch zooms, P pauses, F3 opens diagnostics.'],

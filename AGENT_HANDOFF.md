@@ -43,7 +43,11 @@ npm run build && node scripts/browser-qa.mjs --headed [--browser firefox] [--ful
 - Game modes live in one place: `GameMode` in `src/game/save/SaveGame.ts`, chosen on the menu, held in `src/ui/store.ts`, and passed to `Game`. Freestyle is `solo: true` through `createMatch` plus `opponent: false`; it is not a separate scenario.
 - Pause is store state (`useUiStore.paused`). `Game` subscribes to it and hands it to `GameLoop`; nothing else acts on it, and the overlay in `src/ui/menus/PauseMenu.tsx` is what stops input reaching a held match.
 - `src/game/rendering/EffectsManager.ts` pools all combat visuals and is driven only by presentation hooks.
+- `src/game/rendering/Renderer.ts` owns adaptive quality: `nextQuality` is the pure hysteresis rule (down fast, up slow) and `setQuality` scales device pixel ratio, bloom, and — through `WorldScene.setShadowQuality` — shadow resolution. `?quality=` pins a tier and `?seed=` pins a match, which is how a machine-specific or map-specific report is reproduced. Draw calls, triangles, megapixels, and the tier are on the F3 overlay; measure there before optimizing anything.
+- Structure models bake their static meshes into one mesh per material (`mergeStatic`), cached per kind and team. Anything the renderer animates -- spinners, the emissive column, the working arm, Generation tiers -- must stay out of the bake, so new animated parts belong in `BuildingModel`, never loose in the group.
 - `src/game/systems/TechnologySystem.ts` is the authoritative Awakening/Autonomy/Singularity gate; unlock tables and costs live in `src/data/technologies.ts`.
+- `src/game/systems/SynthesisSystem.ts` manufactures resources for crewed plants (Reclamation Plant, Cognition Lab); recipes live in `src/data/synthesis.ts`. Deposits are finite and never regrow — synthesis is the floor under a stripped map, deliberately priced as a loss. Cycle progress is derived state held in the system, never on the entity and never in the save.
+- `src/game/systems/nodeSearch.ts` is the shared "nearest node a Worker can actually reach" search, used by `AutomationSystem` (whole map) and by `GatheringSystem`'s depletion retarget (`RETARGET_RANGE`, local, measured from the drop point -- Workers must never scout). Only the closest few candidates are path-verified; never path to every node of a type.
 - `src/game/vision/VisionSystem.ts` owns the low-frequency unknown/explored/visible grid; `WorldScene` only renders its texture and hides presentation objects.
 - `src/audio/AudioManager.ts` owns bounded procedural cues, gesture unlock, persistent mute/volume, and safe no-audio fallback.
 - `src/game/systems/GatheringSystem.ts`, `ConstructionSystem.ts`, `AutomationSystem.ts`, `ProductionSystem.ts`, `CombatSystem.ts`, and `TurretSystem.ts` advance only from fixed simulation delta time.
@@ -56,7 +60,7 @@ npm run build && node scripts/browser-qa.mjs --headed [--browser firefox] [--ful
 - `src/game/navigation/occupancy.ts` owns building navigation occupancy for every caller.
 - `src/game/input/InputManager.ts` is the only raw pointer-event adapter. Right-click is contextual in `Game.ts`.
 - `src/ui/store.ts` exposes throttled HUD snapshots and command callbacks; never publish per-frame transforms there.
-- `src/data/` is the only home for gameplay balance constants.
+- `src/data/` is the only home for gameplay balance constants. Costs are deliberately spread across all three resources: a colony that only ever spends Matter banks Energy and Data it can never use, and `AI.energyWorkerRatio` is derived from that cost mix and the relative gather rates -- change one and re-derive the other.
 
 ## Important invariants
 
@@ -65,7 +69,8 @@ npm run build && node scripts/browser-qa.mjs --headed [--browser firefox] [--ful
 - Only a faction's deposit-capable structures accept that faction's cargo.
 - Spending is atomic. Costs are charged and capacity reserved at enqueue, then reservation is committed only on successful spawn.
 - A destroyed provider lowers maximum capacity without deleting already-used slots. Unit destruction callers must release used capacity.
-- Gather orders survive normal repathing. A manual move explicitly cancels gathering.
+- Gather orders survive normal repathing, and survive the node they were aimed at: an exhausted deposit re-aims the order at the nearest live one of the same type near the Worker's deposit structure, or releases it. A manual move explicitly cancels gathering.
+- A structure either provides Agent Capacity or occupies it, never both, and `capacityApplied` gates the pair so its effect is applied and removed exactly once.
 - Buildings update navigation occupancy through `NavigationGrid`; its reference counts must remain balanced.
 - A construction site is non-operational until complete. Cancelling one unblocks its footprint, clears its builder order, and refunds 75%.
 - Automation persists through normal gather/deposit cycles; explicit move, gather, or build orders cancel the automation mode.
@@ -76,7 +81,8 @@ npm run build && node scripts/browser-qa.mjs --headed [--browser firefox] [--ful
 - Human and future AI actions should converge on the same command/system boundaries.
 - A path search must stay bounded. `MAX_EXPANSIONS` is what stops an unreachable goal — a Worker walled into its own colony, an order clicked onto an island — from sweeping a 42,240-cell grid, repeatedly, at automation cadence.
 - Throttled per-entity work must be phase-spread with `entityPhase`, never scheduled on a shared step. Setting a cooldown to a constant makes a whole army pay its bill in one step.
-- A command that produced no effect is a refusal and must be reported as one. Never count an unroutable order as issued, and never set an activity the simulation did not actually start.
+- A command that produced no effect is a refusal and must be reported as one. Never count an unroutable order as issued, and never set an activity the simulation did not actually start. A refusal must also say what would fix it: name the resource that is short, not just "insufficient resources", and state affordability on the button before the tool is armed.
+- The Core is the match. It has to survive long enough for a player to notice, look, and answer -- measured, not asserted: `first damage -> defeat` on a passive colony is the number that matters, and the attack alarm plus Space-to-look is what makes that time usable.
 - Performance regressions are guarded by deterministic counters (cell expansions, search counts), not wall clock. Millisecond thresholds are flaky under parallel-suite load.
 - `checkInvariants` in `src/game/debug/soak.ts` is the shared invariant set. Extend it there so `runSoak` and the integration suites both gain the check.
 - The build must stay a static bundle: no backend, API, authentication, WebSocket, or secret. `localStorage` is optional and every access is guarded.

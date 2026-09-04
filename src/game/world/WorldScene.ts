@@ -3,6 +3,7 @@ import type { EntityId } from '../types/ids';
 import type { ResourceNodeEntity } from '../entities/resources/ResourceNode';
 import type { BuildingEntity, Team, UnitEntity, Vec2 } from '../types/simulation';
 import type { Generation } from '../types/simulation';
+import { synthesisFor } from '../../data/synthesis';
 import { BUILDINGS } from '../../data/buildings';
 import type { PlaceableBuildingType } from '../building/PlacementController';
 import { MAP_MARGIN, MAP_SIZE } from './map';
@@ -80,6 +81,8 @@ export class WorldScene {
   private readonly generations = new Map<Exclude<Team, 'neutral'>, Generation>([['player', 1], ['enemy', 1]]);
   private readonly hiddenEntities = new Set<EntityId>();
   /** Structures mid-growth-pop after an evolution, keyed to elapsed seconds of the animation. */
+  private shadowResolution = 2048;
+
   private readonly growing = new Map<StaticVisual, { elapsed: number; readonly parts: THREE.Object3D[] }>();
   private readonly fogTexture: THREE.DataTexture;
   private readonly fogPixels: Uint8Array;
@@ -98,6 +101,7 @@ export class WorldScene {
     this.sun.position.set(SUN_OFFSET.x, SUN_OFFSET.y, SUN_OFFSET.z);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
+    this.shadowResolution = 2048;
     this.sun.shadow.bias = 0.0006;
     this.sun.shadow.normalBias = 0.08;
     // The shadow frustum stays tight and travels with the camera, so a large map keeps
@@ -333,6 +337,18 @@ export class WorldScene {
     this.buildings.set(building.id, { group, ring, model, progress, health, parts, scaffold });
   }
 
+  /**
+   * Shadow map resolution for the current quality tier. Dropping it halves what the shadow pass
+   * costs; the map has to be released first, or three.js keeps rendering into the old size.
+   */
+  setShadowQuality(size: 2048 | 1024): void {
+    if (size === this.shadowResolution) return;
+    this.shadowResolution = size;
+    this.sun.shadow.mapSize.set(size, size);
+    this.sun.shadow.map?.dispose();
+    this.sun.shadow.map = null;
+  }
+
   addResource(node: ResourceNodeEntity): void {
     const resource = buildResourceModel(this.cache, node.resourceType, node.id);
     const group = resource.group;
@@ -459,17 +475,22 @@ export class WorldScene {
       if (visual.health) this.updateHealthBar(visual.health, building.hp, building.maxHp, building.selected && building.operational, building.team, building.operational);
       if (!building.operational || !visual.parts) continue;
 
-      // Orbit rings and dishes turn constantly; the Fabricator gantry only runs while working.
-      visual.parts.spinners.forEach((spinner, index) => {
-        spinner.rotation.z += (index % 2 === 0 ? 0.5 : -0.34) * frame;
-        spinner.rotation.y += (index % 2 === 0 ? 0.18 : -0.26) * frame;
-      });
+      // Orbit rings and dishes turn constantly; the Fabricator gantry only runs while working,
+      // and a synthesis plant counts its conversion as work so a switched-off plant goes still.
+      const plant = synthesisFor(building.kind) !== undefined;
+      const running = plant && !building.synthesisPaused;
+      if (!plant || running) {
+        visual.parts.spinners.forEach((spinner, index) => {
+          spinner.rotation.z += (index % 2 === 0 ? 0.5 : -0.34) * frame;
+          spinner.rotation.y += (index % 2 === 0 ? 0.18 : -0.26) * frame;
+        });
+      }
       if (visual.parts.column) {
         const material = (visual.parts.column as THREE.Mesh).material as THREE.MeshStandardMaterial;
         material.emissiveIntensity = 1.8 + Math.sin(this.animationTime * 2.2 + building.position.x) * 0.5;
       }
       if (visual.parts.arm) {
-        const working = building.productionQueue.length > 0;
+        const working = building.productionQueue.length > 0 || running;
         visual.parts.arm.visible = true;
         visual.parts.arm.position.x = working ? Math.sin(this.animationTime * 2.6) * 1.1 : 0;
         const rest = typeof visual.parts.arm.userData.restY === 'number' ? visual.parts.arm.userData.restY : visual.parts.arm.position.y;

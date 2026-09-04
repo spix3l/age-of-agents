@@ -4,8 +4,16 @@ export const AI = Object.freeze({
   decisionsPerSecond: 3,
   earlyPhaseSeconds: 150,
   midPhaseSeconds: 420,
-  /** Share of Workers assigned to Energy; the rest gather Matter. */
-  energyWorkerRatio: 0.25,
+  /**
+   * Share of Workers assigned to Energy; the rest gather Matter.
+   *
+   * Derived, not guessed. A Worker returns Matter about 1.5x faster than Energy (10 per 1.2s
+   * against 8 per 1.45s), and the roster and build list together spend roughly 60:40 Matter to
+   * Energy, so matching supply to demand needs about half the crew on Energy. Left at a quarter
+   * the opponent banked Matter it could not spend and stalled at 20 Energy, unable to afford the
+   * Generation it had the Data for.
+   */
+  energyWorkerRatio: 0.5,
   /** Energy lead over Matter that sends gatherers back to Matter; the build is Matter-heavy. */
   surplusMargin: 260,
   /** Data banked beyond this is idle capital: the colony gathers something else instead. */
@@ -23,6 +31,14 @@ export const AI = Object.freeze({
   maxTurrets: 5,
   maxHabitats: 3,
   maxDepots: 2,
+  /**
+   * How far from its Core the opponent counts live deposits before deciding a resource is gone
+   * and worth manufacturing instead. Wide enough to include its expansion clusters, short of the
+   * contested middle it may not be able to hold.
+   */
+  synthesisSearchRange: 70,
+  /** Plants of each kind the opponent will run. Two is enough to matter without eating its cap. */
+  maxPlants: 2,
   /**
    * Wall segments the opponent fences its approach with before Turrets unlock. A segment is four
    * units long, so this is roughly twenty units of fence: enough to shape a raid's approach, and
@@ -104,17 +120,17 @@ export const AI_DIFFICULTY: Readonly<Record<AIDifficulty, AITuning>> = Object.fr
   relaxed: {
     difficulty: 'relaxed', label: 'RELAXED', description: 'Builds slowly and attacks late. Room to learn the colony loop.',
     workers: { early: 6, mid: 8, late: 10 }, attackForce: 10,
-    productionInterval: 9, earliestAttackSeconds: 780, maxRelays: 4,
+    productionInterval: 9, earliestAttackSeconds: 960, maxRelays: 4,
   },
   standard: {
     difficulty: 'standard', label: 'STANDARD', description: 'Expands, masses a real army, and commits once it has one.',
     workers: { early: 8, mid: 11, late: 13 }, attackForce: 16,
-    productionInterval: 4.5, earliestAttackSeconds: 540, maxRelays: 6,
+    productionInterval: 4.5, earliestAttackSeconds: 720, maxRelays: 6,
   },
   relentless: {
     difficulty: 'relentless', label: 'RELENTLESS', description: 'Maximum economy, constant production, early aggression.',
     workers: { early: 10, mid: 14, late: 18 }, attackForce: 13,
-    productionInterval: 0, earliestAttackSeconds: 180, maxRelays: 9,
+    productionInterval: 0, earliestAttackSeconds: 300, maxRelays: 9,
   },
 });
 
