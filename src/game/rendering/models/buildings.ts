@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { BUILDINGS } from '../../../data/buildings';
 import type { BuildingTypeId } from '../../types/ids';
 import type { Team } from '../../types/simulation';
@@ -660,6 +661,74 @@ function generationUpgrades(kit: Kit, kind: BuildingTypeId): GenerationPart[] {
   return parts;
 }
 
+/**
+ * Collapses a finished structure's static meshes into one mesh per material.
+ *
+ * A structure is assembled from thirty-odd small pieces -- drums, strips, pods, lamps -- and every
+ * one of them was its own draw call: measured, 34 per building, so a colony of forty structures
+ * asked the GPU for well over a thousand before a single Agent moved, and a player building a city
+ * watched their frame rate fall as they built it. The pieces never move relative to each other, so
+ * they can be baked into a handful of merged geometries; anything the renderer animates (spinners,
+ * the emissive column, the working arm, Generation tiers) is left exactly where it was.
+ *
+ * The merged geometry depends only on the kind and the team, so it is cached and shared by every
+ * structure of that kind -- the same trick that already makes a hundred-Agent battle cheap.
+ */
+function mergeStatic(model: BuildingModel, cache: ResourceCache, kind: BuildingTypeId, team: Team, id: string): BuildingModel {
+  const animated = new Set<THREE.Object3D>();
+  for (const part of [...model.spinners, model.column, model.arm, ...model.generationParts.map((entry) => entry.part)]) {
+    part?.traverse((object) => animated.add(object));
+  }
+
+  const buckets = new Map<string, { material: THREE.Material; meshes: THREE.Mesh[] }>();
+  model.group.updateMatrixWorld(true);
+  model.group.traverse((object) => {
+    if (!(object instanceof THREE.Mesh) || animated.has(object)) return;
+    // A mesh under an animated parent moves with it and must not be baked into the hull.
+    for (let parent = object.parent; parent; parent = parent.parent) if (animated.has(parent)) return;
+    const material = object.material as THREE.Material;
+    const bucket = buckets.get(material.uuid) ?? { material, meshes: [] };
+    bucket.meshes.push(object);
+    buckets.set(material.uuid, bucket);
+  });
+
+  const pickable: THREE.Object3D[] = model.pickable.filter((object) => animated.has(object));
+  for (const [key, bucket] of buckets) {
+    if (bucket.meshes.length === 0) continue;
+    const wasPickable = bucket.meshes.some((mesh) => model.pickable.includes(mesh));
+    for (const mesh of bucket.meshes) mesh.removeFromParent();
+    if (bucket.meshes.length === 1) {
+      // Nothing to merge with: keep the original rather than pay to rebuild it.
+      const only = bucket.meshes[0]!;
+      model.group.attach(only);
+      if (wasPickable) pickable.push(only);
+      continue;
+    }
+    const geometry = cache.geometry(`merged-${kind}-${team}-${key}`, () => {
+      const parts = bucket.meshes.map((mesh) => {
+        const clone = mesh.geometry.index ? mesh.geometry.toNonIndexed() : mesh.geometry.clone();
+        clone.applyMatrix4(mesh.matrixWorld);
+        // Merging demands identical attribute sets; nothing here is skinned or morphed.
+        for (const name of Object.keys(clone.attributes)) {
+          if (name !== 'position' && name !== 'normal' && name !== 'uv') clone.deleteAttribute(name);
+        }
+        return clone;
+      });
+      const merged = mergeGeometries(parts, false);
+      for (const part of parts) part.dispose();
+      if (!merged) throw new Error(`Could not merge ${kind} geometry`);
+      return merged;
+    });
+    const mesh = new THREE.Mesh(geometry, bucket.material);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    mesh.userData.entityId = id;
+    model.group.add(mesh);
+    if (wasPickable) pickable.push(mesh);
+  }
+  return { ...model, pickable };
+}
+
 export function buildBuildingModel(cache: ResourceCache, kind: BuildingTypeId, team: Team, id: string): BuildingModel {
   const kit = new Kit(cache, team, id);
   const model = kind === 'core' ? buildCore(kit)
@@ -676,7 +745,7 @@ export function buildBuildingModel(cache: ResourceCache, kind: BuildingTypeId, t
                         : buildFoundry(kit);
   const upgrades = generationUpgrades(kit, kind);
   for (const entry of upgrades) model.group.add(entry.part);
-  return { ...model, generationParts: [...model.generationParts, ...upgrades] };
+  return mergeStatic({ ...model, generationParts: [...model.generationParts, ...upgrades] }, cache, kind, team, id);
 }
 
 /** Scaffolding shown while a site is still being assembled: corner posts and a lit top beam. */

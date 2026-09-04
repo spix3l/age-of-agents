@@ -2,6 +2,51 @@
 
 Last updated: 2026-09-04
 
+## Three resources worth having, and a frame that fits the machine — 2026-09-04 (D8-18)
+
+Two reports from one mid-game screenshot: 106 Matter beside 830 Energy and 253 Data, with "the map
+is vast but we don't have as much resources, when building a city" and "it's already laggy".
+
+**The economy.** Supply was never the problem — a seeded map holds about 7800 Matter per faction
+and a ten-structure walled city costs about 1200. Demand was: almost everything was priced in
+Matter alone, so Matter was the only wall a builder ever hit while the other two piled up unspent.
+Costs are now spread across all three. Defence and production lean on Energy (a Turret is 75 Matter
+and 80 Energy), the Generation III roster leans on Data, and a synthesis plant is bought mainly
+with the resource it converts *from* — a Reclamation Plant is 60 Matter and 190 Energy, so a colony
+that has run its Matter down can actually afford the thing that makes Matter. That trap was the
+sharpest edge in the report: the way out of a Matter shortage used to cost 130 Matter.
+
+Worker cargo went 10 → 14 in the same pass. That scales income with *distance* rather than by
+making deposits richer, which is the honest answer to a vast map: enriching nodes would have made
+the safe home cluster better and the contested middle pointless. Measured on the shipping map, a
+Matter Worker returns about 1.5/s and an Energy Worker about 1.2/s.
+
+The opponent's Worker split had to follow, and this time it is derived rather than guessed. A
+Worker returns Matter about 1.5x faster than Energy (10 per 1.2s against 8 per 1.45s) and the
+roster now spends roughly 60:40, so about half the crew belongs on Energy. Two rounds of tuning by
+feel made things worse — at a quarter the opponent banked Matter it could not spend and sat at 20
+Energy holding the Data for a Generation it could not buy — before the arithmetic made it right.
+Assault cadence came out healthier than before the change, most gaps under 210s.
+
+**The frame.** Two measurements, both new, because nothing was watching them: a structure cost 34
+draw calls, and a 23-building colony cost 1281 — which is why a city gets slower as it is built.
+Every structure is assembled from thirty-odd small pieces that never move relative to each other,
+so everything except the animated parts is now baked into one mesh per material and cached per kind
+and team. The same colony costs 917, and that saving compounds with every structure a player lays.
+
+The other half is pixels. A 2000px window on a Retina panel asks for 8.0 megapixels a frame, every
+one of them through a bloom pass. The renderer now scales itself from the frame rate it is actually
+managing: medium is 4.5 megapixels, low is 2.0 with bloom off and half-resolution shadows. Stepping
+down takes three seconds of trouble; stepping back up takes twenty-five seconds of comfort, because
+a symmetric rule restores exactly the load that caused the step down and an oscillating resolution
+is worse to look at than a steady lower one. The diagnostics overlay (F3) now reports draw calls,
+triangles, megapixels, and the current tier, and `?quality=` pins it — a machine that never drops a
+frame can still reproduce what a slower one sees. `?seed=` pins the match for the same reason.
+
+Measured after the rebalance, with a colony that builds economy and defences and never produces a
+single combat Agent: fortified, it survived the full forty minutes on two of three seeds (one
+before) and held first damage off to 741s on the third. Unfortified it still loses at 749-892s.
+
 ## A survivable opening and a readable deck — 2026-09-04 (D8-17)
 
 Four player reports from one session, in the order they landed.

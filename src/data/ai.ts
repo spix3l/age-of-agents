@@ -4,8 +4,16 @@ export const AI = Object.freeze({
   decisionsPerSecond: 3,
   earlyPhaseSeconds: 150,
   midPhaseSeconds: 420,
-  /** Share of Workers assigned to Energy; the rest gather Matter. */
-  energyWorkerRatio: 0.25,
+  /**
+   * Share of Workers assigned to Energy; the rest gather Matter.
+   *
+   * Derived, not guessed. A Worker returns Matter about 1.5x faster than Energy (10 per 1.2s
+   * against 8 per 1.45s), and the roster and build list together spend roughly 60:40 Matter to
+   * Energy, so matching supply to demand needs about half the crew on Energy. Left at a quarter
+   * the opponent banked Matter it could not spend and stalled at 20 Energy, unable to afford the
+   * Generation it had the Data for.
+   */
+  energyWorkerRatio: 0.5,
   /** Energy lead over Matter that sends gatherers back to Matter; the build is Matter-heavy. */
   surplusMargin: 260,
   /** Data banked beyond this is idle capital: the colony gathers something else instead. */

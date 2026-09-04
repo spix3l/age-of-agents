@@ -10,6 +10,8 @@ const ROWS: readonly (readonly [string, (debug: DebugSnapshot) => string])[] = [
   ['AI FORCES', (debug) => `${debug.aiWorkers} workers · ${debug.aiArmy} army · ${debug.aiAssault} attacking`],
   ['AI INTEL', (debug) => (debug.aiCoreKnown ? 'player core known' : 'scouting')],
   ['EFFECTS', (debug) => `${debug.effectsActive} active · ${debug.effectsPooled} pooled`],
+  ['GPU LOAD', (debug) => `${debug.drawCalls} calls · ${(debug.triangles / 1000).toFixed(0)}k tris · ${(debug.pixels / 1_000_000).toFixed(1)}MP`],
+  ['QUALITY', (debug) => debug.quality.toUpperCase()],
 ];
 
 export function DebugPanel() {

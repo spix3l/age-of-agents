@@ -21,7 +21,7 @@ import type { MatchResult } from './match/MatchState';
 import type { ResourceNodeEntity } from './entities/resources/ResourceNode';
 import { GameLoop } from './GameLoop';
 import { InputManager } from './input/InputManager';
-import { Renderer } from './rendering/Renderer';
+import { nextQuality, QUALITY_CEILING_FPS, QUALITY_FLOOR_FPS, Renderer } from './rendering/Renderer';
 import { constructionRefund } from './systems/ConstructionSystem';
 import type { ProductionRejection } from './systems/ProductionSystem';
 import { SelectionSystem, type ScreenPoint, type SelectableEntity } from './systems/SelectionSystem';
@@ -285,6 +285,10 @@ export class Game {
       aiCoreKnown: ai?.enemyCoreKnown ?? false,
       effectsActive: effects.active,
       effectsPooled: effects.pooled,
+      drawCalls: this.renderer.instance.info.render.calls,
+      triangles: this.renderer.instance.info.render.triangles,
+      pixels: this.renderer.drawingBufferPixels,
+      quality: this.renderer.qualityLevel,
     });
   }
 
@@ -328,11 +332,36 @@ export class Game {
     clearSave();
   };
 
+  /** Seconds the frame rate has been continuously poor, or continuously comfortable. */
+  private slowSeconds = 0;
+  private fastSeconds = 0;
+
+  /**
+   * Scales the frame to the machine, from the frame rate the machine is actually managing.
+   *
+   * A colony that grows as the match goes on is exactly the shape of load that turns a smooth
+   * opening into a slideshow an hour later, and nobody wants to go hunting for a settings screen
+   * mid-assault. Stepping down is quick, stepping back up is slow and needs a comfortable margin,
+   * so a single heavy moment cannot start the quality oscillating.
+   */
+  private adaptQuality(frameDelta: number): void {
+    this.slowSeconds = this.smoothedFps < QUALITY_FLOOR_FPS ? this.slowSeconds + frameDelta : 0;
+    this.fastSeconds = this.smoothedFps > QUALITY_CEILING_FPS ? this.fastSeconds + frameDelta : 0;
+    const next = nextQuality(this.renderer.qualityLevel, this.slowSeconds, this.fastSeconds);
+    if (!next) return;
+    this.slowSeconds = 0;
+    this.fastSeconds = 0;
+    if (!this.renderer.setQuality(next)) return;
+    this.world.setShadowQuality(next === 'low' ? 1024 : 2048);
+    useUiStore.getState().setLastOrder(`GRAPHICS SET TO ${next.toUpperCase()} // HOLDING FRAME RATE`);
+  }
+
   private readonly render = (alpha: number): void => {
     const now = performance.now();
     const frameDelta = this.lastFrameTime === null ? 1 / 60 : Math.min(0.1, (now - this.lastFrameTime) / 1000);
     this.lastFrameTime = now;
     this.smoothedFps += (1 / Math.max(frameDelta, 1 / 240) - this.smoothedFps) * 0.08;
+    this.adaptQuality(frameDelta);
     this.world.updatePresentation(frameDelta, this.camera.camera, this.camera.focusPoint, this.camera.zoomLevel);
     this.world.syncUnits(this.state.units.all(), alpha);
     this.world.syncStructures(this.state.buildings.all(), this.state.resources.all());

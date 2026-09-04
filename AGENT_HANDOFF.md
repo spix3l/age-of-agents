@@ -43,6 +43,8 @@ npm run build && node scripts/browser-qa.mjs --headed [--browser firefox] [--ful
 - Game modes live in one place: `GameMode` in `src/game/save/SaveGame.ts`, chosen on the menu, held in `src/ui/store.ts`, and passed to `Game`. Freestyle is `solo: true` through `createMatch` plus `opponent: false`; it is not a separate scenario.
 - Pause is store state (`useUiStore.paused`). `Game` subscribes to it and hands it to `GameLoop`; nothing else acts on it, and the overlay in `src/ui/menus/PauseMenu.tsx` is what stops input reaching a held match.
 - `src/game/rendering/EffectsManager.ts` pools all combat visuals and is driven only by presentation hooks.
+- `src/game/rendering/Renderer.ts` owns adaptive quality: `nextQuality` is the pure hysteresis rule (down fast, up slow) and `setQuality` scales device pixel ratio, bloom, and — through `WorldScene.setShadowQuality` — shadow resolution. `?quality=` pins a tier and `?seed=` pins a match, which is how a machine-specific or map-specific report is reproduced. Draw calls, triangles, megapixels, and the tier are on the F3 overlay; measure there before optimizing anything.
+- Structure models bake their static meshes into one mesh per material (`mergeStatic`), cached per kind and team. Anything the renderer animates -- spinners, the emissive column, the working arm, Generation tiers -- must stay out of the bake, so new animated parts belong in `BuildingModel`, never loose in the group.
 - `src/game/systems/TechnologySystem.ts` is the authoritative Awakening/Autonomy/Singularity gate; unlock tables and costs live in `src/data/technologies.ts`.
 - `src/game/systems/SynthesisSystem.ts` manufactures resources for crewed plants (Reclamation Plant, Cognition Lab); recipes live in `src/data/synthesis.ts`. Deposits are finite and never regrow — synthesis is the floor under a stripped map, deliberately priced as a loss. Cycle progress is derived state held in the system, never on the entity and never in the save.
 - `src/game/systems/nodeSearch.ts` is the shared "nearest node a Worker can actually reach" search, used by `AutomationSystem` (whole map) and by `GatheringSystem`'s depletion retarget (`RETARGET_RANGE`, local, measured from the drop point -- Workers must never scout). Only the closest few candidates are path-verified; never path to every node of a type.
@@ -58,7 +60,7 @@ npm run build && node scripts/browser-qa.mjs --headed [--browser firefox] [--ful
 - `src/game/navigation/occupancy.ts` owns building navigation occupancy for every caller.
 - `src/game/input/InputManager.ts` is the only raw pointer-event adapter. Right-click is contextual in `Game.ts`.
 - `src/ui/store.ts` exposes throttled HUD snapshots and command callbacks; never publish per-frame transforms there.
-- `src/data/` is the only home for gameplay balance constants.
+- `src/data/` is the only home for gameplay balance constants. Costs are deliberately spread across all three resources: a colony that only ever spends Matter banks Energy and Data it can never use, and `AI.energyWorkerRatio` is derived from that cost mix and the relative gather rates -- change one and re-derive the other.
 
 ## Important invariants
 

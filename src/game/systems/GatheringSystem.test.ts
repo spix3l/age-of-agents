@@ -113,7 +113,7 @@ describe('Worker gathering', () => {
     expect(ledger.totalCollected('matter')).toBe(WORKER_CARGO_CAPACITY);
     expect(worker.cargo.amount).toBe(0);
     expect(worker.gatherOrder).not.toBeNull();
-    expect(node.remaining).toBe(20);
+    expect(node.remaining).toBe(30 - WORKER_CARGO_CAPACITY);
   });
 
   it('idles safely when its empty target is depleted', () => {

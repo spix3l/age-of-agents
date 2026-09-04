@@ -9,7 +9,15 @@ import type { BuildingEntity, HarvestableResourceType, UnitEntity, Vec2 } from '
 
 function distance(a: Vec2, b: Vec2): number { return Math.hypot(a.x - b.x, a.z - b.z); }
 
-export const WORKER_CARGO_CAPACITY = 10;
+/**
+ * How much one Worker carries per trip.
+ *
+ * Raised from 10 with the map: the playfield is 300x224 and a haul from an expansion is mostly
+ * walking, so a bigger load is what stops a vast map from feeling like a poor one. It scales
+ * income with distance rather than by making deposits richer, which would have made the safe home
+ * cluster better and the contested ground pointless.
+ */
+export const WORKER_CARGO_CAPACITY = 14;
 /**
  * How far from the colony a Worker will look for a replacement when its deposit runs out.
  *

@@ -38,12 +38,19 @@ export interface DebugSnapshot {
   readonly aiCoreKnown: boolean;
   readonly effectsActive: number;
   readonly effectsPooled: number;
+  /** What the GPU is actually asked to do each frame. Draw calls are the usual RTS bottleneck. */
+  readonly drawCalls: number;
+  readonly triangles: number;
+  /** Rendered pixels: a Retina display quietly asks for four times a 1080p frame. */
+  readonly pixels: number;
+  /** The quality tier the renderer has settled on for this machine. */
+  readonly quality: string;
 }
 
 export const EMPTY_DEBUG: DebugSnapshot = {
   fps: 0, units: 0, buildings: 0, elapsedSeconds: 0, aiState: 'OFFLINE', aiReason: '—',
   aiWorkers: 0, aiArmy: 0, aiAssault: 0, aiMatter: 0, aiEnergy: 0, aiCapacity: '0/0',
-  aiCoreKnown: false, effectsActive: 0, effectsPooled: 0,
+  aiCoreKnown: false, effectsActive: 0, effectsPooled: 0, drawCalls: 0, triangles: 0, pixels: 0, quality: 'high',
 };
 
 export const EMPTY_MATCH_SUMMARY: MatchSummary = {
@@ -211,8 +218,13 @@ interface UiState {
 /**
  * A fresh seed per match. Nothing was passing one, so every game ran the scenario generator's and
  * the opponent's default seeds: the same map, in the same places, opened the same way, every time.
+ *
+ * `?seed=1234` pins it instead, which is what makes a bug report or a performance measurement
+ * reproducible: the map, the opponent's opening, and everything downstream of them repeat exactly.
  */
-function newSeed(): number {
+export function newSeed(search = globalThis.location?.search ?? ''): number {
+  const pinned = Number.parseInt(new URLSearchParams(search).get('seed') ?? '', 10);
+  if (Number.isFinite(pinned) && pinned > 0) return pinned;
   return Math.floor(Math.random() * 0x7fff_ffff) + 1;
 }
 

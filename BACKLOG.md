@@ -98,6 +98,7 @@ This is the portfolio view for the file-backed backlog derived from [`PRD.md`](P
 | [D8-15](backlog/tasks/D8-15.md) | [EPIC-08](backlog/epics/EPIC-08-depth.md) | Make walls actually stop what walks into them | P0 | M | D8-11 | DONE |
 | [D8-16](backlog/tasks/D8-16.md) | [EPIC-08](backlog/epics/EPIC-08-depth.md) | Manufacture resources when the map runs dry | P1 | L | D8-03 | DONE |
 | [D8-17](backlog/tasks/D8-17.md) | [EPIC-08](backlog/epics/EPIC-08-depth.md) | Make the opening survivable and the command deck readable | P0 | M | D8-16 | DONE |
+| [D8-18](backlog/tasks/D8-18.md) | [EPIC-08](backlog/epics/EPIC-08-depth.md) | Price all three resources, and scale the frame to the machine | P1 | M | D8-17 | DONE |
 | [D8-06](backlog/tasks/D8-06.md) | [EPIC-08](backlog/epics/EPIC-08-depth.md) | Player-versus-player | P2 | L | D8-01, D8-03 | DEFERRED |
 
 ## Release rule

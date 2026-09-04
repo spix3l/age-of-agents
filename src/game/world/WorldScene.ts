@@ -81,6 +81,8 @@ export class WorldScene {
   private readonly generations = new Map<Exclude<Team, 'neutral'>, Generation>([['player', 1], ['enemy', 1]]);
   private readonly hiddenEntities = new Set<EntityId>();
   /** Structures mid-growth-pop after an evolution, keyed to elapsed seconds of the animation. */
+  private shadowResolution = 2048;
+
   private readonly growing = new Map<StaticVisual, { elapsed: number; readonly parts: THREE.Object3D[] }>();
   private readonly fogTexture: THREE.DataTexture;
   private readonly fogPixels: Uint8Array;
@@ -99,6 +101,7 @@ export class WorldScene {
     this.sun.position.set(SUN_OFFSET.x, SUN_OFFSET.y, SUN_OFFSET.z);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
+    this.shadowResolution = 2048;
     this.sun.shadow.bias = 0.0006;
     this.sun.shadow.normalBias = 0.08;
     // The shadow frustum stays tight and travels with the camera, so a large map keeps
@@ -332,6 +335,18 @@ export class WorldScene {
     this.scene.add(group);
     this.selectableMeshes.push(...parts.pickable);
     this.buildings.set(building.id, { group, ring, model, progress, health, parts, scaffold });
+  }
+
+  /**
+   * Shadow map resolution for the current quality tier. Dropping it halves what the shadow pass
+   * costs; the map has to be released first, or three.js keeps rendering into the old size.
+   */
+  setShadowQuality(size: 2048 | 1024): void {
+    if (size === this.shadowResolution) return;
+    this.shadowResolution = size;
+    this.sun.shadow.mapSize.set(size, size);
+    this.sun.shadow.map?.dispose();
+    this.sun.shadow.map = null;
   }
 
   addResource(node: ResourceNodeEntity): void {

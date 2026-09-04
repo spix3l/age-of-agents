@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
+import { BUILDINGS } from '../../data/buildings';
 import { entityId } from '../../game/types/ids';
 import { useUiStore } from '../store';
 import { ProductionActions } from './ProductionActions';
@@ -25,7 +26,7 @@ describe('colony action surfaces', () => {
     expect(broke).toContain('class="build-button unaffordable"');
     expect(broke).toContain('disabled');
     expect(broke).toContain('Needs more matter');
-    expect(broke).toContain('<b class="short">80◆</b>');
+    expect(broke).toContain(`<b class="short">${BUILDINGS.relay.cost.matter}◆</b>`);
   });
 
   it('shows a plant what it converts, and which way its switch throws', () => {
