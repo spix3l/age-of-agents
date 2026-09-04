@@ -1,7 +1,9 @@
 import { findPath } from '../navigation/AStar';
 import { COMBAT } from '../../data/combat';
+import { BUILDINGS } from '../../data/buildings';
 import { entityPhase } from '../util/phase';
 import type { NavigationGrid } from '../navigation/NavigationGrid';
+import type { SpatialHash } from '../spatial/SpatialHash';
 import { distanceBetween, isHostile, targetRadius } from '../combat/hostility';
 import type { CombatTarget, UnitEntity, Vec2 } from '../types/simulation';
 
@@ -39,10 +41,41 @@ export function pursueTarget(unit: UnitEntity, target: CombatTarget, grid: Navig
 }
 
 /**
- * Explicit attack order from a player or the AI. Ordered targets are pursued without a leash;
- * automatically acquired targets are handled by CombatSystem instead.
+ * The structure standing between an attacker and something it has no route to.
+ *
+ * A wall only means anything if an army that cannot walk around it knocks it down instead of
+ * standing in the field forever. Candidates are taken nearest-first and the first one that can
+ * either be shot from here or actually be walked to wins; a structure sealed behind the same
+ * fence is no more reachable than the target was, so it is skipped rather than chased.
  */
-export function issueAttackCommand(units: readonly UnitEntity[], target: CombatTarget, grid: NavigationGrid): AttackCommandResult {
+export function breachTarget(unit: UnitEntity, targets: SpatialHash<CombatTarget>, grid: NavigationGrid): CombatTarget | null {
+  const blocking = targets.queryHostiles(unit.position, COMBAT.breachRadius, unit.team, (candidate) => (
+    'footprint' in candidate && candidate.hp > 0 && BUILDINGS[candidate.kind].blocksNavigation
+  ));
+  blocking.sort((a, b) => distanceBetween(unit, a) - distanceBetween(unit, b) || a.id.localeCompare(b.id));
+  for (const candidate of blocking.slice(0, COMBAT.breachCandidates)) {
+    if (distanceBetween(unit, candidate) <= engagementDistance(unit, candidate)) return candidate;
+    if (pursueTarget(unit, candidate, grid)) return candidate;
+  }
+  return null;
+}
+
+/** Points an attacker at whatever is in its way. Returns false when nothing can be reached. */
+function breach(unit: UnitEntity, targets: SpatialHash<CombatTarget> | undefined, grid: NavigationGrid): boolean {
+  const obstruction = targets ? breachTarget(unit, targets, grid) : null;
+  if (!obstruction) return false;
+  unit.combat.targetId = obstruction.id;
+  unit.combat.ordered = true;
+  unit.activity = distanceBetween(unit, obstruction) <= engagementDistance(unit, obstruction) ? 'Attacking' : 'Engaging';
+  return true;
+}
+
+/**
+ * Explicit attack order from a player or the AI. Ordered targets are pursued without a leash;
+ * automatically acquired targets are handled by CombatSystem instead. An attacker with no route
+ * to the target falls back to the structure blocking it, when one is within reach.
+ */
+export function issueAttackCommand(units: readonly UnitEntity[], target: CombatTarget, grid: NavigationGrid, targets?: SpatialHash<CombatTarget>): AttackCommandResult {
   let issued = 0;
   let rejected = 0;
   for (const unit of units) {
@@ -63,6 +96,8 @@ export function issueAttackCommand(units: readonly UnitEntity[], target: CombatT
     }
     if (pursueTarget(unit, target, grid)) {
       unit.activity = 'Engaging';
+      issued += 1;
+    } else if (breach(unit, targets, grid)) {
       issued += 1;
     } else {
       unit.combat.targetId = null;

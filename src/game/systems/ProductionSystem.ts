@@ -33,6 +33,19 @@ export class ProductionSystem {
     return { ok: true };
   }
 
+  /**
+   * Re-queues an order from a saved match. The id is minted fresh rather than restored, so a
+   * loaded queue can never collide with an order the player enqueues afterwards; the caller owns
+   * re-reserving the capacity, because the saved balances already paid for it.
+   */
+  restoreOrder(producer: BuildingEntity, unitType: UnitTypeId, elapsed: number): void {
+    const config = UNITS[unitType];
+    producer.productionQueue.push({
+      id: entityId(`${unitType}-order-${this.nextOrder++}`), unitType, duration: config.productionTime,
+      elapsed: Math.max(0, Math.min(elapsed, config.productionTime)), capacity: config.capacityCost,
+    });
+  }
+
   update(
     buildings: readonly BuildingEntity[],
     delta: number,

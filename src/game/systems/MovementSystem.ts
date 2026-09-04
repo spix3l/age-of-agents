@@ -1,6 +1,9 @@
-import type { UnitEntity } from '../types/simulation';
+import type { UnitEntity, Vec2 } from '../types/simulation';
 import { NavigationGrid } from '../navigation/NavigationGrid';
 import { findPath } from '../navigation/AStar';
+
+/** Repaths one unit may attempt after walking into something before it gives the route up. */
+const BLOCKED_REPATHS = 3;
 
 export class MovementSystem {
   constructor(private readonly grid: NavigationGrid) {}
@@ -20,10 +23,22 @@ export class MovementSystem {
       const dz = waypoint.z - unit.position.z;
       const distance = Math.hypot(dx, dz);
       const travel = unit.movementSpeed * delta;
+      const arriving = distance <= Math.max(0.08, travel);
+      const next = arriving
+        ? { x: waypoint.x, z: waypoint.z }
+        : { x: unit.position.x + (dx / distance) * travel, z: unit.position.z + (dz / distance) * travel };
 
-      if (distance <= Math.max(0.08, travel)) {
-        unit.position.x = waypoint.x;
-        unit.position.z = waypoint.z;
+      // A route is planned once and then walked for seconds. Without this check a wall raised
+      // across a route already being walked is simply walked through, because nothing between
+      // the planner and the renderer ever looks at the grid again.
+      if (this.refuses(unit.position, next)) {
+        this.reroute(unit);
+        continue;
+      }
+
+      unit.position.x = next.x;
+      unit.position.z = next.z;
+      if (arriving) {
         unit.pathIndex += 1;
         unit.stuckSeconds = 0;
         if (unit.pathIndex >= unit.path.length) {
@@ -31,8 +46,6 @@ export class MovementSystem {
           if (!unit.gatherOrder) unit.activity = 'Idle';
         }
       } else {
-        unit.position.x += (dx / distance) * travel;
-        unit.position.z += (dz / distance) * travel;
         const moved = Math.hypot(unit.position.x - unit.previousPosition.x, unit.position.z - unit.previousPosition.z);
         unit.stuckSeconds = moved < 0.001 ? unit.stuckSeconds + delta : 0;
       }
@@ -44,5 +57,38 @@ export class MovementSystem {
         unit.stuckSeconds = 0;
       }
     }
+  }
+
+  /**
+   * Whether a step would carry a unit off open ground into a blocked cell.
+   *
+   * Leaving a blocked cell is always allowed. A unit can legitimately be standing in one — walled
+   * in by a structure raised around it, or nudged inside a footprint's clearance — and refusing
+   * every step out of it would strand it there for the rest of the match.
+   */
+  private refuses(from: Vec2, to: Vec2): boolean {
+    const target = this.grid.worldToCell(to);
+    if (this.grid.isWalkable(target)) return false;
+    const origin = this.grid.worldToCell(from);
+    if (origin.col === target.col && origin.row === target.row) return false;
+    return this.grid.isWalkable(origin);
+  }
+
+  /** Walked into something: plan around it, or stop and let the owner give a new order. */
+  private reroute(unit: UnitEntity): void {
+    unit.path = [];
+    unit.pathIndex = 0;
+    unit.stuckSeconds = 0;
+    const destination = unit.destination;
+    const path = destination && unit.repathCount < BLOCKED_REPATHS ? findPath(this.grid, unit.position, destination) : [];
+    if (path.length === 0) {
+      unit.destination = null;
+      // Gather and build orders own their own re-approach; only a bare move is finished here.
+      if (!unit.gatherOrder && !unit.buildOrder) unit.activity = 'Idle';
+      return;
+    }
+    unit.repathCount += 1;
+    unit.path = path;
+    unit.pathIndex = path.length > 1 ? 1 : 0;
   }
 }

@@ -63,11 +63,11 @@ describe('building placement', () => {
   it('lets Barrier Walls sit edge to edge while keeping clearance around a Fabricator', () => {
     const grid = new NavigationGrid(-32, -32, 32, 32);
     const builder = entityId('worker-1');
-    // A wall's parity snap puts its 2-long axis on the integer grid: this one spans x[-1,1].
+    // A wall's parity snap puts its 4-long axis on the integer grid: this one spans x[-2,2].
     const wall = createBuildingSite(entityId('wall-1'), 'wall', 'player', { x: 0, z: 0.5 }, builder);
     // The neighbour's footprint starts exactly where the first one ends.
-    expect(validatePlacement('wall', { x: 2, z: 0 }, grid, [wall], [])).toMatchObject({ valid: true });
-    expect(validatePlacement('wall', { x: 1, z: 0 }, grid, [wall], []).failure).toBe('BUILDING_OVERLAP');
+    expect(validatePlacement('wall', { x: 4, z: 0 }, grid, [wall], [])).toMatchObject({ valid: true });
+    expect(validatePlacement('wall', { x: 2, z: 0 }, grid, [wall], []).failure).toBe('BUILDING_OVERLAP');
 
     const fabricator = createBuildingSite(entityId('fab-1'), 'fabricator', 'player', { x: 10.5, z: 10.5 }, builder);
     expect(validatePlacement('relay', { x: 13, z: 10 }, grid, [fabricator], []).failure).toBe('BUILDING_OVERLAP');
@@ -83,11 +83,11 @@ describe('building placement', () => {
     const wall = createBuildingSite(entityId('wall-1'), 'wall', 'player', first.position, builder);
     setBuildingOccupancy(grid, wall, true);
 
-    const neighbour = validatePlacement('wall', { x: 2.2, z: 0.4 }, grid, [wall], []);
-    expect(neighbour).toMatchObject({ valid: true, position: { x: 2, z: 0.5 } });
+    const neighbour = validatePlacement('wall', { x: 4.2, z: 0.4 }, grid, [wall], []);
+    expect(neighbour).toMatchObject({ valid: true, position: { x: 4, z: 0.5 } });
 
-    // Still no placing on top of the claimed cells, and a rotated wall fills the row above.
+    // Still no placing on top of the claimed cells, and a rotated wall stacks flush above.
     expect(validatePlacement('wall', { x: 0.4, z: 0.6 }, grid, [wall], []).failure).toBe('BLOCKED');
-    expect(validatePlacement('wall', { x: 0.4, z: 1.6 }, grid, [wall], [], true)).toMatchObject({ valid: true });
+    expect(validatePlacement('wall', { x: 0.4, z: 3.2 }, grid, [wall], [], true)).toMatchObject({ valid: true });
   });
 });

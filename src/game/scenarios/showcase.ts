@@ -43,9 +43,9 @@ export function createShowcaseScenario(seed = 20_260_903): EconomyScenario {
     completed('turret', 4, -11),
     completed('turret', 14, -11),
   ];
-  for (const dx of [-2, 0, 2, 4, 6, 10, 12, 14, 16, 18, 20]) buildings.push(completed('wall', dx, -14));
-  buildings.push(completed('gate', 8, -14));
-  for (const dz of [-12, -10, -8]) buildings.push(completed('wall', 21, dz, true));
+  for (const dx of [-4, 0, 4, 12, 16, 20]) buildings.push(completed('wall', dx, -14));
+  buildings.push(completed('gate', 7, -14));
+  for (const dz of [-12, -8]) buildings.push(completed('wall', 23, dz, true));
 
   const units: UnitEntity[] = [
     createUnitEntity('showcase-worker-1', 'worker', 'player', at(2, 3)),

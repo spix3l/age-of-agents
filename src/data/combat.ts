@@ -23,4 +23,12 @@ export const COMBAT = Object.freeze({
   maxActiveEffects: 96,
   /** Spatial hash cell size in world units. */
   spatialCellSize: 8,
+  /**
+   * How far an attacker looks for something to knock down when it cannot reach what it was sent
+   * at. Wide enough to find the fence an army has stalled in front of, short enough that it never
+   * wanders off to demolish an unrelated outbuilding on the far side of the map.
+   */
+  breachRadius: 30,
+  /** Blocking structures considered per breach search, nearest first. */
+  breachCandidates: 4,
 });

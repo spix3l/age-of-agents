@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { AIDifficulty } from '../data/ai';
+import { DEFAULT_DIFFICULTY, type AIDifficulty } from '../data/ai';
 import { BUILDINGS } from '../data/buildings';
 import { RESOURCES } from '../data/resources';
 import { UNITS } from '../data/units';
@@ -14,6 +14,8 @@ import { issueMoveCommand } from './commands/MoveCommand';
 import { automateWorkers } from './commands/AutomateCommand';
 import type { DeathRecord } from './combat/DamageService';
 import { MatchSimulation } from './match/MatchSimulation';
+import { captureSave, savedScenario, type GameMode, type SavedGame } from './save/SaveGame';
+import { clearSave, writeSave } from './save/saveStorage';
 import type { MatchResult } from './match/MatchState';
 import type { ResourceNodeEntity } from './entities/resources/ResourceNode';
 import { GameLoop } from './GameLoop';
@@ -39,6 +41,10 @@ export interface GameOptions {
   readonly difficulty?: AIDifficulty;
   /** Match seed. Drives the map layout and the opponent's opening; replayable when shared. */
   readonly seed?: number;
+  /** Campaign runs the opponent; Freestyle leaves the map to the player. */
+  readonly mode?: GameMode;
+  /** A saved match to resume instead of opening a new one. */
+  readonly save?: SavedGame | null;
 }
 
 export class Game {
@@ -51,6 +57,8 @@ export class Game {
   private readonly input: InputManager;
   private readonly vision: VisionSystem;
   private lastDragCell: { x: number; z: number } | null = null;
+  /** The completed structure the armed placement tool is re-seating, if any. */
+  private relocating: BuildingEntity | null = null;
   private readonly audio: AudioManager;
   private readonly loop: GameLoop;
   private readonly raycaster = new THREE.Raycaster();
@@ -59,17 +67,31 @@ export class Game {
   private lastFrameTime: number | null = null;
   private smoothedFps = 60;
   private disposed = false;
+  private readonly mode: GameMode;
+  private readonly difficulty: AIDifficulty;
+  private readonly seed: number;
+  private unsubscribePause: (() => void) | null = null;
 
   constructor(container: HTMLElement, options: GameOptions = {}) {
     this.renderer = new Renderer(container);
     this.world = new WorldScene();
     this.camera = new RTSCameraController(this.renderer.instance.domElement);
     this.audio = new AudioManager(this.renderer.instance.domElement);
+    const save = options.save ?? null;
+    this.mode = save?.mode ?? options.mode ?? 'campaign';
+    this.difficulty = save?.difficulty ?? options.difficulty ?? DEFAULT_DIFFICULTY;
+    this.seed = save?.seed ?? options.seed ?? 1;
     this.simulation = new MatchSimulation({
-      difficulty: options.difficulty,
+      difficulty: this.difficulty,
       // Drawn per match by the store, so the map layout and the opponent's opening both change
       // from game to game -- and can be replayed by anyone the result is shared with.
-      seed: options.seed,
+      seed: this.seed,
+      // Freestyle is the same world with nobody in the far corner: no opposing colony is laid
+      // down, and no opponent is given a turn.
+      solo: this.mode === 'freestyle',
+      opponent: this.mode !== 'freestyle',
+      // A resumed match is built from the world the save describes rather than the generator's.
+      fixture: save ? savedScenario(save) : undefined,
       hooks: {
         onUnitAdded: (unit) => {
           this.world.addUnit(unit);
@@ -81,6 +103,7 @@ export class Game {
         onUnitRemoved: (unit) => this.world.removeUnit(unit.id),
         onBuildingAdded: (building) => this.world.addBuilding(building),
         onBuildingRemoved: (building) => this.world.removeBuilding(building.id),
+        onBuildingMoved: (building) => this.world.moveBuilding(building),
         onBuildingCompleted: this.announceBuilding,
         onShot: (attacker, target) => { this.world.showShot(attacker.position, target.position, attacker.team, 'footprint' in target ? 1.6 : 0.9, attacker.id); this.audio.play('shot'); },
         onDeath: this.announceDeath,
@@ -88,16 +111,24 @@ export class Game {
         onGeneration: this.announceGeneration,
       },
     });
+    // Economies, generations, the clock, and the production queues: everything a save records
+    // that is not an entity. It runs before the first frame, so nothing is ever drawn or
+    // published from the half-restored state.
+    if (save) this.simulation.restoreState(save);
     this.vision = new VisionSystem(MAP_BOUNDS.minX, MAP_BOUNDS.minZ, MAP_BOUNDS.maxX, MAP_BOUNDS.maxZ);
     for (const resource of this.state.resources.all()) this.world.addResource(resource);
     this.updateVision(1);
 
     this.placement = new PlacementController({
-      validate: (type, position, rotated) => validatePlacement(type, position, this.navigation, this.state.buildings.alive(), this.state.resources.alive(), rotated),
+      validate: (type, position, rotated) => this.relocating
+        ? this.simulation.previewRelocation(this.relocating, position, rotated)
+        : validatePlacement(type, position, this.navigation, this.state.buildings.alive(), this.state.resources.alive(), rotated),
       preview: (type, result) => this.world.showPlacementGhost(type, result.position.x, result.position.z, result.valid, result.rotated),
       hide: () => this.world.hidePlacementGhost(),
-      confirmed: (type, result) => this.createConstruction(type, result.position, result.rotated),
-      rejected: (failure) => useUiStore.getState().setLastOrder(`PLACEMENT REJECTED // ${this.placementFailure(failure)}`),
+      confirmed: (type, result) => this.relocating
+        ? this.finishRelocate(result.position, result.rotated)
+        : this.createConstruction(type, result.position, result.rotated),
+      rejected: (failure) => useUiStore.getState().setLastOrder(`${this.relocating ? 'RELOCATION' : 'PLACEMENT'} REJECTED // ${this.placementFailure(failure)}`),
     });
     this.selection = new SelectionSystem(
       this.allSelectable,
@@ -126,10 +157,19 @@ export class Game {
     useUiStore.getState().setUnitProductionRequest(this.enqueueUnit);
     useUiStore.getState().setCancelProductionRequest(this.cancelProduction);
     useUiStore.getState().setCancelConstructionRequest(this.cancelSelectedConstruction);
+    useUiStore.getState().setRelocateRequest(this.beginRelocate);
     useUiStore.getState().setAdvanceGenerationRequest(this.advanceGeneration);
     useUiStore.getState().setAudioToggleRequest(this.toggleAudio, this.audio.muted);
     useUiStore.getState().setAudioVolumeRequest(this.setAudioVolume, this.audio.volume);
+    useUiStore.getState().setSaveRequest(this.saveGame);
     this.loop = new GameLoop(this.update, this.render);
+    // Pause lives in the store, because the menu that offers it and the key that toggles it are
+    // both UI. The loop is the only thing that acts on it: a paused match still renders and can
+    // still be looked at, it just stops advancing.
+    this.loop.setPaused(useUiStore.getState().paused);
+    this.unsubscribePause = useUiStore.subscribe((state, previous) => {
+      if (state.paused !== previous.paused) this.loop.setPaused(state.paused);
+    });
     this.publishUi();
   }
 
@@ -144,6 +184,8 @@ export class Game {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    this.unsubscribePause?.();
+    this.unsubscribePause = null;
     this.loop.dispose();
     this.input.dispose();
     this.camera.dispose();
@@ -161,8 +203,18 @@ export class Game {
     useUiStore.getState().setAdvanceGenerationRequest(null);
     useUiStore.getState().setAudioToggleRequest(null);
     useUiStore.getState().setAudioVolumeRequest(null);
+    useUiStore.getState().setSaveRequest(null);
     useUiStore.getState().setPlacementMode(null);
   }
+
+  /**
+   * Writes the running match to the single save slot. The player can ask for this at any time
+   * from the pause menu; it never touches the simulation, so saving cannot change a match.
+   */
+  private readonly saveGame = (): boolean => {
+    if (this.match.isOver) return false;
+    return writeSave(captureSave(this.simulation, { mode: this.mode, difficulty: this.difficulty, seed: this.seed }));
+  };
 
   /** Own entities are always selectable; anything else must be inside current vision. */
   private readonly isRevealed = (entity: SelectableEntity): boolean => (
@@ -259,6 +311,9 @@ export class Game {
       finalGeneration: this.simulation.generation('player'),
     });
     this.audio.play(result === 'victory' ? 'victory' : 'defeat');
+    // The slot described a match that no longer exists; leaving it offered would resume a game
+    // whose ending the player has already seen.
+    clearSave();
   };
 
   private readonly render = (alpha: number): void => {
@@ -359,6 +414,7 @@ export class Game {
       useUiStore.getState().setLastOrder(`LOCKED // REQUIRES GENERATION ${BUILDING_GENERATION[type]}`);
       return;
     }
+    this.relocating = null;
     this.placement.begin(type);
     this.placement.update(workers[0]!.position);
     useUiStore.getState().setPlacementMode(type);
@@ -389,7 +445,8 @@ export class Game {
    */
   private readonly dragPlacement = (point: ScreenPoint): boolean => {
     const type = this.placement.type;
-    if (!type || !REPEATABLE_BUILDINGS.has(type)) return false;
+    // Relocation moves one existing structure; a drag must never lay a run of copies of it.
+    if (!type || this.relocating || !REPEATABLE_BUILDINGS.has(type)) return false;
     const world = this.groundPoint(point);
     if (!world) return true;
     const snapped = this.placementSnap(world);
@@ -409,11 +466,47 @@ export class Game {
 
   private readonly cancelPlacement = (): boolean => {
     this.lastDragCell = null;
+    const wasRelocating = this.relocating !== null;
+    this.relocating = null;
     if (!this.placement.cancel()) return false;
     useUiStore.getState().setPlacementMode(null);
-    useUiStore.getState().setLastOrder('PLACEMENT CANCELLED');
+    useUiStore.getState().setLastOrder(wasRelocating ? 'RELOCATION CANCELLED' : 'PLACEMENT CANCELLED');
     return true;
   };
+
+  /**
+   * Arms the placement tool over a structure the colony already owns. Nothing is spent and
+   * nothing is torn down: confirming re-seats the same entity, so its HP, production queue, and
+   * capacity contribution all survive the move.
+   */
+  private readonly beginRelocate = (): void => {
+    if (this.match.isOver) return;
+    const building = this.selection.selected().find(
+      (entity): entity is BuildingEntity => isBuilding(entity) && entity.team === 'player' && this.simulation.canRelocate(entity),
+    );
+    if (!building) return;
+    this.relocating = building;
+    const type = building.kind as PlaceableBuildingType;
+    this.placement.begin(type, building.rotated);
+    this.placement.update(building.position);
+    useUiStore.getState().setPlacementMode(type, true);
+    useUiStore.getState().setLastOrder(`RELOCATE ${BUILDINGS[building.kind].label.toUpperCase()} // CLICK NEW SITE`);
+  };
+
+  private finishRelocate(position: { x: number; z: number }, rotated: boolean): void {
+    const building = this.relocating;
+    this.relocating = null;
+    useUiStore.getState().setPlacementMode(null);
+    if (!building) return;
+    const result = this.simulation.relocate(building, position, rotated);
+    if (result.ok) {
+      this.audio.play('build');
+      useUiStore.getState().setLastOrder(`${BUILDINGS[building.kind].label.toUpperCase()} RELOCATED`);
+    } else {
+      useUiStore.getState().setLastOrder(`RELOCATION REJECTED // ${result.reason === 'INVALID_PLACEMENT' && result.placement?.failure ? this.placementFailure(result.placement.failure) : 'STRUCTURE CANNOT MOVE'}`);
+    }
+    this.publishUi();
+  }
 
   private readonly enqueueWorker = (): void => {
     if (this.match.isOver) return;
@@ -653,7 +746,7 @@ export class Game {
       const catalog: readonly UnitTypeId[] | null = entity.kind === 'core' ? ['worker']
         : entity.kind === 'fabricator' ? (generation >= 2 ? ['striker', 'ranger', 'scout'] : ['striker'])
           : entity.kind === 'foundry' ? ['titan'] : null;
-      return { type: 'building', name: BUILDINGS[entity.kind].label, hp: entity.hp, maxHp: entity.maxHp, activity: entity.operational ? (entity.productionQueue.length ? 'Fabricating' : entity.combat ? 'Defending' : 'Operational') : 'Under construction', detail: entity.operational ? `${entity.productionQueue.length} queued` : `${Math.round(entity.constructionProgress * 100)}% complete`, isPlayerCore: entity.team === 'player' && entity.kind === 'core', canBuild: false, producer: entity.team === 'player' && entity.operational ? catalog : null, constructionSite: entity.team === 'player' && !entity.operational };
+      return { type: 'building', name: BUILDINGS[entity.kind].label, hp: entity.hp, maxHp: entity.maxHp, activity: entity.operational ? (entity.productionQueue.length ? 'Fabricating' : entity.combat ? 'Defending' : 'Operational') : 'Under construction', detail: entity.operational ? `${entity.productionQueue.length} queued` : `${Math.round(entity.constructionProgress * 100)}% complete`, isPlayerCore: entity.team === 'player' && entity.kind === 'core', canBuild: false, producer: entity.team === 'player' && entity.operational ? catalog : null, constructionSite: entity.team === 'player' && !entity.operational, canRelocate: entity.team === 'player' && this.simulation.canRelocate(entity) };
     }
     return { type: 'resource', name: RESOURCES[entity.resourceType].label, activity: `${entity.remaining} remaining`, detail: `${Math.round((entity.remaining / entity.capacity) * 100)}% integrity`, isPlayerCore: false, canBuild: false };
   }

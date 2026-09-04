@@ -1,7 +1,7 @@
 import { footprintFor, placementClearance, resourceClearance } from '../../data/buildings';
 import type { ResourceNodeEntity } from '../entities/resources/ResourceNode';
 import type { NavigationGrid } from '../navigation/NavigationGrid';
-import type { BuildingTypeId } from '../types/ids';
+import type { BuildingTypeId, EntityId } from '../types/ids';
 import type { BuildingEntity, Vec2 } from '../types/simulation';
 
 export type PlaceableBuildingType = Exclude<BuildingTypeId, 'core'>;
@@ -29,6 +29,8 @@ export function validatePlacement(
   buildings: readonly BuildingEntity[],
   resources: readonly ResourceNodeEntity[],
   rotated = false,
+  /** Relocation checks a structure against every building but itself. */
+  ignore: EntityId | null = null,
 ): PlacementResult {
   const footprint = footprintFor(type, rotated);
   const position = snappedPlacement(rawPosition, footprint);
@@ -52,7 +54,7 @@ export function validatePlacement(
   }
 
   for (const building of buildings) {
-    if (!building.alive) continue;
+    if (!building.alive || building.id === ignore) continue;
     // Village pieces sit flush: a wall line is only continuous if segments may touch edges.
     const clearance = placementClearance(type, building.kind);
     if (overlaps(position, footprint, building.position, building.footprint, clearance)) {
@@ -98,9 +100,11 @@ export class PlacementController {
   get type(): PlaceableBuildingType | null { return this.typeValue; }
   get rotated(): boolean { return this.rotatedValue; }
 
-  begin(type: PlaceableBuildingType): void {
+  begin(type: PlaceableBuildingType, rotated?: boolean): void {
     this.typeValue = type;
     this.candidate = null;
+    // Relocating an already-turned structure has to start from the orientation it is standing in.
+    if (rotated !== undefined) this.rotatedValue = rotated;
   }
 
   /** Quarter-turns the pending footprint, which is what makes a vertical wall run possible. */

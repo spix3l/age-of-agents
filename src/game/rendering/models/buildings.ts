@@ -272,13 +272,15 @@ function buildFabricator(kit: Kit): BuildingModel {
 function buildWall(kit: Kit): BuildingModel {
   const { cache, team } = kit;
   const group = new THREE.Group();
-  group.add(kit.box('wall-base', [2.0, 0.3, 1.0], cache.frame(team), [0, 0.15, 0], 0.03));
-  group.add(kit.box('wall-slab', [2.0, 1.5, 0.7], cache.hull(team), [0, 1.05, 0], 0.06));
-  group.add(kit.box('wall-cap', [2.0, 0.24, 0.84], cache.hull(team), [0, 1.9, 0], 0.03));
-  group.add(kit.strip('wall-panel', [1.1, 0.34, 0.06], [0, 1.15, -0.38], 0, 1.6));
-  group.add(kit.strip('wall-panel', [1.1, 0.34, 0.06], [0, 1.15, 0.38], 0, 1.6));
-  group.add(kit.strip('wall-ridge', [1.9, 0.06, 0.06], [0, 2.05, 0], 0, 1.8));
-  group.add(kit.lamp('wall-lamp', [0.8, 2.08, 0], 0.1));
+  group.add(kit.box('wall-base', [4.0, 0.3, 1.0], cache.frame(team), [0, 0.15, 0], 0.03));
+  group.add(kit.box('wall-slab', [4.0, 1.5, 0.7], cache.hull(team), [0, 1.05, 0], 0.06));
+  group.add(kit.box('wall-cap', [4.0, 0.24, 0.84], cache.hull(team), [0, 1.9, 0], 0.03));
+  for (const side of [-1, 1]) {
+    group.add(kit.strip('wall-panel', [1.1, 0.34, 0.06], [side * 1.0, 1.15, -0.38], 0, 1.6));
+    group.add(kit.strip('wall-panel', [1.1, 0.34, 0.06], [side * 1.0, 1.15, 0.38], 0, 1.6));
+  }
+  group.add(kit.strip('wall-ridge', [3.9, 0.06, 0.06], [0, 2.05, 0], 0, 1.8));
+  group.add(kit.lamp('wall-lamp', [1.8, 2.08, 0], 0.1));
   return { group, spinners: [], column: null, arm: null, pickable: kit.pickable, generationParts: [] };
 }
 
@@ -508,16 +510,16 @@ function generationUpgrades(kit: Kit, kind: BuildingTypeId): GenerationPart[] {
     });
   } else if (kind === 'wall') {
     add(2, (tier) => {
-      tier.add(box('wall-g2-cap', [2.0, 0.5, 0.9], cache.hull(team), [0, 2.3, 0]));
-      tier.add(kit.strip('wall-g2-strip', [1.8, 0.06, 0.06], [0, 2.58, -0.46]));
-      tier.add(kit.strip('wall-g2-strip', [1.8, 0.06, 0.06], [0, 2.58, 0.46]));
+      tier.add(box('wall-g2-cap', [4.0, 0.5, 0.9], cache.hull(team), [0, 2.3, 0]));
+      tier.add(kit.strip('wall-g2-strip', [3.8, 0.06, 0.06], [0, 2.58, -0.46]));
+      tier.add(kit.strip('wall-g2-strip', [3.8, 0.06, 0.06], [0, 2.58, 0.46]));
     });
     add(3, (tier) => {
       for (const side of [-1, 1]) {
-        tier.add(drum('wall-g3-emitter', 0.09, 0.12, 0.8, cache.steel(), [side * 0.8, 2.95, 0], 6));
-        tier.add(glow('wall-g3-node', () => new THREE.OctahedronGeometry(0.15, 0), [side * 0.8, 3.4, 0], 2.6));
+        tier.add(drum('wall-g3-emitter', 0.09, 0.12, 0.8, cache.steel(), [side * 1.8, 2.95, 0], 6));
+        tier.add(glow('wall-g3-node', () => new THREE.OctahedronGeometry(0.15, 0), [side * 1.8, 3.4, 0], 2.6));
       }
-      tier.add(glow('wall-g3-curtain', () => new THREE.BoxGeometry(1.5, 0.5, 0.06), [0, 3.3, 0], 1.1));
+      tier.add(glow('wall-g3-curtain', () => new THREE.BoxGeometry(3.4, 0.5, 0.06), [0, 3.3, 0], 1.1));
     });
   } else if (kind === 'gate') {
     add(2, (tier) => {

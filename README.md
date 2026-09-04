@@ -39,8 +39,13 @@ Press **HOW TO PLAY** on the main menu for the in-game version. In short:
   walls, gates, and habitats stay armed so a run can be dragged out in one gesture.
 - **Evolve** by selecting the Core: Awakening → Autonomy → Singularity. Each
   Generation unlocks new Agents and structures and visibly rebuilds the colony.
-- **Win** by destroying the enemy Core before it destroys yours.
+- **Win** by destroying the enemy Core before it destroys yours — or pick
+  **Freestyle** on the menu, which lays the same map down with no opponent, no
+  clock, and nothing that can end the match.
 - **Camera**: ZQSD or arrow keys pan, two-finger scroll pans, pinch zooms.
+- **P** pauses; **Esc** resumes. The pause overlay is where **SAVE GAME** lives,
+  and **CONTINUE** on the main menu resumes the saved match. There is one slot,
+  it is kept in the browser, and finishing a match clears it.
 - **F3** opens the diagnostics overlay (FPS, entity counts, AI state, effect pool).
 
 ### URL parameters
@@ -168,8 +173,9 @@ are out of scope for V1.
   built.
 - Rally points were cut as optional post-P0 scope; produced Agents are
   immediately controllable through the normal movement command.
-- The opponent does not build Habitats, Depots, Gates, or walls. The village
-  catalog is currently a player-facing tool.
+- The opponent builds Relays, Habitats, Fabricators, Depots, Turrets, Foundries,
+  and a short run of walls, but never Gates or Field Outposts.
+- Fog of war is not saved: a resumed match re-explores the map it had already seen.
 - Peak armies are capped near 20 units by the handcrafted map's finite deposits,
   not by either side's willingness to build.
 - The main JavaScript chunk stays above Vite's advisory 500 kB because of

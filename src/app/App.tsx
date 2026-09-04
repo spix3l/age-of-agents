@@ -10,9 +10,10 @@ export function App() {
 
   useEffect(() => {
     if (!gameRoot.current || menuOpen) return;
-    // Difficulty is read once per match, at construction, so a live match never shifts under the player.
-    const { difficulty, matchSeed } = useUiStore.getState();
-    const game = new Game(gameRoot.current, { difficulty, seed: matchSeed });
+    // Difficulty and mode are read once per match, at construction, so a live match never shifts
+    // under the player. `pendingSave`, when the player chose CONTINUE, is the world to rebuild.
+    const { difficulty, matchSeed, mode, pendingSave } = useUiStore.getState();
+    const game = new Game(gameRoot.current, { difficulty, seed: matchSeed, mode, save: pendingSave });
     game.start();
     return () => game.dispose();
   }, [matchNonce, menuOpen]);

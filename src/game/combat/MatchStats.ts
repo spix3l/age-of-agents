@@ -45,6 +45,11 @@ export class MatchStats {
     return { ...(this.teams.get(team) ?? emptyStats()) };
   }
 
+  /** Adopts a saved tally, so a restored match keeps the kills and losses it already earned. */
+  restore(team: Exclude<Team, 'neutral'>, stats: TeamStats): void {
+    this.teams.set(team, { ...stats });
+  }
+
   reset(): void {
     this.teams.set('player', emptyStats());
     this.teams.set('enemy', emptyStats());

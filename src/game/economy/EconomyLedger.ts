@@ -6,9 +6,20 @@ export class EconomyLedger {
   private readonly balances: ResourceBalances;
   private readonly collected: ResourceBalances = { matter: 0, energy: 0, data: 0 };
 
-  constructor(initial: ResourceCost = {}) {
+  /**
+   * `collected` seeds the cumulative totals. It is only ever passed when a saved match is being
+   * restored: the HUD's income readout and the end screen both report lifetime totals, and a
+   * loaded game that claims to have collected nothing would throw both of them away.
+   */
+  constructor(initial: ResourceCost = {}, collected?: ResourceCost) {
     this.balances = { matter: initial.matter ?? 0, energy: initial.energy ?? 0, data: initial.data ?? 0 };
     this.assertNonNegative(this.balances);
+    if (collected) {
+      this.collected.matter = collected.matter ?? 0;
+      this.collected.energy = collected.energy ?? 0;
+      this.collected.data = collected.data ?? 0;
+      this.assertNonNegative(this.collected);
+    }
   }
 
   balance(type: ResourceType): number { return this.balances[type]; }

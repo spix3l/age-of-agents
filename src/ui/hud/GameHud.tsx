@@ -1,12 +1,14 @@
 import { UNITS } from '../../data/units';
 import { ProductionActions } from '../actions/ProductionActions';
 import { ConstructionActions } from '../actions/ConstructionActions';
+import { RelocateAction } from '../actions/RelocateAction';
 import { SelectionPanel } from '../selection/SelectionPanel';
 import { SelectionBox } from '../selection/SelectionBox';
 import { useUiStore } from '../store';
 import { WorkerActions } from '../actions/WorkerActions';
 import { EndScreen } from '../menus/EndScreen';
 import { MainMenu } from '../menus/MainMenu';
+import { PauseMenu } from '../menus/PauseMenu';
 import { DebugPanel } from '../debug/DebugPanel';
 import { Minimap } from './Minimap';
 import { GENERATIONS } from '../../data/technologies';
@@ -43,6 +45,9 @@ export function GameHud() {
   const income = useUiStore((state) => state.income);
   const audioVolume = useUiStore((state) => state.audioVolume);
   const setAudioVolume = useUiStore((state) => state.setAudioVolume);
+  const mode = useUiStore((state) => state.mode);
+  const paused = useUiStore((state) => state.paused);
+  const togglePause = useUiStore((state) => state.togglePause);
 
   return (
     <div className="hud" aria-live="polite">
@@ -54,12 +59,12 @@ export function GameHud() {
           <Resource kind="data" glyph="✦" label="DATA" amount={data} rate={income.data} />
           <div className="resource agents"><span className="resource-glyph">⬡</span><div className="resource-body"><small>AGENTS</small><strong>{used}{reserved > 0 ? `+${reserved}` : ''} / {max}</strong></div></div>
         </div>
-        <div className="hud-status"><button type="button" className="audio-toggle" onClick={toggleAudio} aria-pressed={audioMuted} title={audioMuted ? 'Sound off' : 'Sound on'}>{audioMuted ? '🔇' : '🔊'}</button><input className="volume-slider" aria-label="Sound volume" type="range" min="0" max="1" step="0.05" value={audioVolume} onChange={(event) => setAudioVolume(Number(event.target.value))} /></div>
+        <div className="hud-status"><button type="button" className="pause-toggle" onClick={togglePause} aria-pressed={paused} title="Pause (P)">⏸</button><button type="button" className="audio-toggle" onClick={toggleAudio} aria-pressed={audioMuted} title={audioMuted ? 'Sound off' : 'Sound on'}>{audioMuted ? '🔇' : '🔊'}</button><input className="volume-slider" aria-label="Sound volume" type="range" min="0" max="1" step="0.05" value={audioVolume} onChange={(event) => setAudioVolume(Number(event.target.value))} /></div>
       </header>
 
       <aside className="objective-panel">
         <span className="eyebrow">COLONY DIRECTIVE</span>
-        <strong>Destroy the enemy Core</strong>
+        <strong>{mode === 'freestyle' ? 'Grow the colony, evolve the technology' : 'Destroy the enemy Core'}</strong>
         <div className="cost-row"><span>WORKER</span><b>◆ {UNITS.worker.cost.matter}</b></div>
       </aside>
 
@@ -72,11 +77,15 @@ export function GameHud() {
       <footer className="command-deck">
         <SelectionPanel />
         <div className="order-readout"><small>LAST DIRECTIVE</small><span>{lastOrder}</span></div>
-        {selection.constructionSite ? <ConstructionActions /> : selection.producer ? <ProductionActions unitTypes={selection.producer} isCore={selection.isPlayerCore} /> : selection.canBuild ? <WorkerActions /> : <div className="controls"><span><kbd>RMB</kbd> MOVE · GATHER · ATTACK</span><span><kbd>ZQSD</kbd> PAN</span><span><kbd>PINCH</kbd> ZOOM</span></div>}
+        <div className="deck-actions">
+          {selection.canRelocate && <RelocateAction />}
+          {selection.constructionSite ? <ConstructionActions /> : selection.producer ? <ProductionActions unitTypes={selection.producer} isCore={selection.isPlayerCore} /> : selection.canBuild ? <WorkerActions /> : selection.canRelocate ? null : <div className="controls"><span><kbd>RMB</kbd> MOVE · GATHER · ATTACK</span><span><kbd>ZQSD</kbd> PAN</span><span><kbd>PINCH</kbd> ZOOM</span></div>}
+        </div>
       </footer>
       <SelectionBox />
       <DebugPanel />
       <EndScreen />
+      <PauseMenu />
       <MainMenu />
     </div>
   );

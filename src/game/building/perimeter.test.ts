@@ -35,22 +35,23 @@ describe('walling a colony', () => {
     };
 
     // A 24 x 16 box centred on the Core, walked clockwise: top and bottom runs use the wall's
-    // long axis, the sides use its rotated form. This is the shape a player drags out.
+    // long axis, the sides use its rotated form. This is the shape a player drags out. A segment
+    // is four units long, so that is the step in both orientations.
     const left = core.position.x - 12;
     const right = core.position.x + 12;
     const top = core.position.z - 8;
     const bottom = core.position.z + 8;
     // Runs stop short of the corners so the two orientations never contend for the same cell,
     // which is exactly how a player drags a perimeter out.
-    for (let x = left + 2; x <= right - 2; x += 2) { tryWall(x, top, false); tryWall(x, bottom, false); }
-    for (let z = top; z <= bottom; z += 2) { tryWall(left, z, true); tryWall(right, z, true); }
+    for (let x = left + 4; x <= right - 4; x += 4) { tryWall(x, top, false); tryWall(x, bottom, false); }
+    for (let z = top; z <= bottom; z += 4) { tryWall(left, z, true); tryWall(right, z, true); }
 
     console.log(`placed ${placed.length}, refused ${refused.length}`);
     if (refused.length > 0) console.log(refused.slice(0, 12).join('\n'));
     // Segments that would sit on top of a deposit are legitimately refused; a player routes
     // around those. Nothing else may be.
     expect(refused.every((entry) => entry.endsWith('RESOURCE_OVERLAP'))).toBe(true);
-    expect(placed.length).toBeGreaterThanOrEqual(28);
+    expect(placed.length).toBeGreaterThanOrEqual(16);
   });
 
   it('builds every segment of a run placed by one Worker', () => {
@@ -64,7 +65,7 @@ describe('walling a colony', () => {
     // Drag a run: one Worker, ten segments, placed back to back the way the tool arms them.
     let requested = 0;
     for (let index = 0; index < 10; index += 1) {
-      const site = { x: core.position.x - 9 + index * 2, z: core.position.z + 11 };
+      const site = { x: core.position.x - 18 + index * 4, z: core.position.z + 11 };
       if (sim.build(worker, 'wall', site).ok) requested += 1;
     }
     expect(requested).toBeGreaterThanOrEqual(8);

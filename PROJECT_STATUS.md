@@ -1,6 +1,86 @@
 # Age of Agents — Project Status
 
-Last updated: 2026-09-03
+Last updated: 2026-09-04
+
+## Walls that actually stop things — 2026-09-04 (D8-15)
+
+Player report: "what's the point of having walls if enemies can walk through them?" They were
+right, and it was never a wall bug. A* has always refused blocked cells and never cuts a diagonal
+corner, so a freshly planned route was correct — but a route is planned once and then walked for
+seconds, and nothing between the planner and the renderer ever looked at the grid again. A wall
+raised across a route already being walked was walked straight through.
+
+`MovementSystem` now tests every step. Only a step from open ground *into* a blocked cell is
+refused; leaving a blocked cell is always allowed, because a unit can legitimately be standing in
+one — built around, or nudged inside a footprint's clearance — and refusing every step out would
+strand it permanently. An enclosure still holds: once the unit reaches open ground inside it,
+every step into the fence is refused. A refused step reroutes; three failures and the route is
+dropped, after which gather and build orders re-approach on their own and an ordered attacker
+re-pursues within half a second.
+
+The other half is that walls have to be breakable, or they become an exploit: a sealed colony
+would leave an army standing in a field forever, which is a worse game than walking through the
+wall. An attacker with no route to its target now turns on the nearest structure blocking it
+(`breachTarget`), from `issueAttackCommand` and from `CombatSystem`'s pursuit-failure branch.
+
+The cost is travel time — assaults walk around structures instead of through them. The relentless
+worst wave gap on seed 30 moved 335s → 381s, so `waves.test.ts` now bounds relentless at 420s and
+the other two at 360s. Measured across seeds 20-60 the relaxed and standard spread is 170-243s and
+the relentless spread is 197-548s, which is where those two numbers come from.
+
+## Pause, saves, Freestyle, and an open map — 2026-09-04 (D8-11 … D8-14)
+
+Four player requests, shipped together.
+
+**Walls (D8-11).** A Barrier Wall costs 10 Matter instead of 25 and covers 4x1 instead of 2x1 —
+about a fifth of the old price per unit of fence, for a third more health. Longer, not thicker: a
+one-deep wall lines up with a Gate, is what a player expects to drag out, and leaves room to build
+behind it. `AI.maxWalls` dropped 8 → 5 to keep the opponent's fence the same *length* as before;
+left at 8 it doubled, and the opponent walled its own Workers in often enough to stall an assault
+past the cadence `waves.test.ts` enforces.
+
+**The map's edge (D8-12).** The line in the player's screenshot was three things at once: a tree
+line planted a stride inside the bounds, a hard shading band right at the boundary, and a fog
+overlay that stopped exactly there while the lit meadow carried on past it. The tree line is gone,
+the shading is a slow fade, the fog reaches out over the whole scenery margin, and the ground past
+the bounds now climbs into hillside within twenty units instead of easing up over forty — so the
+edge is a hillside rather than a line drawn across a field. The playable rectangle also grew from
+240x176 to 300x224. `START_POSITIONS` deliberately did not move: every balance figure is tuned
+against the distance between the two corners, so the extra ground is open country added around the
+outside and nothing tuned had to be re-tuned.
+
+**Pause and save (D8-13).** `P` holds the match and `Esc` or RESUME releases it; the overlay covers
+the viewport, so a held match cannot be played through. SAVE GAME writes to one local slot, and
+CONTINUE on the main menu rebuilds that match in the mode and difficulty it was saved in. A save is
+a description of the world, not a snapshot of the simulation: entities, health, stock, progress, and
+the match-wide totals. Paths, gather and build orders, target locks, the opponent's plan, and
+explored ground are left out on purpose, so a load cannot resurrect a half-finished order into a
+state no system would ever have produced — a resumed colony stands where it stood and goes back to
+work, and `ConstructionSystem.adoptOrphanedSites` re-finds a builder for every half-built structure.
+Id counters travel in the save; without them a restored match re-mints ids its own entities hold
+and the registry throws. Fog of war is not saved and is re-explored.
+
+**Freestyle (D8-14).** The same seeded world with nobody in the far corner: the opponent's Core and
+Workers are not laid down, no opponent runs, and nothing can end the match. The deposits stay
+mirrored, so the whole map is still worth crossing. The menu picks the mode; the opponent picker
+only appears for Campaign.
+
+## Building relocation — 2026-09-04 (D8-10)
+
+Player report: "you can't move a building to another place." A completed player structure other
+than the Core now offers **MOVE BUILDING** in the command deck. Taking it re-arms the existing
+placement tool over that structure at its current orientation — same ghost, same snapping, `R`
+still quarter-turns, Esc or right-click still cancels — and confirming a valid site re-seats the
+*same entity*: id, HP, production queue, capacity contribution, and combat state all survive.
+Relocation is free and instant; it is a layout correction, not an economic choice.
+
+`RelocateCommand.ts` is the single authority. It lifts the structure off the navigation grid for
+the duration of the validity check and puts it straight back, so a building never blocks its own
+destination (a one-cell nudge is legal) and a refused move leaves the grid's reference counts
+exactly as it found them. `BuildingEntity.footprint` and `rotated` became mutable, because a
+relocation may quarter-turn a structure and its occupancy has to follow.
+
+The same report flagged wall rotation; `R` was verified working and left alone.
 
 ## Village playtest fixes — 2026-09-03
 

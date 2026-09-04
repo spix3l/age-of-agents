@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { MAP_BOUNDS, MAP_SIZE, WORLD_OBSTACLES, type WorldObstacle } from './map';
+import { MAP_BOUNDS, MAP_MARGIN, MAP_SIZE, WORLD_OBSTACLES, type WorldObstacle } from './map';
 
 /**
  * Everything on the battlefield that is scenery rather than an entity: the rolling ground,
@@ -8,16 +8,16 @@ import { MAP_BOUNDS, MAP_SIZE, WORLD_OBSTACLES, type WorldObstacle } from './map
  */
 
 /** Rolling hills and forest continue this far past the playable bounds before the fog eats them. */
-const MARGIN = 76;
+const MARGIN = MAP_MARGIN;
 // The ground carries most of the frame's texture, so it is meshed finely enough to hold real
 // colour variation per vertex rather than large flat facets.
 const TERRAIN_STEP = 1.25;
 
 interface Pond { readonly x: number; readonly z: number; readonly radius: number }
 const PONDS: readonly Pond[] = [
-  { x: 34, z: -116, radius: 19 },
-  { x: -150, z: 26, radius: 14 },
-  { x: 152, z: -30, radius: 12 },
+  { x: 46, z: -168, radius: 19 },
+  { x: -186, z: 26, radius: 14 },
+  { x: 190, z: -30, radius: 12 },
 ];
 
 /** Distant sandstone ranges that frame the horizon the way the reference frames its valley. */
@@ -84,13 +84,19 @@ function pondDepth(x: number, z: number): number {
   return depth;
 }
 
-/** Ground height. The playfield itself is perfectly flat so the simulation's plane holds. */
+/**
+ * Ground height. The playfield itself is perfectly flat so the simulation's plane holds.
+ *
+ * Past the bounds the land climbs quickly rather than easing up over forty units. The gentle old
+ * ramp left a wide apron of flat, inviting ground outside the map, so the edge read as an
+ * arbitrary line drawn across a field; now the border is a hillside, which is a reason.
+ */
 export function terrainHeight(x: number, z: number): number {
   const outside = distanceOutside(x, z);
   if (outside <= 0) return 0;
-  const ramp = smoothstep(3, 40, outside);
+  const ramp = smoothstep(1, 20, outside);
   const rolling = fbm(x * 0.045, z * 0.045);
-  const height = ramp * (4.5 + rolling * 10);
+  const height = ramp * (5.5 + rolling * 11);
   const basin = pondDepth(x, z);
   return THREE.MathUtils.lerp(height, -1.6, basin);
 }
@@ -168,9 +174,10 @@ export class Environment {
       const outside = distanceOutside(x, z);
       if (outside > 0) {
         // Beyond the map the land is forever unexplored: colder and darker, matching the fog.
-        // Dimming starts right at the boundary so no bright band shows past the fog plane.
-        const dim = smoothstep(-1, 7, outside);
-        color.lerp(shadow, dim * 0.92);
+        // The fog overlay now reaches the same distance, so this is a slow shade into the
+        // hillside rather than the hard band that used to draw a line across the meadow.
+        const dim = smoothstep(0, 30, outside);
+        color.lerp(shadow, dim * 0.9);
       }
       const basin = pondDepth(x, z);
       if (basin > 0) color.lerp(new THREE.Color(0x33413a), Math.min(1, basin * 1.2));
@@ -278,15 +285,9 @@ export class Environment {
       push(x, z, terrainHeight(x, z), index * 11, 0.7, smoothstep(-1, 7, outside) * 0.9);
     }
 
-    // A thin tree line just inside the edge softens the border between field and hills.
-    for (let index = 0; index < 420; index += 1) {
-      const edge = index % 4;
-      const along = hash(seedBase + 20_000 + index * 2);
-      const inset = 0.8 + hash(seedBase + 20_001 + index * 2) * 4.2;
-      const x = edge < 2 ? MAP_BOUNDS.minX + along * MAP_SIZE.width : edge === 2 ? MAP_BOUNDS.minX + inset : MAP_BOUNDS.maxX - inset;
-      const z = edge >= 2 ? MAP_BOUNDS.minZ + along * MAP_SIZE.depth : edge === 0 ? MAP_BOUNDS.minZ + inset : MAP_BOUNDS.maxZ - inset;
-      push(x, z, 0, index * 13 + 77, 0.7, 0);
-    }
+    // Nothing is planted along the boundary itself. The old tree line ran the full perimeter a
+    // stride inside the bounds and read exactly like a fence: it told the player where the map
+    // stopped, in a place the ground gave no other reason to stop.
 
     // Mesa tops carry their own copses.
     for (const [index, obstacle] of [...WORLD_OBSTACLES, ...FAR_RANGES].entries()) {
@@ -305,7 +306,7 @@ export class Environment {
 
     // Sparse bushes across the field: small enough that walking through them reads fine.
     const bushes: TreeSpec[] = [];
-    for (let index = 0; index < 260; index += 1) {
+    for (let index = 0; index < 340; index += 1) {
       const x = MAP_BOUNDS.minX + 6 + hash(seedBase + 40_000 + index * 2) * (MAP_SIZE.width - 12);
       const z = MAP_BOUNDS.minZ + 6 + hash(seedBase + 40_001 + index * 2) * (MAP_SIZE.depth - 12);
       if (insideObstacle(x, z, 2.5)) continue;
@@ -418,16 +419,16 @@ export class Environment {
       this.group.add(mesh);
     };
 
-    const tufts = new THREE.InstancedMesh(this.geometry('tuft', () => new THREE.ConeGeometry(0.22, 0.55, 3)), this.material('tuft', 0xffffff, 1, 0), 4200);
-    fill(tufts, 4200, 900, 0.45, 0.9, (index) => tint.setHSL(0.25 + hash(index * 3.7) * 0.04, 0.48, 0.24 + hash(index * 1.9) * 0.1), (s) => s * 0.22, 1);
+    const tufts = new THREE.InstancedMesh(this.geometry('tuft', () => new THREE.ConeGeometry(0.22, 0.55, 3)), this.material('tuft', 0xffffff, 1, 0), 5600);
+    fill(tufts, 5600, 900, 0.45, 0.9, (index) => tint.setHSL(0.25 + hash(index * 3.7) * 0.04, 0.48, 0.24 + hash(index * 1.9) * 0.1), (s) => s * 0.22, 1);
 
-    const flowers = new THREE.InstancedMesh(this.geometry('flower', () => new THREE.SphereGeometry(0.12, 5, 4)), this.material('flower', 0xffffff, 0.9, 0), 700);
+    const flowers = new THREE.InstancedMesh(this.geometry('flower', () => new THREE.SphereGeometry(0.12, 5, 4)), this.material('flower', 0xffffff, 0.9, 0), 950);
     const petals = [0xf3e39a, 0xe6b64d, 0xd9d3a8, 0x9fc9d8];
-    fill(flowers, 700, 4400, 0.8, 1.3, (index) => tint.setHex(petals[Math.floor(hash(index * 2.3) * petals.length)]!), () => 0.14, 0.8);
+    fill(flowers, 950, 4400, 0.8, 1.3, (index) => tint.setHex(petals[Math.floor(hash(index * 2.3) * petals.length)]!), () => 0.14, 0.8);
 
-    const pebbles = new THREE.InstancedMesh(this.geometry('pebble', () => new THREE.DodecahedronGeometry(0.18, 0)), this.material('pebble', 0xffffff, 0.95, 0.05), 420);
+    const pebbles = new THREE.InstancedMesh(this.geometry('pebble', () => new THREE.DodecahedronGeometry(0.18, 0)), this.material('pebble', 0xffffff, 0.95, 0.05), 560);
     pebbles.castShadow = true;
-    fill(pebbles, 420, 7800, 0.6, 1.6, (index) => tint.setHSL(0.6, 0.05, 0.3 + hash(index * 5.1) * 0.15), (s) => s * 0.07, 0.6);
+    fill(pebbles, 560, 7800, 0.6, 1.6, (index) => tint.setHSL(0.6, 0.05, 0.3 + hash(index * 5.1) * 0.15), (s) => s * 0.07, 0.6);
   }
 
   private readonly geometries = new Map<string, THREE.BufferGeometry>();

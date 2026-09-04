@@ -68,7 +68,8 @@ export interface BuildingEntity extends SimEntity {
   readonly kind: BuildingTypeId;
   hp: number;
   readonly maxHp: number;
-  readonly footprint: Readonly<{ x: number; z: number }>;
+  /** Mutable: relocating a completed structure may quarter-turn it. */
+  footprint: Readonly<{ x: number; z: number }>;
   readonly vision: number;
   readonly acceptsDeposits: boolean;
   readonly capacityContribution: number;
@@ -77,8 +78,8 @@ export interface BuildingEntity extends SimEntity {
   operational: boolean;
   constructionProgress: number;
   readonly constructionTime: number;
-  /** A quarter-turn applied at placement; the footprint already accounts for it. */
-  readonly rotated: boolean;
+  /** A quarter-turn applied at placement or relocation; the footprint already accounts for it. */
+  rotated: boolean;
   builderId: EntityId | null;
   capacityApplied: boolean;
   combat: { readonly damage: number; readonly range: number; readonly cooldownTime: number; cooldown: number; targetId: EntityId | null } | null;

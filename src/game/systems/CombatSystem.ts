@@ -1,5 +1,5 @@
 import { COMBAT } from '../../data/combat';
-import { engagementDistance, pursueTarget } from '../commands/AttackCommand';
+import { breachTarget, engagementDistance, pursueTarget } from '../commands/AttackCommand';
 import type { DamageService } from '../combat/DamageService';
 import { distanceBetween, isHostile } from '../combat/hostility';
 import type { NavigationGrid } from '../navigation/NavigationGrid';
@@ -135,10 +135,16 @@ export class CombatSystem {
     // Jittered around the nominal interval so the cost of a large army's pursuit is spread over
     // the whole interval instead of spiking on one step. Mean cadence is unchanged.
     combat.repathCooldown = COMBAT.repathInterval * (0.75 + 0.5 * entityPhase(unit.id));
-    if (!pursueTarget(unit, target, this.deps.grid)) {
-      combat.targetId = null;
-      combat.ordered = false;
-      unit.activity = 'Idle';
+    if (pursueTarget(unit, target, this.deps.grid)) return;
+    // No route left to what it was chasing. Anything that walls a colony off walls this unit
+    // out, so it turns on the obstruction rather than shrugging and going home.
+    const obstruction = combat.ordered ? breachTarget(unit, this.deps.targets, this.deps.grid) : null;
+    if (obstruction) {
+      combat.targetId = obstruction.id;
+      return;
     }
+    combat.targetId = null;
+    combat.ordered = false;
+    unit.activity = 'Idle';
   }
 }

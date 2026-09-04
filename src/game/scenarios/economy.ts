@@ -62,7 +62,11 @@ interface Cluster {
  * clusters at the same distances and bearings, mirrored. The contested middle is laid out in
  * rotational pairs for the same reason, with a single node allowed exactly at the centre.
  */
-export function createEconomyScenario(seed = 20_260_902): EconomyScenario {
+/**
+ * `solo` lays the same world down without the opposing colony: the mirrored deposits stay, so the
+ * whole map is worth exploring, but nobody starts in the far corner. It is what Freestyle plays.
+ */
+export function createEconomyScenario(seed = 20_260_902, solo = false): EconomyScenario {
   const random = new Random(seed);
   // A copy of the match's navigation grid, so a generated site can be checked for a walkable
   // approach before it is committed. A node inside a ridge is harvestable by nobody and silently
@@ -166,6 +170,7 @@ export function createEconomyScenario(seed = 20_260_902): EconomyScenario {
   resources.push(createResourceNode(entityId('middle-data-prize'), 'data', { x: 0, z: 0 }, RESOURCES.data.capacity * 3));
 
   for (const team of ['player', 'enemy'] as const) {
+    if (solo && team === 'enemy') continue;
     const start = START_POSITIONS[team];
     const facing = team === 'player' ? 1 : -1;
     buildings.push(createCore(entityId(`${team}-core`), team, start));

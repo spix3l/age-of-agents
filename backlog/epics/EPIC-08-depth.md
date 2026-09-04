@@ -27,6 +27,12 @@ status: REVIEW
 - [x] [D8-07 — Vary the opponent's opening between matches](../tasks/D8-07.md) — P1 / M — depends on D8-02
 - [x] [D8-08 — Give the opponent a real colony and real defenses](../tasks/D8-08.md) — P1 / M — depends on D8-02
 - [ ] [D8-09 — Rebuild the visual language as clean sci-fi](../tasks/D8-09.md) — P1 / L — depends on D8-01
+- [x] [D8-10 — Let a player move a placed building](../tasks/D8-10.md) — P1 / S — depends on D6-15
+- [x] [D8-11 — Make walls cheap enough and big enough to be worth laying](../tasks/D8-11.md) — P1 / S — depends on D6-15
+- [x] [D8-12 — Open the map out and stop drawing a fence around it](../tasks/D8-12.md) — P1 / M — depends on D8-03, D8-04
+- [x] [D8-13 — Pause a match and save it for later](../tasks/D8-13.md) — P1 / L — depends on D7-09
+- [x] [D8-14 — Add Freestyle mode](../tasks/D8-14.md) — P1 / M — depends on D8-03, D8-13
+- [x] [D8-15 — Make walls actually stop what walks into them](../tasks/D8-15.md) — P0 / M — depends on D8-11
 - [ ] [D8-06 — Player-versus-player](../tasks/D8-06.md) — P2 / L — DEFERRED
 
 ## Epic completion

@@ -8,6 +8,8 @@ export interface MatchOptions {
   readonly scenario?: ScenarioId;
   /** Strikers per side in the battle scenario. Used by the performance benchmark. */
   readonly armySize?: number;
+  /** Lays the opening without an opposing colony. Freestyle mode's world. */
+  readonly solo?: boolean;
 }
 
 /**
@@ -33,5 +35,5 @@ export function createMatch(options: MatchOptions = {}): EconomyScenario {
   const armySize = options.armySize ?? readArmySizeFromLocation();
   return scenario === 'battle' ? createBattleScenario(options.seed, armySize)
     : scenario === 'showcase' ? createShowcaseScenario(options.seed)
-      : createEconomyScenario(options.seed);
+      : createEconomyScenario(options.seed, options.solo);
 }

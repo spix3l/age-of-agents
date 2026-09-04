@@ -1,5 +1,6 @@
 import { setBuildingOccupancy } from '../navigation/occupancy';
 import { issueBuildCommand, type BuildCommandResult } from '../commands/BuildCommand';
+import { canRelocate, issueRelocateCommand, validateRelocation, type RelocateResult } from '../commands/RelocateCommand';
 import { issueAttackCommand } from '../commands/AttackCommand';
 import { DamageService, type DeathRecord } from '../combat/DamageService';
 import { destroyEntity } from '../combat/destruction';
@@ -20,6 +21,7 @@ import { ProductionSystem, type EnqueueResult } from '../systems/ProductionSyste
 import { TechnologySystem, type AdvanceResult } from '../systems/TechnologySystem';
 import { TurretSystem } from '../systems/TurretSystem';
 import { entityId, type UnitTypeId } from '../types/ids';
+import { UNITS } from '../../data/units';
 import type { BuildingEntity, CombatTarget, Generation, Team, UnitEntity, Vec2 } from '../types/simulation';
 import type { PlaceableBuildingType } from '../building/PlacementController';
 import { createMatch, type MatchOptions } from '../world/createMatch';
@@ -27,12 +29,15 @@ import { MAP_BOUNDS, WORLD_OBSTACLES } from '../world/map';
 import { AIController, type AIControllerOptions } from '../ai/AIController';
 import type { AIDifficulty } from '../../data/ai';
 import { MatchState, type MatchResult } from './MatchState';
+import type { SavedGame } from '../save/SaveGame';
 
 export interface MatchHooks {
   readonly onUnitAdded?: (unit: UnitEntity) => void;
   readonly onUnitRemoved?: (unit: UnitEntity) => void;
   readonly onBuildingAdded?: (building: BuildingEntity) => void;
   readonly onBuildingRemoved?: (building: BuildingEntity) => void;
+  /** A completed structure was picked up and set down elsewhere; its id is unchanged. */
+  readonly onBuildingMoved?: (building: BuildingEntity) => void;
   readonly onBuildingCompleted?: (building: BuildingEntity) => void;
   readonly onShot?: (attacker: UnitEntity | BuildingEntity, target: CombatTarget) => void;
   readonly onDeath?: (record: DeathRecord) => void;
@@ -135,6 +140,45 @@ export class MatchSimulation {
 
   get elapsedSeconds(): number { return this.state.elapsedSeconds; }
 
+  /** Id counters, exposed so a save can put them back and never re-mint an id already in use. */
+  get idSequences(): { readonly unit: number; readonly building: number } {
+    return { unit: this.unitSequence, building: this.buildingSequence };
+  }
+
+  /**
+   * Applies the match-wide half of a save onto a simulation already built from `savedScenario`:
+   * the clock, both economies, both generations, the kill tally, and the production queues.
+   *
+   * Queues are re-created here rather than in the scenario because their capacity has to be
+   * reserved against the restored `Capacity`, and an order that no longer fits is refunded
+   * instead of silently overdrawing the colony's Agent cap.
+   */
+  restoreState(save: SavedGame): void {
+    this.state.elapsedSeconds = save.elapsedSeconds;
+    this.unitSequence = Math.max(this.unitSequence, save.sequences.unit);
+    this.buildingSequence = Math.max(this.buildingSequence, save.sequences.building);
+    for (const team of ['player', 'enemy'] as const) {
+      const saved = save.teams[team];
+      const ledger = new EconomyLedger(saved.balances, saved.collected);
+      const capacity = new Capacity(saved.capacityMax, saved.capacityUsed);
+      this.state.economies.set(team, { ledger, capacity });
+      this.state.generations.set(team, saved.generation);
+      this.stats.restore(team, saved.stats);
+      this.agentsBuilt[team] = saved.agentsCreated;
+      this.structuresBuilt[team] = saved.buildingsConstructed;
+      if (saved.generation > 1) this.hooks.onGeneration?.(team, saved.generation);
+    }
+    for (const building of save.buildings) {
+      const producer = this.state.buildings.get(entityId(building.id));
+      const economy = this.economy(building.team);
+      if (!producer || !economy) continue;
+      for (const order of building.queue) {
+        if (economy.capacity.reserve(UNITS[order.unitType].capacityCost)) this.production.restoreOrder(producer, order.unitType, order.elapsed);
+        else economy.ledger.refund(UNITS[order.unitType].cost);
+      }
+    }
+  }
+
   economy(team: Team): FactionEconomy | undefined {
     return team === 'neutral' ? undefined : this.state.economies.get(team);
   }
@@ -196,8 +240,24 @@ export class MatchSimulation {
     }, rotated);
   }
 
+  /** Whether this structure is one a player may pick up at all, ignoring where they aim it. */
+  canRelocate(building: BuildingEntity): boolean { return canRelocate(building); }
+
+  /** Previews a relocation target without moving anything. */
+  previewRelocation(building: BuildingEntity, position: Vec2, rotated = building.rotated) {
+    return validateRelocation(building, position, { state: this.state, navigation: this.navigation }, rotated);
+  }
+
+  relocate(building: BuildingEntity, position: Vec2, rotated = building.rotated): RelocateResult {
+    const result = issueRelocateCommand(building, position, { state: this.state, navigation: this.navigation }, rotated);
+    if (result.ok) this.hooks.onBuildingMoved?.(building);
+    return result;
+  }
+
   attack(units: readonly UnitEntity[], target: CombatTarget): number {
-    return issueAttackCommand(units, target, this.navigation).issued;
+    // The target index is handed over so an attacker with no route can fall back to whatever
+    // structure is blocking it instead of refusing the order outright.
+    return issueAttackCommand(units, target, this.navigation, this.targets).issued;
   }
 
   /** Cancels a construction site and refunds it, unblocking its footprint and its builder. */

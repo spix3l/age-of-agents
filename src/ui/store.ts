@@ -5,6 +5,8 @@ import type { EntityId, UnitTypeId } from '../game/types/ids';
 import type { Generation, HarvestableResourceType } from '../game/types/simulation';
 import type { MatchResult } from '../game/match/MatchState';
 import { DEFAULT_DIFFICULTY, type AIDifficulty } from '../data/ai';
+import type { GameMode, SavedGame } from '../game/save/SaveGame';
+import { clearSave, readSave } from '../game/save/saveStorage';
 
 export interface MatchSummary {
   readonly durationSeconds: number;
@@ -60,6 +62,8 @@ export interface SelectionSnapshot {
   readonly canBuild: boolean;
   readonly producer?: readonly UnitTypeId[] | null;
   readonly constructionSite?: boolean;
+  /** A completed player structure other than the Core, which can be picked up and set down. */
+  readonly canRelocate?: boolean;
 }
 
 /** One dot on the minimap. Kept deliberately small: this ships at 10 Hz for every visible entity. */
@@ -117,12 +121,15 @@ interface UiState {
   unitProductionRequest: ((type: UnitTypeId) => void) | null;
   cancelProductionRequest: ((id: EntityId) => void) | null;
   cancelConstructionRequest: (() => void) | null;
+  relocateRequest: (() => void) | null;
   advanceGenerationRequest: (() => void) | null;
   audioToggleRequest: (() => void) | null;
   audioMuted: boolean;
   audioVolume: number;
   audioVolumeRequest: ((volume: number) => void) | null;
   placementMode: PlaceableBuildingType | null;
+  /** True while the armed placement tool is re-seating an existing structure, not buying a new one. */
+  relocating: boolean;
   matchResult: MatchResult | null;
   matchSummary: MatchSummary;
   matchNonce: number;
@@ -131,9 +138,28 @@ interface UiState {
   menuOpen: boolean;
   helpOpen: boolean;
   difficulty: AIDifficulty;
+  /** Campaign is the match against the opponent; Freestyle is the map with nobody else on it. */
+  mode: GameMode;
+  /** True while the match is held. The loop reads it; everything else keeps rendering. */
+  paused: boolean;
+  /** The save the next match should resume, handed to `Game` when it is constructed. */
+  pendingSave: SavedGame | null;
+  /** What is in the save slot right now, so the menu knows whether to offer CONTINUE. */
+  savedGame: SavedGame | null;
+  /** Transient result of the last save attempt, shown in the pause menu. */
+  saveNote: string | null;
+  saveRequest: (() => boolean) | null;
   setDifficulty: (difficulty: AIDifficulty) => void;
+  setMode: (mode: GameMode) => void;
   setHelpOpen: (open: boolean) => void;
-  startMatch: () => void;
+  setPaused: (paused: boolean) => void;
+  togglePause: () => void;
+  setSaveRequest: (request: (() => boolean) | null) => void;
+  saveGame: () => void;
+  refreshSavedGame: () => void;
+  continueSavedGame: () => void;
+  discardSavedGame: () => void;
+  startMatch: (mode?: GameMode) => void;
   returnToMenu: () => void;
   debugVisible: boolean;
   debug: DebugSnapshot;
@@ -150,16 +176,18 @@ interface UiState {
   setUnitProductionRequest: (request: ((type: UnitTypeId) => void) | null) => void;
   setCancelProductionRequest: (request: ((id: EntityId) => void) | null) => void;
   setCancelConstructionRequest: (request: (() => void) | null) => void;
+  setRelocateRequest: (request: (() => void) | null) => void;
   setAdvanceGenerationRequest: (request: (() => void) | null) => void;
   setAudioToggleRequest: (request: (() => void) | null, muted?: boolean) => void;
   setAudioVolumeRequest: (request: ((volume: number) => void) | null, volume?: number) => void;
-  setPlacementMode: (type: PlaceableBuildingType | null) => void;
+  setPlacementMode: (type: PlaceableBuildingType | null, relocating?: boolean) => void;
   produceWorker: () => void;
   beginBuild: (type: PlaceableBuildingType) => void;
   automate: (type: HarvestableResourceType) => void;
   produceUnit: (type: UnitTypeId) => void;
   cancelProduction: (id: EntityId) => void;
   cancelConstruction: () => void;
+  beginRelocate: () => void;
   advanceGeneration: () => void;
   toggleAudio: () => void;
   setAudioVolume: (volume: number) => void;
@@ -182,23 +210,52 @@ export const useUiStore = create<UiState>((set, get) => ({
   minimap: EMPTY_MINIMAP, income: { matter: 0, energy: 0, data: 0 }, minimapJumpRequest: null,
   matchSeed: newSeed(),
   selectionBox: null, lastOrder: 'AWAITING COMMAND', matchResult: null, matchSummary: EMPTY_MATCH_SUMMARY, matchNonce: 0,
-  menuOpen: true, helpOpen: false, difficulty: DEFAULT_DIFFICULTY, debugVisible: false, debug: EMPTY_DEBUG, productionRequest: null, buildRequest: null, automationRequest: null, unitProductionRequest: null, cancelProductionRequest: null, cancelConstructionRequest: null, advanceGenerationRequest: null, audioToggleRequest: null, audioVolumeRequest: null, audioMuted: false, audioVolume: 0.66, placementMode: null,
+  menuOpen: true, helpOpen: false, difficulty: DEFAULT_DIFFICULTY, mode: 'campaign',
+  paused: false, pendingSave: null, savedGame: readSave(), saveNote: null, saveRequest: null,
+  debugVisible: false, debug: EMPTY_DEBUG, productionRequest: null, buildRequest: null, automationRequest: null, unitProductionRequest: null, cancelProductionRequest: null, cancelConstructionRequest: null, relocateRequest: null, advanceGenerationRequest: null, audioToggleRequest: null, audioVolumeRequest: null, audioMuted: false, audioVolume: 0.66, placementMode: null, relocating: false,
   setEconomySnapshot: (snapshot) => set(snapshot),
   setDifficulty: (difficulty) => set({ difficulty }),
+  setMode: (mode) => set({ mode }),
   setHelpOpen: (helpOpen) => set({ helpOpen }),
-  startMatch: () => set((state) => ({
+  setPaused: (paused) => set({ paused, saveNote: null }),
+  // Pausing is refused outside a live match: there is nothing to hold, and a stuck `paused`
+  // would freeze the next match before its first tick.
+  togglePause: () => set((state) => (state.menuOpen || state.matchResult ? {} : { paused: !state.paused, saveNote: null })),
+  setSaveRequest: (saveRequest) => set({ saveRequest }),
+  saveGame: () => {
+    const saved = get().saveRequest?.() ?? false;
+    set({ saveNote: saved ? 'MATCH SAVED' : 'SAVE FAILED // STORAGE UNAVAILABLE', savedGame: saved ? readSave() : get().savedGame });
+  },
+  refreshSavedGame: () => set({ savedGame: readSave() }),
+  continueSavedGame: () => {
+    const save = readSave();
+    if (!save) { set({ savedGame: null }); return; }
+    set((state) => ({
+      savedGame: save, pendingSave: save, mode: save.mode, difficulty: save.difficulty, matchSeed: save.seed,
+      menuOpen: false, helpOpen: false, paused: false, saveNote: null,
+      matchResult: null, matchSummary: EMPTY_MATCH_SUMMARY, matchNonce: state.matchNonce + 1,
+      lastOrder: 'COLONY RESTORED // AWAITING COMMAND',
+      selectionBox: null, placementMode: null, relocating: false, minimap: EMPTY_MINIMAP,
+    }));
+  },
+  discardSavedGame: () => { clearSave(); set({ savedGame: null, pendingSave: null }); },
+  startMatch: (mode) => set((state) => ({
     menuOpen: false, helpOpen: false, matchResult: null, matchSummary: EMPTY_MATCH_SUMMARY,
     matchNonce: state.matchNonce + 1, lastOrder: 'COLONY ONLINE // AWAITING COMMAND',
-    selectionBox: null, placementMode: null, minimap: EMPTY_MINIMAP, matchSeed: newSeed(),
+    selectionBox: null, placementMode: null, relocating: false, minimap: EMPTY_MINIMAP, matchSeed: newSeed(),
+    mode: mode ?? state.mode, paused: false, pendingSave: null, saveNote: null,
   })),
-  returnToMenu: () => set({ menuOpen: true, helpOpen: false, matchResult: null, selectionBox: null, placementMode: null }),
+  returnToMenu: () => set({
+    menuOpen: true, helpOpen: false, matchResult: null, selectionBox: null, placementMode: null,
+    relocating: false, paused: false, pendingSave: null, saveNote: null, savedGame: readSave(),
+  }),
   setDebugSnapshot: (debug) => set({ debug }),
   toggleDebug: () => set((state) => ({ debugVisible: !state.debugVisible })),
   setMatchOutcome: (matchResult, matchSummary) => set({ matchResult, matchSummary }),
   restartMatch: () => set((state) => ({
     matchResult: null, matchSummary: EMPTY_MATCH_SUMMARY, matchNonce: state.matchNonce + 1,
-    lastOrder: 'NEW MATCH // AWAITING COMMAND', selectionBox: null, placementMode: null, minimap: EMPTY_MINIMAP,
-    matchSeed: newSeed(),
+    lastOrder: 'NEW MATCH // AWAITING COMMAND', selectionBox: null, placementMode: null, relocating: false, minimap: EMPTY_MINIMAP,
+    matchSeed: newSeed(), paused: false, pendingSave: null, saveNote: null,
   })),
   setSelectionBox: (selectionBox) => set({ selectionBox }),
   setMinimap: (minimap) => set({ minimap }),
@@ -211,16 +268,18 @@ export const useUiStore = create<UiState>((set, get) => ({
   setUnitProductionRequest: (unitProductionRequest) => set({ unitProductionRequest }),
   setCancelProductionRequest: (cancelProductionRequest) => set({ cancelProductionRequest }),
   setCancelConstructionRequest: (cancelConstructionRequest) => set({ cancelConstructionRequest }),
+  setRelocateRequest: (relocateRequest) => set({ relocateRequest }),
   setAdvanceGenerationRequest: (advanceGenerationRequest) => set({ advanceGenerationRequest }),
   setAudioToggleRequest: (audioToggleRequest, audioMuted) => set((state) => ({ audioToggleRequest, audioMuted: audioMuted ?? state.audioMuted })),
   setAudioVolumeRequest: (audioVolumeRequest, audioVolume) => set((state) => ({ audioVolumeRequest, audioVolume: audioVolume ?? state.audioVolume })),
-  setPlacementMode: (placementMode) => set({ placementMode }),
+  setPlacementMode: (placementMode, relocating = false) => set({ placementMode, relocating: placementMode === null ? false : relocating }),
   produceWorker: () => get().productionRequest?.(),
   beginBuild: (type) => get().buildRequest?.(type),
   automate: (type) => get().automationRequest?.(type),
   produceUnit: (type) => get().unitProductionRequest?.(type),
   cancelProduction: (id) => get().cancelProductionRequest?.(id),
   cancelConstruction: () => get().cancelConstructionRequest?.(),
+  beginRelocate: () => get().relocateRequest?.(),
   advanceGeneration: () => get().advanceGenerationRequest?.(),
   toggleAudio: () => get().audioToggleRequest?.(),
   setAudioVolume: (volume) => get().audioVolumeRequest?.(volume),

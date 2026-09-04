@@ -23,8 +23,12 @@ export const AI = Object.freeze({
   maxTurrets: 5,
   maxHabitats: 3,
   maxDepots: 2,
-  /** Wall segments the opponent fences its approach with before Turrets unlock. */
-  maxWalls: 8,
+  /**
+   * Wall segments the opponent fences its approach with before Turrets unlock. A segment is four
+   * units long, so this is roughly twenty units of fence: enough to shape a raid's approach, and
+   * short of the length at which the opponent starts walling its own Workers in.
+   */
+  maxWalls: 5,
   /** Strikers' worth of Matter held back from the build plan while the army is short. */
   armyReserveStrikers: 2,
   /** Foundations the opponent will keep open at once. One at a time built a base far too slowly. */

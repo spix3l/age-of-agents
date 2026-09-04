@@ -5,7 +5,7 @@ import type { BuildingEntity, Team, UnitEntity, Vec2 } from '../types/simulation
 import type { Generation } from '../types/simulation';
 import { BUILDINGS } from '../../data/buildings';
 import type { PlaceableBuildingType } from '../building/PlacementController';
-import { MAP_SIZE } from './map';
+import { MAP_MARGIN, MAP_SIZE } from './map';
 import { Environment } from './environment';
 import { EffectsManager } from '../rendering/EffectsManager';
 import { ResourceCache } from '../rendering/models/palette';
@@ -47,6 +47,12 @@ const SUN_OFFSET = Object.freeze({ x: 30, y: 54, z: -22 });
 /** Fog-of-war alpha: unexplored is dark but never black, explored is a dusk tint. */
 const FOG_UNKNOWN = 178;
 const FOG_EXPLORED = 92;
+/** The fog overlay's own grid: the vision grid's cell size, extended over the scenery margin. */
+const FOG_CELL = 4;
+const FOG_INSET_COLUMNS = Math.round(MAP_MARGIN / FOG_CELL);
+const FOG_INSET_ROWS = FOG_INSET_COLUMNS;
+const FOG_WIDTH = Math.ceil(MAP_SIZE.width / FOG_CELL) + FOG_INSET_COLUMNS * 2;
+const FOG_HEIGHT = Math.ceil(MAP_SIZE.depth / FOG_CELL) + FOG_INSET_ROWS * 2;
 
 export class WorldScene {
   readonly scene = new THREE.Scene();
@@ -115,24 +121,25 @@ export class WorldScene {
     this.scene.add(this.environment.group);
     this.ground = this.environment.terrain;
 
-    const fogWidth = Math.ceil(MAP_SIZE.width / 4);
-    const fogHeight = Math.ceil(MAP_SIZE.depth / 4);
-    this.fogPixels = new Uint8Array(fogWidth * fogHeight * 4);
-    for (let index = 0; index < fogWidth * fogHeight; index += 1) {
+    // The overlay reaches past the playable bounds and out over the scenery margin, and the
+    // ground beyond the bounds is held at "unknown" forever. Ending the fog exactly at the
+    // boundary put a lit hillside next to a dark field and drew a hard line between them.
+    this.fogPixels = new Uint8Array(FOG_WIDTH * FOG_HEIGHT * 4);
+    for (let index = 0; index < FOG_WIDTH * FOG_HEIGHT; index += 1) {
       const offset = index * 4;
       this.fogPixels[offset] = FOG_UNKNOWN;
       this.fogPixels[offset + 1] = FOG_UNKNOWN;
       this.fogPixels[offset + 2] = FOG_UNKNOWN;
       this.fogPixels[offset + 3] = 255;
     }
-    this.fogTexture = new THREE.DataTexture(this.fogPixels, fogWidth, fogHeight, THREE.RGBAFormat);
+    this.fogTexture = new THREE.DataTexture(this.fogPixels, FOG_WIDTH, FOG_HEIGHT, THREE.RGBAFormat);
     // PlaneGeometry's V axis maps to negative world Z after the isometric ground rotation.
     this.fogTexture.flipY = true;
     this.fogTexture.magFilter = THREE.LinearFilter;
     this.fogTexture.minFilter = THREE.LinearFilter;
     this.fogTexture.needsUpdate = true;
     const fogPlane = new THREE.Mesh(
-      new THREE.PlaneGeometry(MAP_SIZE.width, MAP_SIZE.depth),
+      new THREE.PlaneGeometry(MAP_SIZE.width + MAP_MARGIN * 2, MAP_SIZE.depth + MAP_MARGIN * 2),
       // Drawn as a screen overlay after the world, so grass, mesas, and trees inside the
       // unexplored region are dimmed with the ground instead of poking through it.
       new THREE.MeshBasicMaterial({ alphaMap: this.fogTexture, transparent: true, depthWrite: false, depthTest: false, color: 0x0a1116 }),
@@ -231,18 +238,25 @@ export class WorldScene {
     if (visible) this.hiddenEntities.delete(id); else this.hiddenEntities.add(id);
   }
 
+  /**
+   * Paints the vision snapshot into the overlay. The snapshot covers the playable bounds; the
+   * overlay is one margin wider on every side, so the vision cells are written into the middle
+   * of it and the border ring keeps its opening "unknown" value.
+   */
   updateFog(snapshot: VisionSnapshot): void {
-    const cells = Math.min(snapshot.states.length, this.fogPixels.length / 4);
-    for (let index = 0; index < cells; index += 1) {
-      const state = snapshot.states[index];
-      const offset = index * 4;
-      const opacity = state === 2 ? 0 : state === 1 ? FOG_EXPLORED : FOG_UNKNOWN;
-      // Alpha maps sample the green channel. Mirroring into RGB keeps this
-      // portable across WebGL implementations and texture swizzles.
-      this.fogPixels[offset] = opacity;
-      this.fogPixels[offset + 1] = opacity;
-      this.fogPixels[offset + 2] = opacity;
-      this.fogPixels[offset + 3] = 255;
+    for (let row = 0; row < snapshot.height; row += 1) {
+      const target = (row + FOG_INSET_ROWS) * FOG_WIDTH + FOG_INSET_COLUMNS;
+      for (let column = 0; column < snapshot.width; column += 1) {
+        const state = snapshot.states[row * snapshot.width + column];
+        const offset = (target + column) * 4;
+        const opacity = state === 2 ? 0 : state === 1 ? FOG_EXPLORED : FOG_UNKNOWN;
+        // Alpha maps sample the green channel. Mirroring into RGB keeps this
+        // portable across WebGL implementations and texture swizzles.
+        this.fogPixels[offset] = opacity;
+        this.fogPixels[offset + 1] = opacity;
+        this.fogPixels[offset + 2] = opacity;
+        this.fogPixels[offset + 3] = 255;
+      }
     }
     this.fogTexture.needsUpdate = true;
   }
@@ -551,6 +565,18 @@ export class WorldScene {
     if (!visual) return;
     this.disposeGroup(visual.group, id);
     this.units.delete(id);
+  }
+
+  /**
+   * Re-seats a relocated structure. The visual is rebuilt rather than nudged because a
+   * quarter-turn changes the footprint, and with it the yard, selection ring, progress bar,
+   * and health bar that are all sized from it. Geometry and materials come from the shared
+   * cache, so rebuilding one structure allocates nothing new.
+   */
+  moveBuilding(building: BuildingEntity): void {
+    if (!this.buildings.has(building.id)) return;
+    this.removeBuilding(building.id);
+    this.addBuilding(building);
   }
 
   removeBuilding(id: EntityId): void {

@@ -1,7 +1,21 @@
 import type { Vec2 } from '../types/simulation';
 
-/** 240 x 176 battlefield: two far corner bases with a deep contested interior between them. */
-export const MAP_BOUNDS = Object.freeze({ minX: -120, maxX: 120, minZ: -88, maxZ: 88 });
+/**
+ * 300 x 224 battlefield: two far corner bases with a deep contested interior between them.
+ *
+ * The start positions deliberately did not move when the field grew: the opening, the walking
+ * distances between the two colonies, and every balance figure tuned against them are unchanged.
+ * The extra ground is open country on all four sides, so a colony can sprawl and an army can
+ * flank instead of running into an invisible line a few strides past the tree cover.
+ */
+export const MAP_BOUNDS = Object.freeze({ minX: -150, maxX: 150, minZ: -112, maxZ: 112 });
+
+/**
+ * How far scenery (hills, forest, distant ranges) continues past the playable bounds before the
+ * fog swallows it. Shared by the terrain, the tree line, and the fog overlay so all three end in
+ * the same place; a multiple of the vision cell size, which keeps the fog texture cell-aligned.
+ */
+export const MAP_MARGIN = 76;
 
 export const MAP_SIZE = Object.freeze({
   width: MAP_BOUNDS.maxX - MAP_BOUNDS.minX,

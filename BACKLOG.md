@@ -13,7 +13,7 @@ This is the portfolio view for the file-backed backlog derived from [`PRD.md`](P
 | [EPIC-05](backlog/epics/EPIC-05-opponent.md) | Day 5 | The Other Intelligence | 7 | DONE |
 | [EPIC-06](backlog/epics/EPIC-06-evolution.md) | Day 6 | Evolution | 16 | DONE |
 | [EPIC-07](backlog/epics/EPIC-07-release.md) | Day 7 | Survive and Ship | 9 | DONE |
-| [EPIC-08](backlog/epics/EPIC-08-depth.md) | Day 8 | Depth and Replayability | 9 | REVIEW |
+| [EPIC-08](backlog/epics/EPIC-08-depth.md) | Day 8 | Depth and Replayability | 15 | REVIEW |
 
 ## Tasks
 
@@ -90,6 +90,12 @@ This is the portfolio view for the file-backed backlog derived from [`PRD.md`](P
 | [D8-07](backlog/tasks/D8-07.md) | [EPIC-08](backlog/epics/EPIC-08-depth.md) | Vary the opponent's opening between matches | P1 | M | D8-02 | DONE |
 | [D8-08](backlog/tasks/D8-08.md) | [EPIC-08](backlog/epics/EPIC-08-depth.md) | Give the opponent a real colony and real defenses | P1 | M | D8-02 | DONE |
 | [D8-09](backlog/tasks/D8-09.md) | [EPIC-08](backlog/epics/EPIC-08-depth.md) | Rebuild the visual language as clean sci-fi | P1 | L | D8-01 | IN PROGRESS |
+| [D8-10](backlog/tasks/D8-10.md) | [EPIC-08](backlog/epics/EPIC-08-depth.md) | Let a player move a placed building | P1 | S | D6-15 | DONE |
+| [D8-11](backlog/tasks/D8-11.md) | [EPIC-08](backlog/epics/EPIC-08-depth.md) | Make walls cheap enough and big enough to be worth laying | P1 | S | D6-15 | DONE |
+| [D8-12](backlog/tasks/D8-12.md) | [EPIC-08](backlog/epics/EPIC-08-depth.md) | Open the map out and stop drawing a fence around it | P1 | M | D8-03, D8-04 | DONE |
+| [D8-13](backlog/tasks/D8-13.md) | [EPIC-08](backlog/epics/EPIC-08-depth.md) | Pause a match and save it for later | P1 | L | D7-09 | DONE |
+| [D8-14](backlog/tasks/D8-14.md) | [EPIC-08](backlog/epics/EPIC-08-depth.md) | Add Freestyle mode | P1 | M | D8-03, D8-13 | DONE |
+| [D8-15](backlog/tasks/D8-15.md) | [EPIC-08](backlog/epics/EPIC-08-depth.md) | Make walls actually stop what walks into them | P0 | M | D8-11 | DONE |
 | [D8-06](backlog/tasks/D8-06.md) | [EPIC-08](backlog/epics/EPIC-08-depth.md) | Player-versus-player | P2 | L | D8-01, D8-03 | DEFERRED |
 
 ## Release rule
