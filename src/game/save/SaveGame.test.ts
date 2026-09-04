@@ -53,6 +53,32 @@ describe('saving and resuming a match', () => {
     expect(loaded.unitsOf('player').length).toBe(workers + 1);
   });
 
+  it('brings a switched-off synthesis plant back switched off', () => {
+    const sim = new MatchSimulation({ opponent: false, seed: 4242 });
+    sim.economy('player')!.ledger.deposit('matter', 900);
+    sim.economy('player')!.ledger.deposit('energy', 900);
+    sim.economy('player')!.ledger.deposit('data', 200);
+    // Plants are a Generation II unlock: a colony reaches them the same way it reaches Turrets.
+    expect(sim.advanceGeneration('player').ok).toBe(true);
+    const worker = sim.unitsOf('player')[0]!;
+    const placed = [8, 12, 16].some((offset) => [0, 7, -7].some((sideways) =>
+      sim.build(worker, 'reclaimer', { x: worker.position.x + offset, z: worker.position.z + sideways }).ok));
+    expect(placed).toBe(true);
+    sim.run(60);
+    const plant = sim.buildingsOf('player').find((building) => building.kind === 'reclaimer')!;
+    expect(plant.operational).toBe(true);
+    expect(sim.toggleSynthesis(plant)).toBe(true);
+
+    const { loaded } = roundTrip(sim);
+
+    const restored = loaded.buildingsOf('player').find((building) => building.kind === 'reclaimer')!;
+    expect(restored.synthesisPaused).toBe(true);
+    // Switched off means switched off: the colony's Energy is untouched a minute later.
+    const energy = loaded.economy('player')!.ledger.balance('energy');
+    loaded.run(60);
+    expect(loaded.economy('player')!.ledger.balance('energy')).toBe(energy);
+  });
+
   it('never re-mints an id a restored entity already holds', () => {
     const sim = new MatchSimulation({ opponent: false, seed: 7 });
     sim.economy('player')!.ledger.deposit('matter', 600);

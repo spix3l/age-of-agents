@@ -4,11 +4,26 @@ import { extractResource, type ResourceNodeEntity } from '../entities/resources/
 import type { EconomyLedger } from '../economy/EconomyLedger';
 import { findPath } from '../navigation/AStar';
 import type { NavigationGrid } from '../navigation/NavigationGrid';
-import type { BuildingEntity, UnitEntity, Vec2 } from '../types/simulation';
+import { nearestHarvestableNode } from './nodeSearch';
+import type { BuildingEntity, HarvestableResourceType, UnitEntity, Vec2 } from '../types/simulation';
 
 function distance(a: Vec2, b: Vec2): number { return Math.hypot(a.x - b.x, a.z - b.z); }
 
 export const WORKER_CARGO_CAPACITY = 10;
+/**
+ * How far from the colony a Worker will look for a replacement when its deposit runs out.
+ *
+ * Measured from the structure the Worker deposits into, not from the Worker: gathering is a round
+ * trip, so the node that matters is the one nearest the drop point.
+ *
+ * Deliberately shorter than the gap between one resource cluster and the next (the home cluster
+ * sits 10-13 units out and the expansion 38-50), so a Worker moves to the next rock *in the
+ * clearing it is already working* and never sets off on an expedition. Workers must not scout: an
+ * economy that quietly reveals the map, walks into an enemy patrol, or opens a long undefended
+ * haul is making a strategic decision that belongs to the player. Crossing the map stays an
+ * explicit order, or a standing automation policy, which searches the whole field on purpose.
+ */
+export const RETARGET_RANGE = 22;
 /** How close a Worker must actually be before a travel leg counts as finished. */
 export const ARRIVAL_RADIUS = 2.4;
 /** Deposits are drawn as a cluster roughly this wide. */
@@ -45,7 +60,7 @@ export class GatheringSystem {
     const node = this.resources.get(order.resourceId);
 
     if (order.state === 'moving-to-node') {
-      if (!node?.alive && worker.cargo.amount === 0) return this.idle(worker);
+      if (!node?.alive && worker.cargo.amount === 0) return this.retarget(worker, order.resourceType);
       if (worker.destination !== null || !node) return;
       // Arriving is a distance test, not just "the path ended": combat or a blocked path can
       // clear a destination early, and the Worker must resume the trip instead of mining air.
@@ -59,7 +74,7 @@ export class GatheringSystem {
     }
 
     if (order.state === 'extracting') {
-      if (!node?.alive) return worker.cargo.amount > 0 ? this.returnToCore(worker) : this.idle(worker);
+      if (!node?.alive) return worker.cargo.amount > 0 ? this.returnToCore(worker) : this.retarget(worker, order.resourceType);
       if (distance(worker.position, node.position) > ARRIVAL_RADIUS + NODE_RADIUS + 1) return this.moveToNode(worker, node);
       order.workSeconds += delta;
       const config = RESOURCES[node.resourceType];
@@ -92,7 +107,7 @@ export class GatheringSystem {
     worker.cargo.type = null;
     worker.cargo.amount = 0;
     if (node?.alive) this.moveToNode(worker, node);
-    else this.idle(worker);
+    else this.retarget(worker, order.resourceType);
   }
 
   private depotFor(worker: UnitEntity): BuildingEntity | undefined {
@@ -140,6 +155,26 @@ export class GatheringSystem {
     const dz = from.z - target.z;
     const length = Math.hypot(dx, dz) || 1;
     return { x: target.x + (dx / length) * distance, z: target.z + (dz / length) * distance };
+  }
+
+  /**
+   * Sends a Worker whose deposit ran dry to the nearest live one of the same type.
+   *
+   * Only automated Workers used to be re-tasked, so a hand-managed economy quietly stalled: every
+   * Worker on an exhausted node went Idle and stayed there until the player noticed. Standing
+   * automation is a stronger policy and still overrides this on its own next search; this is just
+   * the promise that a gather order outlives the rock it was aimed at.
+   */
+  private retarget(worker: UnitEntity, type: HarvestableResourceType): void {
+    // A Worker under standing automation is not this system's to re-task: AutomationSystem
+    // searches the whole map for it within half a second, and picking a node here first would
+    // preempt the better choice with a merely local one.
+    if (worker.automation) return this.idle(worker);
+    const home = this.depotFor(worker)?.position ?? worker.position;
+    const node = nearestHarvestableNode(this.resources.alive(), this.grid, home, type, undefined, RETARGET_RANGE);
+    if (!node) return this.idle(worker);
+    worker.gatherOrder = { resourceId: node.id, resourceType: node.resourceType, state: 'moving-to-node', workSeconds: 0 };
+    this.moveToNode(worker, node);
   }
 
   private idle(worker: UnitEntity): void {

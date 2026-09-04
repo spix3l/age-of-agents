@@ -40,6 +40,8 @@ export function createShowcaseScenario(seed = 20_260_903): EconomyScenario {
     completed('habitat', -4, -8),
     completed('habitat', -8, -8),
     completed('habitat', -12, -8),
+    completed('reclaimer', 12, 8),
+    completed('datalab', 18, 8),
     completed('turret', 4, -11),
     completed('turret', 14, -11),
   ];

@@ -18,6 +18,7 @@ import { ConstructionSystem } from '../systems/ConstructionSystem';
 import { GatheringSystem } from '../systems/GatheringSystem';
 import { MovementSystem } from '../systems/MovementSystem';
 import { ProductionSystem, type EnqueueResult } from '../systems/ProductionSystem';
+import { SynthesisSystem } from '../systems/SynthesisSystem';
 import { TechnologySystem, type AdvanceResult } from '../systems/TechnologySystem';
 import { TurretSystem } from '../systems/TurretSystem';
 import { entityId, type UnitTypeId } from '../types/ids';
@@ -73,6 +74,7 @@ export class MatchSimulation {
   readonly automation: AutomationSystem;
   readonly construction: ConstructionSystem;
   readonly production = new ProductionSystem();
+  readonly synthesis: SynthesisSystem;
   readonly technology: TechnologySystem;
   readonly combat: CombatSystem;
   readonly turrets: TurretSystem;
@@ -113,6 +115,7 @@ export class MatchSimulation {
       this.navigation,
     );
     this.automation = new AutomationSystem(this.state.resources, this.navigation);
+    this.synthesis = new SynthesisSystem((team) => this.economy(team)?.ledger);
     this.construction = new ConstructionSystem(this.state.buildings, this.navigation, this.completeBuilding);
     this.combat = new CombatSystem({
       targets: this.targets,
@@ -195,6 +198,7 @@ export class MatchSimulation {
     this.automation.update(units, delta);
     this.construction.update(units, delta);
     this.production.update(this.state.buildings.alive(), delta, (team) => this.economy(team), this.spawnUnit);
+    this.synthesis.update(this.state.buildings.alive(), delta);
     this.targets.sync([...this.state.units.alive(), ...this.state.buildings.alive()]);
     this.combat.update(this.state.units.alive(), delta);
     this.turrets.update(this.state.buildings.alive(), delta);
@@ -290,7 +294,14 @@ export class MatchSimulation {
     return this.state.buildings.alive().find((building) => building.team === team && building.kind === 'core');
   }
 
+  /** Switches a synthesis plant off or back on. Returns the state it ended up in. */
+  toggleSynthesis(building: BuildingEntity): boolean {
+    building.synthesisPaused = !building.synthesisPaused;
+    return building.synthesisPaused;
+  }
+
   dispose(): void {
+    this.synthesis.clear();
     this.state.reset();
     this.targets.clear();
     this.damage.clear();
@@ -327,6 +338,7 @@ export class MatchSimulation {
   private readonly handleDeath = (record: DeathRecord): void => {
     const entity = record.entity;
     this.targets.remove(entity.id);
+    this.synthesis.forget(entity.id);
     this.opponent?.forget(entity.id);
     this.hooks.onDeath?.(record);
     destroyEntity(entity, {

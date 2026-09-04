@@ -9,6 +9,12 @@ export interface BuildingConfig {
   readonly cost: ResourceCost;
   readonly constructionTime: number;
   readonly capacityContribution: number;
+  /**
+   * Agent Capacity the structure occupies while it stands. A synthesis plant is crewed: it takes
+   * slots the colony could otherwise spend on Agents, which is what stops manufactured resources
+   * from being strictly better than mining. Zero for everything that is not a plant.
+   */
+  readonly capacityUse: number;
   readonly vision: number;
   readonly acceptsDeposits: boolean;
   readonly attackDamage: number;
@@ -24,16 +30,25 @@ export interface BuildingConfig {
 }
 
 export const BUILDINGS = {
-  core: { id: 'core', label: 'Core', maxHp: 1500, footprint: [4, 4], cost: {}, constructionTime: 0, capacityContribution: 8, vision: 14, acceptsDeposits: true, attackDamage: 0, attackRange: 0, attackCooldown: 1, blocksNavigation: true, clearance: 0.35 },
-  relay: { id: 'relay', label: 'Relay Node', maxHp: 450, footprint: [2, 2], cost: { matter: 80, energy: 20 }, constructionTime: 8, capacityContribution: 5, vision: 8, acceptsDeposits: false, attackDamage: 0, attackRange: 0, attackCooldown: 1, blocksNavigation: true, clearance: 0.35 },
-  fabricator: { id: 'fabricator', label: 'Fabricator', maxHp: 800, footprint: [4, 3], cost: { matter: 160, energy: 80 }, constructionTime: 12, capacityContribution: 0, vision: 9, acceptsDeposits: false, attackDamage: 0, attackRange: 0, attackCooldown: 1, blocksNavigation: true, clearance: 0.35 },
-  habitat: { id: 'habitat', label: 'Habitat', maxHp: 520, footprint: [3, 3], cost: { matter: 70, energy: 15 }, constructionTime: 6, capacityContribution: 5, vision: 7, acceptsDeposits: false, attackDamage: 0, attackRange: 0, attackCooldown: 1, blocksNavigation: true, clearance: 0 },
-  depot: { id: 'depot', label: 'Storage Depot', maxHp: 600, footprint: [3, 2], cost: { matter: 90, energy: 20 }, constructionTime: 7, capacityContribution: 0, vision: 8, acceptsDeposits: true, attackDamage: 0, attackRange: 0, attackCooldown: 1, blocksNavigation: true, clearance: 0 },
-  wall: { id: 'wall', label: 'Barrier Wall', maxHp: 1100, footprint: [4, 1], cost: { matter: 10 }, constructionTime: 4, capacityContribution: 0, vision: 2, acceptsDeposits: false, attackDamage: 0, attackRange: 0, attackCooldown: 1, blocksNavigation: true, clearance: 0 },
-  gate: { id: 'gate', label: 'Gate', maxHp: 700, footprint: [2, 1], cost: { matter: 40, energy: 10 }, constructionTime: 4, capacityContribution: 0, vision: 4, acceptsDeposits: false, attackDamage: 0, attackRange: 0, attackCooldown: 1, blocksNavigation: false, clearance: 0 },
-  outpost: { id: 'outpost', label: 'Field Outpost', maxHp: 650, footprint: [3, 3], cost: { matter: 100, energy: 35 }, constructionTime: 9, capacityContribution: 0, vision: 18, acceptsDeposits: true, attackDamage: 0, attackRange: 0, attackCooldown: 1, blocksNavigation: true, clearance: 0.35 },
-  turret: { id: 'turret', label: 'Zap Turret', maxHp: 700, footprint: [2, 2], cost: { matter: 125, energy: 75 }, constructionTime: 10, capacityContribution: 0, vision: 14, acceptsDeposits: false, attackDamage: 22, attackRange: 10, attackCooldown: 1.15, blocksNavigation: true, clearance: 0 },
-  foundry: { id: 'foundry', label: 'Heavy Foundry', maxHp: 1200, footprint: [5, 4], cost: { matter: 360, energy: 240, data: 60 }, constructionTime: 18, capacityContribution: 0, vision: 10, acceptsDeposits: false, attackDamage: 0, attackRange: 0, attackCooldown: 1, blocksNavigation: true, clearance: 0.35 },
+  // The Core is the match: it holds long enough for a player to see the alarm, look, and answer,
+  // and it defends itself while they do. At 1500 HP and unarmed, a first assault deleted it in
+  // about seven seconds -- measured, a passive colony went from first damage to defeat in under
+  // thirty -- which is not a strategy game, it is a countdown.
+  core: { id: 'core', label: 'Core', maxHp: 3200, footprint: [4, 4], cost: {}, constructionTime: 0, capacityContribution: 8, capacityUse: 0, vision: 14, acceptsDeposits: true, attackDamage: 9, attackRange: 11, attackCooldown: 1.6, blocksNavigation: true, clearance: 0.35 },
+  relay: { id: 'relay', label: 'Relay Node', maxHp: 450, footprint: [2, 2], cost: { matter: 80, energy: 20 }, constructionTime: 8, capacityContribution: 5, capacityUse: 0, vision: 8, acceptsDeposits: false, attackDamage: 0, attackRange: 0, attackCooldown: 1, blocksNavigation: true, clearance: 0.35 },
+  fabricator: { id: 'fabricator', label: 'Fabricator', maxHp: 800, footprint: [4, 3], cost: { matter: 160, energy: 80 }, constructionTime: 12, capacityContribution: 0, capacityUse: 0, vision: 9, acceptsDeposits: false, attackDamage: 0, attackRange: 0, attackCooldown: 1, blocksNavigation: true, clearance: 0.35 },
+  habitat: { id: 'habitat', label: 'Habitat', maxHp: 520, footprint: [3, 3], cost: { matter: 70, energy: 15 }, constructionTime: 6, capacityContribution: 5, capacityUse: 0, vision: 7, acceptsDeposits: false, attackDamage: 0, attackRange: 0, attackCooldown: 1, blocksNavigation: true, clearance: 0 },
+  depot: { id: 'depot', label: 'Storage Depot', maxHp: 600, footprint: [3, 2], cost: { matter: 90, energy: 20 }, constructionTime: 7, capacityContribution: 0, capacityUse: 0, vision: 8, acceptsDeposits: true, attackDamage: 0, attackRange: 0, attackCooldown: 1, blocksNavigation: true, clearance: 0 },
+  wall: { id: 'wall', label: 'Barrier Wall', maxHp: 1100, footprint: [4, 1], cost: { matter: 10 }, constructionTime: 4, capacityContribution: 0, capacityUse: 0, vision: 2, acceptsDeposits: false, attackDamage: 0, attackRange: 0, attackCooldown: 1, blocksNavigation: true, clearance: 0 },
+  gate: { id: 'gate', label: 'Gate', maxHp: 700, footprint: [2, 1], cost: { matter: 40, energy: 10 }, constructionTime: 4, capacityContribution: 0, capacityUse: 0, vision: 4, acceptsDeposits: false, attackDamage: 0, attackRange: 0, attackCooldown: 1, blocksNavigation: false, clearance: 0 },
+  outpost: { id: 'outpost', label: 'Field Outpost', maxHp: 650, footprint: [3, 3], cost: { matter: 100, energy: 35 }, constructionTime: 9, capacityContribution: 0, capacityUse: 0, vision: 18, acceptsDeposits: true, attackDamage: 0, attackRange: 0, attackCooldown: 1, blocksNavigation: true, clearance: 0.35 },
+  // A Generation I unlock, and priced for a colony that is still building its first structures:
+  // fortifying has to be something a player can choose *while* they build a city, not a reward for
+  // having already finished one. Nothing else in the roster answers a raid.
+  turret: { id: 'turret', label: 'Zap Turret', maxHp: 700, footprint: [2, 2], cost: { matter: 100, energy: 45 }, constructionTime: 10, capacityContribution: 0, capacityUse: 0, vision: 14, acceptsDeposits: false, attackDamage: 22, attackRange: 10, attackCooldown: 1.15, blocksNavigation: true, clearance: 0 },
+  reclaimer: { id: 'reclaimer', label: 'Reclamation Plant', maxHp: 620, footprint: [3, 3], cost: { matter: 130, energy: 70 }, constructionTime: 11, capacityContribution: 0, capacityUse: 2, vision: 8, acceptsDeposits: false, attackDamage: 0, attackRange: 0, attackCooldown: 1, blocksNavigation: true, clearance: 0.35 },
+  datalab: { id: 'datalab', label: 'Cognition Lab', maxHp: 700, footprint: [3, 3], cost: { matter: 220, energy: 140 }, constructionTime: 14, capacityContribution: 0, capacityUse: 3, vision: 9, acceptsDeposits: false, attackDamage: 0, attackRange: 0, attackCooldown: 1, blocksNavigation: true, clearance: 0.35 },
+  foundry: { id: 'foundry', label: 'Heavy Foundry', maxHp: 1200, footprint: [5, 4], cost: { matter: 360, energy: 240, data: 60 }, constructionTime: 18, capacityContribution: 0, capacityUse: 0, vision: 10, acceptsDeposits: false, attackDamage: 0, attackRange: 0, attackCooldown: 1, blocksNavigation: true, clearance: 0.35 },
 } as const satisfies Readonly<Record<BuildingTypeId, BuildingConfig>>;
 
 /**

@@ -8,7 +8,9 @@ const score = (input: AISnapshot) => scoreStates(input, TUNING);
 
 function snapshot(overrides: Partial<AISnapshot> = {}): AISnapshot {
   return {
-    elapsedSeconds: 600, phase: 'mid', matter: 100, energy: 50, data: 0, generation: 1,
+    // Past the preset's earliest attack time by default, so a case that is *about* the assault
+    // rule states it, and a change to the opening's pacing does not silently disarm these.
+    elapsedSeconds: TUNING.earliestAttackSeconds + 60, phase: 'mid', matter: 100, energy: 50, data: 0, generation: 1,
     capacityUsed: 4, capacityReserved: 0, capacityMax: 13,
     workers: 5, idleWorkers: 0, army: 0, hasCore: true,
     fabricators: 0, relays: 1, constructionSites: 0,
@@ -67,9 +69,10 @@ describe('AI strategy', () => {
   it('recovers after heavy losses and stays in RECOVER until the timer expires', () => {
     const mauled = snapshot({ peakArmy: 8, armyLostRecently: 6, army: 2, fabricators: 1, enemyCoreKnown: true });
     expect(decide(mauled).state).toBe('RECOVER');
-    const timed = snapshot({ elapsedSeconds: 700, recoveringUntil: 730, fabricators: 1, army: TUNING.attackForce, enemyCoreKnown: true });
+    const recoverUntil = TUNING.earliestAttackSeconds + 130;
+    const timed = snapshot({ elapsedSeconds: recoverUntil - 30, recoveringUntil: recoverUntil, fabricators: 1, army: TUNING.attackForce, enemyCoreKnown: true });
     expect(decide(timed).state).toBe('RECOVER');
-    expect(decide({ ...timed, elapsedSeconds: 731 }).state).toBe('ATTACK');
+    expect(decide({ ...timed, elapsedSeconds: recoverUntil + 1 }).state).toBe('ATTACK');
   });
 
   it('never launches an assault before the difficulty\u2019s earliest attack time', () => {

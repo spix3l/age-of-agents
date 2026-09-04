@@ -2,6 +2,122 @@
 
 Last updated: 2026-09-04
 
+## A survivable opening and a readable deck — 2026-09-04 (D8-17)
+
+Four player reports from one session, in the order they landed.
+
+**"I'm not able to place buildings, but it debited my resources."** Driven through the production
+build with the same clicks: one Relay charged exactly 80 Matter and 20 Energy and started
+construction, and every attempt after it left the ledger untouched at 35 Matter. Nothing leaked —
+the placements were refused because *Energy* was at zero, while the number the player was watching
+was Matter. The transaction is now asserted directly by a test, and the two things that actually
+failed the player are fixed: a build the colony cannot pay for is dimmed and unclickable before it
+is armed, with the short resource marked in its cost line, and a refusal names what is missing
+("NEEDS 20 ENERGY") instead of saying "insufficient resources" at someone looking at a healthy
+balance.
+
+**The command deck.** It had become one four-column grid holding ten build buttons and three
+automation buttons, clipped to two rows with the placement hint printed absolutely over the top of
+them. It is now two labelled groups — BUILD, then KEEP GATHERING with the hint beside it — every
+unlocked structure visible at once, costs in the resource bar's own glyphs, and a width that stops
+short of the minimap instead of running under it.
+
+**"Workers moving to collect resources on their own makes them discover the map on their own, do we
+want this?"** No. The depletion retarget is a promise that a gather order outlives its rock, not a
+licence to explore: an economy that quietly reveals the map, walks into a patrol, or opens a long
+undefended haul is making a strategic decision that belongs to the player. The radius dropped from
+40 units to 22, measured from the Worker's drop point — comfortably inside the gap between one
+resource cluster and the next, so a Worker moves to the next rock in the clearing it is already
+working and no further. Crossing the map stays an explicit order, or standing automation, which
+searches the whole field on purpose.
+
+**"The core dies too fast, the game isn't fair enough so you would need actual building and
+strategy."** Measured, and the player was right by a wide margin. With a passive colony on the
+default difficulty, the Core went from its first scratch to destroyed in **29 seconds** (652s →
+681s), and 1500 HP against a sixteen-Striker wave is about seven seconds of fire. On a 300x224 map
+the player is usually looking somewhere else, and nothing told them it had started.
+
+Three changes, together:
+
+- The Core is a fortified objective: 3200 HP, and it shoots back at 9 damage every 1.6s inside 11
+  units. Measured against Strikers alone, eight leave it at about a fifth health and die trying;
+  ten take it in half a minute. The opponent's standard wave of sixteen still takes it in twenty
+  seconds, so the AI can still win — the player just has to bring an army and house it first, which
+  is what the Definition-of-Done gate now walks through.
+- The colony raises an alarm. Any structure taking damage puts a banner on screen, names what is
+  being hit, plays a cue, and Space points the camera at it. It re-arms on a cooldown so a siege
+  keeps saying so, and takes itself down when the shooting stops.
+- The first assault lands later: earliest attack 540s → 720s on standard, 780s → 960s on relaxed,
+  180s → 300s on relentless.
+
+A passive colony on standard now survives to ~890s instead of ~686s, with roughly five minutes
+between the first damage and defeat instead of twenty-nine seconds. Doing nothing still loses,
+which is correct; being somewhere else for a minute no longer does.
+
+Then a play report: "was busy building my own city then got attacked and lost" — with the alarm
+working and reaching them in time. That is the honest version of the complaint, and it was not a
+pacing problem: the Zap Turret was the only answer to a raid and it sat behind Generation II, so
+"build a city" and "survive" were competing plans. The Turret is now a Generation I unlock at 100
+Matter and 45 Energy. Measured with a colony that builds economy and defences and never produces a
+single combat Agent, across three seeds on standard: unfortified it lost at 751s, 889s and 891s;
+fortified it lost at 755s, held its first damage off from 382s to 877s, and on the third seed
+survived the full forty minutes with the Core untouched. Fortifying is now a strategy, not a
+consolation.
+
+Two guards moved with the pacing. The `AIStrategy` cases that pinned a snapshot to a literal 600s —
+now inside the standard opening — are stated relative to the preset's own constant instead, so the
+next pacing change cannot silently disarm them. The wave-cadence guard is one shared helper that
+bounds the typical gap and tolerates a single outlier, which is what "a cadence that does not
+decay" actually means: an assault ground down away from the basin, or an opponent rebuilding after
+losing an army to a defended Core, costs one gap and proves nothing. Repeated long gaps still fail.
+
+## Manufactured resources when the map runs dry — 2026-09-04 (D8-16)
+
+Player question: what happens when resources are exhausted, do they spawn again, and could a
+futuristic world have artificial ones? They did not spawn again, nothing regrew, and a stripped
+map was simply the end of the economy — Data first, since a seeded map holds roughly 5400 Matter
+to 2000 Energy to 550 Data per faction.
+
+Deposits still never regrow. Respawning rocks would erase the reason to contest the mid and wing
+clusters, which is most of what the map is for. Instead a Generation II colony can manufacture what
+the ground no longer holds, at a loss: a **Reclamation Plant** burns 4 Energy into 8 Matter every
+two seconds, and a **Cognition Lab** burns 12 Matter and 9 Energy into 3 Data every three. Priced
+against what the map actually contains, that is about three quarters of the value back on the first
+and five sixths on the second — a floor under a dead economy, never a reason to stop mining a live
+deposit. The Lab gets the gentler rate because Data is both the scarcest thing on the map and the
+only route to Generation III.
+
+A cycle is atomic. A colony that cannot pay converts nothing rather than half-spending, and the
+plant waits, still counting, until income arrives. Cycle progress is derived state and lives in
+`SynthesisSystem`, not on the entity or in the save, so a reloaded match just restarts its cycles.
+
+Plants cost crew rather than upkeep: 2 and 3 Agent Capacity while they stand, released when they
+fall. That puts the trade in the readout the player already watches — a plant or two more Agents —
+and `checkInvariants` now floors `used` at live Agents plus crew, so a leaked or uncharged crew
+fails the soak. A plant finished while the colony is at its cap pushes `used` past `max`: it is
+already standing, and refusing the claim would let it run for free. Both plants can be switched off
+from the selection panel, and the switch survives a save; a switched-off plant visibly stops
+turning.
+
+The question also exposed a gap worth fixing on its own. Only *automated* Workers were ever
+re-tasked when a deposit ran out, so a hand-managed economy quietly stalled: every Worker on an
+exhausted node went Idle and stayed there until the player noticed. A gather order now outlives the
+rock it was aimed at — the Worker walks to the nearest live node of the same type near its **drop
+point**, since gathering is a round trip and searching from the Worker sent it off to set up long
+hauls. Nothing within 40 units and it idles as before; an automated Worker is left to
+`AutomationSystem`, which searches the whole map for it within half a second.
+
+The opponent builds a plant on the same terms a player would: Generation II, and only for a
+resource with no live node left within 70 units of its Core.
+
+`waves.test.ts` moved again, and this time not because behaviour got worse. Two Worker retargets
+across a 35-minute match are enough to diverge a chaotic simulation; on one of the six seed and
+difficulty pairs that pushed the single worst wave gap from 381s to 484s, while the opponent kept a
+healthy 8-11 army and still attacked nine times. Across seeds 28-32 relentless, one pair got worse,
+one got better, three were identical. The guard now bounds the *typical* gap at the same numbers
+and allows one outlier up to 548s — the top of the relentless spread its own comment already
+documents. A cadence that keeps stretching, which is what decay looks like, still fails.
+
 ## Walls that actually stop things — 2026-09-04 (D8-15)
 
 Player report: "what's the point of having walls if enemies can walk through them?" They were

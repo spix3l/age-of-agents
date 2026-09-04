@@ -3,6 +3,7 @@ import type { EntityId } from '../types/ids';
 import type { ResourceNodeEntity } from '../entities/resources/ResourceNode';
 import type { BuildingEntity, Team, UnitEntity, Vec2 } from '../types/simulation';
 import type { Generation } from '../types/simulation';
+import { synthesisFor } from '../../data/synthesis';
 import { BUILDINGS } from '../../data/buildings';
 import type { PlaceableBuildingType } from '../building/PlacementController';
 import { MAP_MARGIN, MAP_SIZE } from './map';
@@ -459,17 +460,22 @@ export class WorldScene {
       if (visual.health) this.updateHealthBar(visual.health, building.hp, building.maxHp, building.selected && building.operational, building.team, building.operational);
       if (!building.operational || !visual.parts) continue;
 
-      // Orbit rings and dishes turn constantly; the Fabricator gantry only runs while working.
-      visual.parts.spinners.forEach((spinner, index) => {
-        spinner.rotation.z += (index % 2 === 0 ? 0.5 : -0.34) * frame;
-        spinner.rotation.y += (index % 2 === 0 ? 0.18 : -0.26) * frame;
-      });
+      // Orbit rings and dishes turn constantly; the Fabricator gantry only runs while working,
+      // and a synthesis plant counts its conversion as work so a switched-off plant goes still.
+      const plant = synthesisFor(building.kind) !== undefined;
+      const running = plant && !building.synthesisPaused;
+      if (!plant || running) {
+        visual.parts.spinners.forEach((spinner, index) => {
+          spinner.rotation.z += (index % 2 === 0 ? 0.5 : -0.34) * frame;
+          spinner.rotation.y += (index % 2 === 0 ? 0.18 : -0.26) * frame;
+        });
+      }
       if (visual.parts.column) {
         const material = (visual.parts.column as THREE.Mesh).material as THREE.MeshStandardMaterial;
         material.emissiveIntensity = 1.8 + Math.sin(this.animationTime * 2.2 + building.position.x) * 0.5;
       }
       if (visual.parts.arm) {
-        const working = building.productionQueue.length > 0;
+        const working = building.productionQueue.length > 0 || running;
         visual.parts.arm.visible = true;
         visual.parts.arm.position.x = working ? Math.sin(this.animationTime * 2.6) * 1.1 : 0;
         const rest = typeof visual.parts.arm.userData.restY === 'number' ? visual.parts.arm.userData.restY : visual.parts.arm.position.y;

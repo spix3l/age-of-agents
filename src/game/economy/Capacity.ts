@@ -29,5 +29,14 @@ export class Capacity {
   cancel(amount: number): void { this.reservedValue = Math.max(0, this.reservedValue - Math.max(0, amount)); }
   releaseUsed(amount: number): void { this.usedValue = Math.max(0, this.usedValue - Math.max(0, amount)); }
   addProvider(amount: number): void { this.maxValue += Math.max(0, amount); }
+
+  /**
+   * Occupies capacity outright, with no reservation step. A crewed structure claims its slots the
+   * moment it comes online, and unlike an Agent it can push `used` past `max`: the plant is
+   * already standing when it starts drawing crew, so the colony goes over its cap and cannot
+   * produce again until it raises one. Refusing the claim instead would leave a built structure
+   * running for free.
+   */
+  occupyUsed(amount: number): void { this.usedValue += Math.max(0, amount); }
   removeProvider(amount: number): void { this.maxValue = Math.max(0, this.maxValue - Math.max(0, amount)); }
 }

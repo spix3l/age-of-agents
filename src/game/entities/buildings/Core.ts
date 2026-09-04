@@ -20,6 +20,7 @@ export function createCore(id: EntityId, team: Exclude<Team, 'neutral'>, positio
     vision: config.vision,
     acceptsDeposits: config.acceptsDeposits,
     capacityContribution: CORE_CAPACITY,
+    capacityUse: config.capacityUse,
     selected: false,
     productionQueue: [],
     operational: true,
@@ -27,6 +28,9 @@ export function createCore(id: EntityId, team: Exclude<Team, 'neutral'>, positio
     constructionTime: 0,
     builderId: null,
     capacityApplied: true,
-    combat: null,
+    synthesisPaused: false,
+    // A Core shoots back. It is the one structure a colony cannot afford to lose, and a raid that
+    // walks up to an unarmed one for free makes early defence a formality rather than a decision.
+    combat: { damage: config.attackDamage, range: config.attackRange, cooldownTime: config.attackCooldown, cooldown: 0, targetId: null },
   };
 }

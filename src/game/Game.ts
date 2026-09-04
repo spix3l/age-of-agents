@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { DEFAULT_DIFFICULTY, type AIDifficulty } from '../data/ai';
 import { BUILDINGS } from '../data/buildings';
 import { RESOURCES } from '../data/resources';
+import { synthesisFor, type SynthesisRecipe } from '../data/synthesis';
 import { UNITS } from '../data/units';
 import { BUILDING_GENERATION, GENERATIONS } from '../data/technologies';
 import { useUiStore, type MinimapBlip, type SelectionSnapshot } from '../ui/store';
@@ -36,6 +37,14 @@ const REPEATABLE_BUILDINGS = new Set<PlaceableBuildingType>(['wall', 'gate', 'ha
 
 function isUnit(entity: SelectableEntity): entity is UnitEntity { return 'movementSpeed' in entity; }
 function isBuilding(entity: SelectableEntity): entity is BuildingEntity { return 'productionQueue' in entity; }
+
+/** "4 ϟ → 8 ◆ / 2s": what a plant converts, in the HUD's own resource glyphs. */
+function recipeLabel(recipe: SynthesisRecipe): string {
+  const glyph = { matter: '◆', energy: 'ϟ', data: '✦' } as const;
+  const input = (Object.entries(recipe.input) as [keyof typeof glyph, number][])
+    .map(([type, amount]) => `${amount} ${glyph[type]}`).join(' + ');
+  return `${input} → ${recipe.amount} ${glyph[recipe.output]} / ${recipe.cycleSeconds}s`;
+}
 
 export interface GameOptions {
   readonly difficulty?: AIDifficulty;
@@ -139,6 +148,7 @@ export class Game {
       () => this.publishUi(),
     );
     this.input = new InputManager(this.renderer.instance.domElement, {
+      lookAtAlert: this.lookAtAlert,
       selectPoint: (point, additive) => { this.selection.selectPoint(point, additive); this.audio.play('select'); },
       selectBox: (rect, additive) => this.selection.selectBox(rect, additive),
       move: this.issueContextOrder,
@@ -158,6 +168,7 @@ export class Game {
     useUiStore.getState().setCancelProductionRequest(this.cancelProduction);
     useUiStore.getState().setCancelConstructionRequest(this.cancelSelectedConstruction);
     useUiStore.getState().setRelocateRequest(this.beginRelocate);
+    useUiStore.getState().setSynthesisToggleRequest(this.toggleSelectedSynthesis);
     useUiStore.getState().setAdvanceGenerationRequest(this.advanceGeneration);
     useUiStore.getState().setAudioToggleRequest(this.toggleAudio, this.audio.muted);
     useUiStore.getState().setAudioVolumeRequest(this.setAudioVolume, this.audio.volume);
@@ -200,6 +211,7 @@ export class Game {
     useUiStore.getState().setUnitProductionRequest(null);
     useUiStore.getState().setCancelProductionRequest(null);
     useUiStore.getState().setCancelConstructionRequest(null);
+    useUiStore.getState().setSynthesisToggleRequest(null);
     useUiStore.getState().setAdvanceGenerationRequest(null);
     useUiStore.getState().setAudioToggleRequest(null);
     useUiStore.getState().setAudioVolumeRequest(null);
@@ -555,7 +567,7 @@ export class Game {
     const result = this.simulation.build(worker, type, position, rotated);
     useUiStore.getState().setLastOrder(result.ok
       ? `${BUILDINGS[type].label.toUpperCase()} CONSTRUCTION STARTED`
-      : `CONSTRUCTION REJECTED // ${this.buildFailure(result.reason)}`);
+      : `CONSTRUCTION REJECTED // ${this.buildFailure(result.reason, type)}`);
     // Walls, gates, and habitats are placed in runs, so the tool stays armed until it is
     // cancelled or the colony runs out of Matter.
     if (result.ok && REPEATABLE_BUILDINGS.has(type)) {
@@ -602,12 +614,28 @@ export class Game {
     }
   };
 
-  private buildFailure(reason: BuildRejection): string {
-    if (reason === 'INSUFFICIENT_RESOURCES') return 'INSUFFICIENT RESOURCES';
+  private buildFailure(reason: BuildRejection, type?: PlaceableBuildingType): string {
+    if (reason === 'INSUFFICIENT_RESOURCES') return type ? `NEEDS ${this.shortfall(type)}` : 'INSUFFICIENT RESOURCES';
     if (reason === 'NO_BUILD_PATH') return 'NO BUILD PATH';
     if (reason === 'INVALID_PLACEMENT') return 'INVALID SITE';
     if (reason === 'LOCKED') return 'GENERATION LOCKED';
     return 'NO WORKER SELECTED';
+  }
+
+  /**
+   * What the colony is actually missing, as "40 MATTER · 15 ENERGY".
+   *
+   * "Insufficient resources" on its own is the least useful refusal in the HUD: a player watching
+   * a healthy Matter balance has no way to know the Relay was refused over twenty Energy.
+   */
+  private shortfall(type: PlaceableBuildingType): string {
+    const ledger = this.simulation.economy('player')?.ledger;
+    const cost = BUILDINGS[type].cost as Readonly<Partial<Record<'matter' | 'energy' | 'data', number>>>;
+    const missing = (['matter', 'energy', 'data'] as const)
+      .map((resource) => ({ resource, amount: Math.ceil((cost[resource] ?? 0) - (ledger?.balance(resource) ?? 0)) }))
+      .filter((entry) => entry.amount > 0)
+      .map((entry) => `${entry.amount} ${entry.resource.toUpperCase()}`);
+    return missing.length > 0 ? missing.join(' · ') : 'MORE RESOURCES';
   }
 
   private readonly cancelSelectedConstruction = (): void => {
@@ -616,6 +644,18 @@ export class Game {
     if (!site || !this.simulation.removeConstructionSite(site, constructionRefund(site))) return;
     this.selection.clear();
     useUiStore.getState().setLastOrder('CONSTRUCTION CANCELLED // 75% REFUND');
+    this.publishUi();
+  };
+
+  /** Switches the selected synthesis plant off or back on, so it stops burning what it converts. */
+  private readonly toggleSelectedSynthesis = (): void => {
+    if (this.match.isOver) return;
+    const plant = this.selection.selected().find(
+      (entity): entity is BuildingEntity => isBuilding(entity) && entity.team === 'player' && entity.operational && synthesisFor(entity.kind) !== undefined,
+    );
+    if (!plant) return;
+    const paused = this.simulation.toggleSynthesis(plant);
+    useUiStore.getState().setLastOrder(`${BUILDINGS[plant.kind].label.toUpperCase()} // ${paused ? 'OFFLINE' : 'ONLINE'}`);
     this.publishUi();
   };
 
@@ -636,6 +676,50 @@ export class Game {
    * are read from the ledger's cumulative totals rather than tracked per deposit, which keeps
    * the gathering system unaware that a HUD exists.
    */
+  /** Structure health last sampled, so the HUD can tell the player the colony is being hit. */
+  private readonly structureHealth = new Map<EntityId, number>();
+  private lastAlertAt = -Infinity;
+
+  /**
+   * Raises the alarm when the colony takes structural damage.
+   *
+   * Without it a first assault is silent: measured, a passive colony went from its Core's first
+   * scratch to defeat in under thirty seconds, and a player looking anywhere else on a 300x224 map
+   * never knew it had started. The alarm names what is being hit, points the camera at it on
+   * Space, and re-arms on a cooldown so a long siege keeps saying so.
+   */
+  private checkForAttacks(): void {
+    let hit: BuildingEntity | null = null;
+    for (const building of this.state.buildings.alive()) {
+      if (building.team !== 'player') continue;
+      const previous = this.structureHealth.get(building.id);
+      this.structureHealth.set(building.id, building.hp);
+      if (previous === undefined || building.hp >= previous) continue;
+      // The Core outranks anything else being hit: it is the one loss that ends the match.
+      if (!hit || (building.kind === 'core' && hit.kind !== 'core')) hit = building;
+    }
+    const now = this.simulation.elapsedSeconds;
+    if (!hit) {
+      // Quiet for a while: take the banner down rather than leave a stale warning up all match.
+      if (useUiStore.getState().alert && now - this.lastAlertAt > 20) useUiStore.getState().setAlert(null);
+      return;
+    }
+    if (now - this.lastAlertAt < 12) return;
+    this.lastAlertAt = now;
+    const text = hit.kind === 'core' ? 'CORE UNDER ATTACK' : `${BUILDINGS[hit.kind].label.toUpperCase()} UNDER ATTACK`;
+    useUiStore.getState().setAlert({ text, x: hit.position.x, z: hit.position.z, nonce: Math.round(now * 10) });
+    useUiStore.getState().setLastOrder(`${text} // SPACE TO LOOK`);
+    this.audio.play('alarm');
+  }
+
+  /** Space: jump to the fight, or home to the Core when nothing is under attack. */
+  private readonly lookAtAlert = (): void => {
+    const alert = useUiStore.getState().alert;
+    const target = alert ?? this.simulation.coreOf('player')?.position;
+    if (!target) return;
+    this.camera.jumpTo(target.x, target.z);
+  };
+
   private incomeSample: { at: number; matter: number; energy: number; data: number } | null = null;
   private income = { matter: 0, energy: 0, data: 0 };
 
@@ -663,6 +747,7 @@ export class Game {
     const economy = this.simulation.economy('player');
     if (!economy) return;
     this.sampleIncome();
+    this.checkForAttacks();
     this.publishMinimap();
     const balances = economy.ledger.snapshot();
     const capacity = economy.capacity.snapshot();
@@ -746,7 +831,14 @@ export class Game {
       const catalog: readonly UnitTypeId[] | null = entity.kind === 'core' ? ['worker']
         : entity.kind === 'fabricator' ? (generation >= 2 ? ['striker', 'ranger', 'scout'] : ['striker'])
           : entity.kind === 'foundry' ? ['titan'] : null;
-      return { type: 'building', name: BUILDINGS[entity.kind].label, hp: entity.hp, maxHp: entity.maxHp, activity: entity.operational ? (entity.productionQueue.length ? 'Fabricating' : entity.combat ? 'Defending' : 'Operational') : 'Under construction', detail: entity.operational ? `${entity.productionQueue.length} queued` : `${Math.round(entity.constructionProgress * 100)}% complete`, isPlayerCore: entity.team === 'player' && entity.kind === 'core', canBuild: false, producer: entity.team === 'player' && entity.operational ? catalog : null, constructionSite: entity.team === 'player' && !entity.operational, canRelocate: entity.team === 'player' && this.simulation.canRelocate(entity) };
+      const recipe = synthesisFor(entity.kind);
+      const status = recipe ? this.simulation.synthesis.status(entity) : null;
+      const activity = !entity.operational ? 'Under construction'
+        : status ? (status === 'running' ? 'Synthesizing' : status === 'starved' ? 'Waiting on input' : 'Switched off')
+          : entity.productionQueue.length ? 'Fabricating' : entity.combat ? 'Defending' : 'Operational';
+      const detail = !entity.operational ? `${Math.round(entity.constructionProgress * 100)}% complete`
+        : recipe ? recipeLabel(recipe) : `${entity.productionQueue.length} queued`;
+      return { type: 'building', name: BUILDINGS[entity.kind].label, hp: entity.hp, maxHp: entity.maxHp, activity, detail, isPlayerCore: entity.team === 'player' && entity.kind === 'core', canBuild: false, producer: entity.team === 'player' && entity.operational ? catalog : null, constructionSite: entity.team === 'player' && !entity.operational, canRelocate: entity.team === 'player' && this.simulation.canRelocate(entity), synthesis: recipe && status && entity.team === 'player' && entity.operational ? { recipe: recipeLabel(recipe), status, progress: this.simulation.synthesis.cycleProgress(entity) } : null };
     }
     return { type: 'resource', name: RESOURCES[entity.resourceType].label, activity: `${entity.remaining} remaining`, detail: `${Math.round((entity.remaining / entity.capacity) * 100)}% integrity`, isPlayerCore: false, canBuild: false };
   }

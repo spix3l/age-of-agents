@@ -152,6 +152,10 @@ Each player owns one **Core**.
 
 The Core is the central structure of the civilization.
 
+It is heavily built and defends itself: a raid that walks up to a Core is punished, and taking one
+down requires a real army rather than a first wave. A colony under attack anywhere is told so, and
+can put the camera on the fight immediately.
+
 ## Victory
 
 Destroy the enemy Core.
@@ -250,6 +254,25 @@ Sources:
 Data Nodes should be relatively scarce and strategically valuable.
 
 This creates territorial conflict around technologically important areas.
+
+---
+
+## 7.4 Exhaustion and Synthesis
+
+Deposits are finite and never regrow. Running the ground dry is a phase of a long match, not a bug
+to be patched with respawning rocks: permanence is what makes the mid-field and wing clusters worth
+contesting.
+
+A Generation II colony answers exhaustion the way an artificial intelligence would — it
+manufactures. Two crewed structures convert what the colony still has into what it no longer holds:
+
+* **Reclamation Plant** — Energy into Matter;
+* **Cognition Lab** — Matter and Energy into Data.
+
+Every recipe is a loss, priced against how much of each resource a seeded map actually contains,
+and every plant occupies Agent Capacity while it runs. Synthesis is the floor under a dead economy;
+mining a live deposit is always better. A plant can be switched off when the colony would rather
+spend its input elsewhere.
 
 ---
 

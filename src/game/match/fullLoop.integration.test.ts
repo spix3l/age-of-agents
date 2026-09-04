@@ -116,6 +116,56 @@ describe('full match loop', () => {
     expect(checkInvariants(sim)).toEqual([]);
   });
 
+  it('never charges for a structure it refused to place', () => {
+    const sim = new MatchSimulation({ seed: 4, opponent: false });
+    const economy = sim.economy('player')!;
+    const worker = playerWorkers(sim)[0]!;
+
+    // Too poor: the opening balance cannot cover a Fabricator.
+    const before = economy.ledger.snapshot();
+    const poor = sim.build(worker, 'fabricator', { x: worker.position.x + 9, z: worker.position.z + 9 });
+    expect(poor.ok).toBe(false);
+    expect(economy.ledger.snapshot()).toEqual(before);
+
+    // Rich, but the site is off the map, and Generation-locked structures are refused too.
+    economy.ledger.deposit('matter', 5_000);
+    economy.ledger.deposit('energy', 5_000);
+    const funded = economy.ledger.snapshot();
+    expect(sim.build(worker, 'fabricator', { x: 10_000, z: 10_000 }).ok).toBe(false);
+    expect(sim.build(worker, 'reclaimer', { x: worker.position.x + 9, z: worker.position.z + 9 }).ok).toBe(false);
+    expect(economy.ledger.snapshot()).toEqual(funded);
+    expect(checkInvariants(sim)).toEqual([]);
+  });
+
+  it('runs a synthesis plant end to end: crew charged, input burned, output banked', () => {
+    const sim = new MatchSimulation({ seed: 4, opponent: false });
+    const economy = sim.economy('player')!;
+    economy.ledger.deposit('matter', 1_000);
+    economy.ledger.deposit('energy', 1_000);
+    economy.ledger.deposit('data', 200);
+    expect(sim.advanceGeneration('player').ok).toBe(true);
+    const worker = playerWorkers(sim)[0]!;
+    const { used: usedBefore, max: maxBefore } = economy.capacity.snapshot();
+    const placed = [9, 13, 17].some((offset) => [9, 0, -9].some((sideways) =>
+      sim.build(worker, 'reclaimer', { x: worker.position.x + offset, z: worker.position.z + sideways }).ok));
+    expect(placed).toBe(true);
+    advance(sim, 180);
+
+    const plant = sim.buildingsOf('player').find((building) => building.kind === 'reclaimer');
+    expect(plant?.operational).toBe(true);
+    // The crew is charged against Agent Capacity, not against the ceiling: a plant is not a Relay.
+    expect(economy.capacity.snapshot().used).toBe(usedBefore + BUILDINGS.reclaimer.capacityUse);
+    expect(economy.capacity.snapshot().max).toBe(maxBefore);
+
+    const before = economy.ledger.snapshot();
+    advance(sim, 300);
+    const after = economy.ledger.snapshot();
+    // Energy went down, Matter came back up, and the trade was a loss on the map's own terms.
+    expect(after.energy).toBeLessThan(before.energy);
+    expect(after.matter).toBeGreaterThan(before.matter);
+    expect(checkInvariants(sim)).toEqual([]);
+  });
+
   it('ends the match exactly once when a Core dies and freezes every command afterwards', () => {
     const sim = new MatchSimulation({ seed: 4, opponent: false });
     const endings: string[] = [];

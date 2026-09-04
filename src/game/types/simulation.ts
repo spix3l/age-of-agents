@@ -73,6 +73,8 @@ export interface BuildingEntity extends SimEntity {
   readonly vision: number;
   readonly acceptsDeposits: boolean;
   readonly capacityContribution: number;
+  /** Agent Capacity the structure occupies while it stands. Only synthesis plants use any. */
+  readonly capacityUse: number;
   selected: boolean;
   productionQueue: ProductionOrder[];
   operational: boolean;
@@ -82,6 +84,8 @@ export interface BuildingEntity extends SimEntity {
   rotated: boolean;
   builderId: EntityId | null;
   capacityApplied: boolean;
+  /** A synthesis plant the player has switched off, so it stops burning what it converts. */
+  synthesisPaused: boolean;
   combat: { readonly damage: number; readonly range: number; readonly cooldownTime: number; cooldown: number; targetId: EntityId | null } | null;
 }
 

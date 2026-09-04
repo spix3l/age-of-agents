@@ -9,9 +9,9 @@ export function createBuildingSite(id: EntityId, type: Exclude<BuildingTypeId, '
     position: { ...position }, previousPosition: { ...position },
     hp: Math.max(1, Math.round(config.maxHp * 0.05)), maxHp: config.maxHp,
     footprint: footprintFor(type, rotated), rotated,
-    vision: config.vision, acceptsDeposits: config.acceptsDeposits, capacityContribution: config.capacityContribution,
+    vision: config.vision, acceptsDeposits: config.acceptsDeposits, capacityContribution: config.capacityContribution, capacityUse: config.capacityUse,
     selected: false, productionQueue: [], operational: false, constructionProgress: 0,
-    constructionTime: config.constructionTime, builderId, capacityApplied: false,
+    constructionTime: config.constructionTime, builderId, capacityApplied: false, synthesisPaused: false,
     combat: config.attackDamage > 0
       ? { damage: config.attackDamage, range: config.attackRange, cooldownTime: config.attackCooldown, cooldown: 0, targetId: null }
       : null,

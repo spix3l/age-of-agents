@@ -423,6 +423,89 @@ function buildGate(kit: Kit): BuildingModel {
 }
 
 /**
+ * Reclamation Plant: an intake hopper, a crusher drum turning behind an open frame, and two
+ * exhaust stacks. It reads as the colony eating something and pushing metal out the other side,
+ * which is exactly what it does -- Energy in at the lit mouth, Matter out on the pad.
+ */
+function buildReclaimer(kit: Kit): BuildingModel {
+  const { cache, team } = kit;
+  const group = new THREE.Group();
+  const spinners: THREE.Object3D[] = [];
+  group.add(kit.box('reclaimer-pad', [3.1, 0.26, 3.1], cache.frame(team), [0, 0.13, 0], 0.05));
+  group.add(kit.skirt('reclaimer-skirt', 2.4, 2.4, 0.7, cache.hull(team), [0, 0.6, 0.1]));
+  group.add(kit.drum('reclaimer-body', 1.0, 1.15, 1.3, cache.hull(team), [0, 1.55, 0.1]));
+  group.add(kit.ringStrips('reclaimer-body-strip', 1.05, 1.75, 0.7, 0.06, 8, 2.2, [0, 0, 0.1]));
+  group.add(kit.drum('reclaimer-cap', 0.8, 1.05, 0.32, cache.plate(team), [0, 2.36, 0.1]));
+  group.add(kit.ringStrips('reclaimer-cap-strip', 0.86, 2.5, 0.4, 0.06, 8, 2.6, [0, 0, 0.1]));
+  // A lit vent on the near face: from the game's camera the machinery is on the far side.
+  group.add(kit.strip('reclaimer-vent', [1.0, 0.3, 0.08], [0, 1.35, 1.28], 0, 2.0));
+
+  // The crusher: a drum on a horizontal axis, framed so the turning face is visible from above.
+  const crusher = kit.drum('reclaimer-crusher', 0.52, 0.52, 0.9, cache.steel(), [0, 1.5, -1.0], 6, false);
+  crusher.rotation.x = Math.PI / 2;
+  spinners.push(crusher);
+  group.add(crusher);
+  for (const side of [-1, 1]) {
+    group.add(kit.box('reclaimer-yoke', [0.22, 1.5, 0.9], cache.frame(team), [side * 0.72, 1.2, -1.0], 0.04));
+    group.add(kit.drum(`reclaimer-stack-${side > 0 ? 'a' : 'b'}`, 0.3, 0.36, 1.6, cache.plate(team), [side * 1.0, 2.35, 0.8], 6));
+    group.add(kit.glowMesh('reclaimer-stack-top', () => new THREE.CylinderGeometry(0.24, 0.24, 0.12, 6), [side * 1.0, 3.2, 0.8], 2.4));
+    group.add(kit.lamp('reclaimer-lamp', [side * 1.2, 0.95, -1.35]));
+  }
+
+  // The intake: a lit throat under a hazard-striped lintel, facing the same way as a Foundry mouth.
+  const mouth = kit.strip('reclaimer-mouth', [1.1, 0.55, 0.1], [0, 0.72, -1.5], 0, 1.9);
+  group.add(mouth);
+  group.add(kit.box('reclaimer-mouth-frame', [1.5, 0.9, 0.22], cache.hull(team), [0, 0.75, -1.42], 0.04, false));
+  group.add(kit.box('reclaimer-stripe', [1.4, 0.1, 0.05], cache.hazard(), [0, 1.28, -1.45], 0.01, false));
+
+  // The ram that feeds it, driven by the same "working" animation as a Fabricator gantry.
+  const ram = new THREE.Group();
+  ram.position.set(0, 1.05, -1.85);
+  ram.userData.restY = 1.05;
+  ram.add(kit.box('reclaimer-ram-head', [0.9, 0.3, 0.4], cache.plate(team), [0, 0, 0], 0.04, false));
+  ram.add(kit.box('reclaimer-ram-rod', [0.16, 0.16, 0.7], cache.steel(), [0, 0, 0.5], 0.03, false));
+  group.add(ram);
+  return { group, spinners, column: mouth, arm: ram, pickable: kit.pickable, generationParts: [] };
+}
+
+/**
+ * Cognition Lab: a shielded column of lit data discs under a slow gyro ring. Where the Reclaimer
+ * is heavy machinery, this one is quiet and instrument-like -- the place a colony thinks in.
+ */
+function buildDatalab(kit: Kit): BuildingModel {
+  const { cache, team } = kit;
+  const group = new THREE.Group();
+  const spinners: THREE.Object3D[] = [];
+  group.add(kit.box('datalab-pad', [3.1, 0.24, 3.1], cache.frame(team), [0, 0.12, 0], 0.05));
+  group.add(kit.chassis('datalab-plinth', 1.35, 0.45));
+  group.add(kit.drum('datalab-shell', 0.95, 1.2, 0.95, cache.hull(team), [0, 0.92, 0]));
+  group.add(kit.podRing('datalab-buttress', 1.15, 0.8, 4, [0.34, 0.66, 0.3], [0, 0, 0], Math.PI / 4));
+
+  // The stack the Data actually comes off, and the reason the shell stops low: three lit discs
+  // spaced on an open spindle, in clear air where they read from the game's own camera angle.
+  group.add(kit.drum('datalab-spindle', 0.2, 0.2, 1.5, cache.steel(), [0, 2.1, 0], 6, false));
+  for (const [index, y] of [1.6, 2.05, 2.5].entries()) {
+    group.add(kit.glowMesh(`datalab-disc-${index}`, () => new THREE.CylinderGeometry(0.7, 0.7, 0.07, 12), [0, y, 0], 1.5));
+    group.add(kit.drum(`datalab-disc-rim-${index}`, 0.74, 0.74, 0.05, cache.plate(team), [0, y - 0.07, 0], 12, false));
+  }
+  group.add(kit.drum('datalab-collar', 0.5, 0.75, 0.2, cache.plate(team), [0, 2.72, 0], 8));
+
+  const gyro = kit.glowMesh('datalab-gyro', () => new THREE.TorusGeometry(0.98, 0.05, 6, 20), [0, 2.05, 0], 1.8);
+  gyro.rotation.x = Math.PI / 2.4;
+  spinners.push(gyro);
+  group.add(gyro);
+
+  const spire = kit.strip('datalab-spire', [0.12, 0.9, 0.12], [0, 3.25, 0], 0, 2.2);
+  group.add(spire);
+  group.add(kit.antenna('datalab-antenna', [0.9, 1.4, -0.7], 0.9));
+  for (const side of [-1, 1]) {
+    group.add(kit.box('datalab-cowl', [0.5, 1.0, 0.5], cache.frame(team), [side * 1.15, 0.8, 1.0], 0.05));
+    group.add(kit.lamp('datalab-lamp', [side * 1.15, 1.36, 1.0]));
+  }
+  return { group, spinners, column: spire, arm: null, pickable: kit.pickable, generationParts: [] };
+}
+
+/**
  * Every structure grows real mass at each Generation rather than wearing a badge: extra
  * storeys, armour, dishes, and crowns that change the silhouette from across the map.
  */
@@ -588,7 +671,9 @@ export function buildBuildingModel(cache: ResourceCache, kind: BuildingTypeId, t
               : kind === 'gate' ? buildGate(kit)
                 : kind === 'outpost' ? buildOutpost(kit)
                   : kind === 'turret' ? buildTurret(kit)
-                    : buildFoundry(kit);
+                    : kind === 'reclaimer' ? buildReclaimer(kit)
+                      : kind === 'datalab' ? buildDatalab(kit)
+                        : buildFoundry(kit);
   const upgrades = generationUpgrades(kit, kind);
   for (const entry of upgrades) model.group.add(entry.part);
   return { ...model, generationParts: [...model.generationParts, ...upgrades] };

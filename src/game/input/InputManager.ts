@@ -7,6 +7,8 @@ interface InputCallbacks {
   readonly selectionBox: (rect: ScreenRect | null) => void;
   readonly hover?: (point: ScreenPoint) => void;
   readonly primaryAction?: (point: ScreenPoint) => boolean;
+  /** Space: points the camera at whatever the colony is being attacked at, or at the Core. */
+  readonly lookAtAlert?: () => void;
   /** Consumes a held-button drag, used to lay a continuous run of village pieces. */
   readonly primaryDrag?: (point: ScreenPoint) => boolean;
   readonly rotateAction?: () => boolean;
@@ -74,6 +76,10 @@ export class InputManager {
   private readonly onKeyDown = (event: KeyboardEvent): void => {
     if (event.key === 'Escape' && this.callbacks.cancelAction?.()) event.preventDefault();
     if ((event.key === 'r' || event.key === 'R') && this.callbacks.rotateAction?.()) event.preventDefault();
+    if (event.code === 'Space' && !(event.target instanceof HTMLInputElement)) {
+      event.preventDefault();
+      this.callbacks.lookAtAlert?.();
+    }
     if (event.key === 'F3') {
       event.preventDefault();
       this.callbacks.toggleDebug?.();

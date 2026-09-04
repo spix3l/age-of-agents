@@ -64,6 +64,12 @@ export interface SelectionSnapshot {
   readonly constructionSite?: boolean;
   /** A completed player structure other than the Core, which can be picked up and set down. */
   readonly canRelocate?: boolean;
+  /** A selected synthesis plant: what it converts, and whether it is currently doing it. */
+  readonly synthesis?: {
+    readonly recipe: string;
+    readonly status: 'running' | 'starved' | 'paused' | 'offline';
+    readonly progress: number;
+  } | null;
 }
 
 /** One dot on the minimap. Kept deliberately small: this ships at 10 Hz for every visible entity. */
@@ -109,6 +115,12 @@ interface UiState {
   selectionBox: ScreenRect | null;
   lastOrder: string;
   minimap: MinimapSnapshot;
+  /**
+   * The colony is being attacked somewhere. Held until the fight stops rather than flashed once:
+   * a player looking at their expansion needs to be told, not to have missed a blink.
+   */
+  alert: { readonly text: string; readonly x: number; readonly z: number; readonly nonce: number } | null;
+  setAlert: (alert: UiState['alert']) => void;
   /** Income over the last sampling window, per second, for the resource bar. */
   income: { readonly matter: number; readonly energy: number; readonly data: number };
   setMinimap: (minimap: MinimapSnapshot) => void;
@@ -122,6 +134,7 @@ interface UiState {
   cancelProductionRequest: ((id: EntityId) => void) | null;
   cancelConstructionRequest: (() => void) | null;
   relocateRequest: (() => void) | null;
+  synthesisToggleRequest: (() => void) | null;
   advanceGenerationRequest: (() => void) | null;
   audioToggleRequest: (() => void) | null;
   audioMuted: boolean;
@@ -177,6 +190,7 @@ interface UiState {
   setCancelProductionRequest: (request: ((id: EntityId) => void) | null) => void;
   setCancelConstructionRequest: (request: (() => void) | null) => void;
   setRelocateRequest: (request: (() => void) | null) => void;
+  setSynthesisToggleRequest: (request: (() => void) | null) => void;
   setAdvanceGenerationRequest: (request: (() => void) | null) => void;
   setAudioToggleRequest: (request: (() => void) | null, muted?: boolean) => void;
   setAudioVolumeRequest: (request: ((volume: number) => void) | null, volume?: number) => void;
@@ -188,6 +202,7 @@ interface UiState {
   cancelProduction: (id: EntityId) => void;
   cancelConstruction: () => void;
   beginRelocate: () => void;
+  toggleSynthesis: () => void;
   advanceGeneration: () => void;
   toggleAudio: () => void;
   setAudioVolume: (volume: number) => void;
@@ -205,14 +220,14 @@ const EMPTY_SELECTION: SelectionSnapshot = { type: 'none', name: 'NO SELECTION',
 
 export const useUiStore = create<UiState>((set, get) => ({
   matter: 0, energy: 0, data: 0, generation: 1, capacityUsed: 0, capacityReserved: 0, capacityMax: 0,
-  selectedCount: 0, totalUnits: 0, selection: EMPTY_SELECTION,
+  selectedCount: 0, totalUnits: 0, selection: EMPTY_SELECTION, alert: null,
   queue: { count: 0, progress: 0, label: 'QUEUE EMPTY', items: [] },
   minimap: EMPTY_MINIMAP, income: { matter: 0, energy: 0, data: 0 }, minimapJumpRequest: null,
   matchSeed: newSeed(),
   selectionBox: null, lastOrder: 'AWAITING COMMAND', matchResult: null, matchSummary: EMPTY_MATCH_SUMMARY, matchNonce: 0,
   menuOpen: true, helpOpen: false, difficulty: DEFAULT_DIFFICULTY, mode: 'campaign',
   paused: false, pendingSave: null, savedGame: readSave(), saveNote: null, saveRequest: null,
-  debugVisible: false, debug: EMPTY_DEBUG, productionRequest: null, buildRequest: null, automationRequest: null, unitProductionRequest: null, cancelProductionRequest: null, cancelConstructionRequest: null, relocateRequest: null, advanceGenerationRequest: null, audioToggleRequest: null, audioVolumeRequest: null, audioMuted: false, audioVolume: 0.66, placementMode: null, relocating: false,
+  debugVisible: false, debug: EMPTY_DEBUG, productionRequest: null, buildRequest: null, automationRequest: null, unitProductionRequest: null, cancelProductionRequest: null, cancelConstructionRequest: null, relocateRequest: null, synthesisToggleRequest: null, advanceGenerationRequest: null, audioToggleRequest: null, audioVolumeRequest: null, audioMuted: false, audioVolume: 0.66, placementMode: null, relocating: false,
   setEconomySnapshot: (snapshot) => set(snapshot),
   setDifficulty: (difficulty) => set({ difficulty }),
   setMode: (mode) => set({ mode }),
@@ -268,7 +283,9 @@ export const useUiStore = create<UiState>((set, get) => ({
   setUnitProductionRequest: (unitProductionRequest) => set({ unitProductionRequest }),
   setCancelProductionRequest: (cancelProductionRequest) => set({ cancelProductionRequest }),
   setCancelConstructionRequest: (cancelConstructionRequest) => set({ cancelConstructionRequest }),
+  setAlert: (alert) => set({ alert }),
   setRelocateRequest: (relocateRequest) => set({ relocateRequest }),
+  setSynthesisToggleRequest: (synthesisToggleRequest) => set({ synthesisToggleRequest }),
   setAdvanceGenerationRequest: (advanceGenerationRequest) => set({ advanceGenerationRequest }),
   setAudioToggleRequest: (audioToggleRequest, audioMuted) => set((state) => ({ audioToggleRequest, audioMuted: audioMuted ?? state.audioMuted })),
   setAudioVolumeRequest: (audioVolumeRequest, audioVolume) => set((state) => ({ audioVolumeRequest, audioVolume: audioVolume ?? state.audioVolume })),
@@ -280,6 +297,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   cancelProduction: (id) => get().cancelProductionRequest?.(id),
   cancelConstruction: () => get().cancelConstructionRequest?.(),
   beginRelocate: () => get().relocateRequest?.(),
+  toggleSynthesis: () => get().synthesisToggleRequest?.(),
   advanceGeneration: () => get().advanceGenerationRequest?.(),
   toggleAudio: () => get().audioToggleRequest?.(),
   setAudioVolume: (volume) => get().audioVolumeRequest?.(volume),
