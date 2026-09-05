@@ -2,6 +2,7 @@ import { GENERATIONS } from '../../data/technologies';
 import { UNITS } from '../../data/units';
 import type { UnitTypeId } from '../../game/types/ids';
 import { useUiStore } from '../store';
+import { ModelPortrait } from '../hud/ModelPortrait';
 
 export function ProductionActions({ unitTypes, isCore = false }: { readonly unitTypes: readonly UnitTypeId[]; readonly isCore?: boolean }) {
   const queue = useUiStore((state) => state.queue);
@@ -17,7 +18,7 @@ export function ProductionActions({ unitTypes, isCore = false }: { readonly unit
         const config = UNITS[unitType];
         const cost = config.cost as Readonly<Partial<Record<'matter' | 'energy' | 'data', number>>>;
         return <button key={unitType} type="button" className="produce-button" onClick={() => produceUnit(unitType)}>
-          <span className="button-glyph">+</span>
+          <ModelPortrait kind={unitType} />
           <span><strong>FABRICATE {config.label.toUpperCase()}</strong><small>{cost.matter ?? 0}M · {cost.energy ?? 0}E · {cost.data ?? 0}D</small></span>
         </button>;
       })}

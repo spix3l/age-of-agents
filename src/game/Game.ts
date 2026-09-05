@@ -363,7 +363,7 @@ export class Game {
     this.smoothedFps += (1 / Math.max(frameDelta, 1 / 240) - this.smoothedFps) * 0.08;
     this.adaptQuality(frameDelta);
     this.world.updatePresentation(frameDelta, this.camera.camera, this.camera.focusPoint, this.camera.zoomLevel);
-    this.world.syncUnits(this.state.units.all(), alpha);
+    this.world.syncUnits(this.state.units.all(), alpha, frameDelta);
     this.world.syncStructures(this.state.buildings.all(), this.state.resources.all());
     this.renderer.render(this.world.scene, this.camera.camera);
   };

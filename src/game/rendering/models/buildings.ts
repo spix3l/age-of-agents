@@ -4,6 +4,8 @@ import { BUILDINGS } from '../../../data/buildings';
 import type { BuildingTypeId } from '../../types/ids';
 import type { Team } from '../../types/simulation';
 import type { ResourceCache } from './palette';
+import { detailBuilding } from './machinery';
+import { applyMachineryMaterials } from './machineryMaterials';
 
 export interface BuildingModel {
   readonly group: THREE.Group;
@@ -66,7 +68,7 @@ class Kit {
     const group = new THREE.Group();
     for (let index = 0; index < sides; index += 1) {
       const angle = (index + 0.5) * (Math.PI * 2 / sides) + Math.PI / sides;
-      group.add(this.strip(key, [length, thickness, thickness], [Math.cos(angle) * radius, y, Math.sin(angle) * radius], -angle + Math.PI / 2, intensity));
+      group.add(this.strip(key, [length * 0.58, thickness, thickness], [Math.cos(angle) * radius, y, Math.sin(angle) * radius], -angle + Math.PI / 2, intensity));
     }
     group.position.set(...at);
     return group;
@@ -170,24 +172,41 @@ function buildCore(kit: Kit): BuildingModel {
     group.add(kit.strip('core-buttress-strip', [0.08, 1.0, 0.08], [side * 2.62, 0.95, 0]));
     group.add(kit.strip('core-buttress-strip', [0.08, 1.0, 0.08], [0, 0.95, side * 2.62]));
   }
+  // Independent sloped armour plates interrupt the concentric tiers with structural ribs.
+  for (let side = 0; side < 8; side++) {
+    const angle = side * Math.PI / 4;
+    const rib = new THREE.Group();
+    rib.rotation.y = angle;
+    const brace = kit.box('core-armour-rib', [0.65, 2.55, 0.62], hull, [0, 1.75, 2.22], 0.12);
+    brace.rotation.x = -0.28;
+    rib.add(brace);
+    rib.add(kit.box('core-rib-foot', [0.9, 0.62, 1.0], frame, [0, 0.5, 2.58], 0.09));
+    rib.add(kit.box('core-rib-cap', [0.72, 0.28, 0.68], hull, [0, 3.16, 1.87], 0.07));
+    rib.add(kit.box('core-rib-hazard', [0.34, 0.09, 0.06], cache.hazard(), [0, 0.82, 3.09], 0.01));
+    rib.add(kit.strip('core-rib-light', [0.07, 0.8, 0.05], [0, 1.8, 2.62], 0, 1.2));
+    group.add(rib);
+  }
+  group.add(kit.box('core-front-door', [1.0, 1.25, 0.25], frame, [0, 0.9, 2.88], 0.06));
+  group.add(kit.box('core-door-header', [1.1, 0.15, 0.3], cache.hazard(), [0, 1.6, 2.86], 0.03));
+  group.add(kit.strip('core-door-optic', [0.35, 0.12, 0.04], [0, 1.18, 3.03], 0, 1.5));
   group.add(kit.box('core-gate', [1.4, 1.1, 0.3], frame, [0, 0.95, -2.75], 0.04));
   group.add(kit.strip('core-gate-strip', [1.0, 0.7, 0.08], [0, 0.95, -2.92], 0, 1.4));
 
   group.add(kit.drum('core-throat', 0.9, 1.15, 0.9, frame, [0, 4.45, 0]));
   group.add(kit.drum('core-throat-lip', 1.2, 1.05, 0.2, plate, [0, 4.95, 0]));
   group.add(kit.ringStrips('core-throat-strip', 1.2, 4.95, 0.7, 0.08, 8, 2.8));
-  const column = kit.glowMesh('core-column', () => new THREE.CylinderGeometry(0.28, 0.42, 4.2, 8), [0, 7.0, 0], 2.6);
+  const column = kit.glowMesh('core-column', () => new THREE.CylinderGeometry(0.035, 0.22, 3.4, 8), [0, 6.5, 0], 2.6);
   const glowColor = cache.glow(team).color.getHex();
   const beam = new THREE.Mesh(
-    cache.geometry('core-beam', () => new THREE.CylinderGeometry(0.16, 0.7, 7, 8, 1, true)),
+    cache.geometry('core-beam', () => new THREE.CylinderGeometry(0.01, 0.46, 4.2, 8, 1, true)),
     cache.standard(`core-beam-${team}`, { color: glowColor, emissive: glowColor, emissiveIntensity: 1.2, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide, flatShading: false }),
   );
-  beam.position.y = 8.4;
+  beam.position.y = 6.9;
   const crown = kit.glowMesh('core-crown', () => new THREE.OctahedronGeometry(0.5, 0), [0, 5.55, 0], 2.2);
   tag(crown, kit.id, kit.pickable);
   group.add(column, beam, crown);
-  for (const [index, radius] of [1.4, 1.8].entries()) {
-    const ring = kit.glowMesh(`core-ring-${index}`, () => new THREE.TorusGeometry(radius, 0.05, 6, 28), [0, 5.9 + index * 0.6, 0], 1.4);
+  for (const [index, radius] of [0.58, 0.72].entries()) {
+    const ring = kit.glowMesh(`core-ring-${index}`, () => new THREE.TorusGeometry(radius, 0.025, 6, 28), [0, 5.0 + index * 0.15, 0], 1.0);
     ring.rotation.x = Math.PI / 2 + (index === 0 ? 0.2 : -0.14);
     group.add(ring);
     spinners.push(ring);
@@ -245,6 +264,13 @@ function buildFabricator(kit: Kit): BuildingModel {
   group.add(kit.skirt('fab-skirt', 3.6, 2.7, 0.9, cache.hull(team), [0, 0.72, 0]));
   group.add(kit.box('fab-hall', [3.2, 1.3, 2.3], cache.hull(team), [0, 1.75, 0], 0.08));
   group.add(kit.box('fab-roof', [3.4, 0.24, 2.5], cache.hull(team), [0, 2.45, 0], 0.05));
+  group.add(kit.drum('fab-roof-socket', 1.1, 1.25, 0.18, cache.frame(team), [0, 2.63, 0], 8));
+  group.add(kit.drum('fab-roof-armour', 0.96, 1.08, 0.18, cache.hull(team), [0, 2.79, 0], 8));
+  group.add(kit.drum('fab-roof-hatch', 0.64, 0.72, 0.12, cache.plate(team), [0, 2.94, 0], 8));
+  for (const side of [-1, 1]) {
+    group.add(kit.box('fab-side-rail', [0.16, 0.16, 2.0], cache.steel(), [side * 1.5, 2.66, 0], 0.03));
+    for (let vent = 0; vent < 5; vent++) group.add(kit.box('fab-side-vent', [0.05, 0.12, 0.65], cache.frame(team), [side * 1.62, 1.65 + vent * 0.13, 0], 0.01));
+  }
   group.add(kit.box('fab-cabin', [1.4, 0.7, 1.1], cache.plate(team), [-0.7, 2.9, 0.3], 0.06));
   group.add(kit.strip('fab-cabin-strip', [1.2, 0.08, 0.08], [-0.7, 3.2, -0.25]));
   group.add(kit.strip('fab-edge', [3.3, 0.07, 0.07], [0, 2.4, -1.25]));
@@ -277,8 +303,11 @@ function buildWall(kit: Kit): BuildingModel {
   group.add(kit.box('wall-slab', [4.0, 1.5, 0.7], cache.hull(team), [0, 1.05, 0], 0.06));
   group.add(kit.box('wall-cap', [4.0, 0.24, 0.84], cache.hull(team), [0, 1.9, 0], 0.03));
   for (const side of [-1, 1]) {
-    group.add(kit.strip('wall-panel', [1.1, 0.34, 0.06], [side * 1.0, 1.15, -0.38], 0, 1.6));
-    group.add(kit.strip('wall-panel', [1.1, 0.34, 0.06], [side * 1.0, 1.15, 0.38], 0, 1.6));
+    group.add(kit.box('wall-joint', [0.14, 1.62, 0.83], cache.frame(team), [side * 1.93, 1.08, 0], 0.025));
+    for (const face of [-1, 1]) {
+      group.add(kit.box('wall-inset', [1.72, 0.64, 0.1], cache.plate(team), [side, 1.18, face * 0.4], 0.04));
+      group.add(kit.strip('wall-panel', [0.55, 0.07, 0.06], [side, 1.15, face * 0.47], 0, 1.3));
+    }
   }
   group.add(kit.strip('wall-ridge', [3.9, 0.06, 0.06], [0, 2.05, 0], 0, 1.8));
   group.add(kit.lamp('wall-lamp', [1.8, 2.08, 0], 0.1));
@@ -334,20 +363,21 @@ function buildTurret(kit: Kit): BuildingModel {
   return { group, spinners, column: visor, arm: head, pickable: kit.pickable, generationParts: [] };
 }
 
-/** Heavy Foundry: a broad octagonal furnace hall with three reactor stacks and a forge mouth. */
+/** Heavy Foundry: a broad armoured furnace hall with twin reactor stacks and a forge mouth. */
 function buildFoundry(kit: Kit): BuildingModel {
   const { cache, team } = kit;
   const group = new THREE.Group();
   group.add(kit.box('foundry-floor', [5.1, 0.3, 4.1], cache.frame(team), [0, 0.15, 0], 0.05));
   group.add(kit.skirt('foundry-skirt', 4.4, 3.5, 1.0, cache.hull(team), [0, 0.8, 0]));
-  group.add(kit.drum('foundry-hall', 2.1, 2.35, 1.5, cache.hull(team), [0, 2.0, 0]));
-  group.add(kit.ringStrips('foundry-hall-strip', 2.12, 2.65, 1.5, 0.07, 8, 2.4));
-  group.add(kit.drum('foundry-deck', 1.75, 2.1, 0.4, cache.hull(team), [0, 2.95, 0]));
-  for (const [index, angle] of [-0.9, 0, 0.9].entries()) {
-    const x = Math.sin(angle) * 1.1; const z = -Math.cos(angle) * 0.4 + 0.3;
+  group.add(kit.box('foundry-hall', [4.2, 1.5, 3.3], cache.hull(team), [0, 2.0, 0], 0.18));
+  group.add(kit.box('foundry-deck', [3.7, 0.28, 2.85], cache.frame(team), [0, 2.86, 0], 0.12));
+  group.add(kit.box('foundry-upper-plate', [2.7, 0.28, 2.1], cache.hull(team), [0, 3.08, 0], 0.12));
+  for (const [index, x] of [-0.85, 0.85].entries()) {
+    const z = -0.45;
     group.add(kit.drum(`foundry-stack-${index}`, 0.42, 0.5, 1.8, cache.plate(team), [x, 4.0, z], 8));
     group.add(kit.ringStrips('foundry-stack-strip', 0.44, 4.7, 0.3, 0.05, 8, 2.4, [x, 0, z]));
-    group.add(kit.glowMesh('foundry-stack-top', () => new THREE.CylinderGeometry(0.34, 0.34, 0.12, 8), [x, 4.95, z], 2.6));
+    group.add(kit.drum('foundry-stack-lip', 0.5, 0.5, 0.16, cache.hull(team), [x, 4.95, z], 8));
+    group.add(kit.glowMesh('foundry-stack-top', () => new THREE.CylinderGeometry(0.29, 0.29, 0.12, 8), [x, 5.05, z], 1.2));
   }
   const mouth = kit.strip('foundry-mouth', [1.6, 1.0, 0.1], [0, 1.0, -2.05], 0, 1.6);
   group.add(mouth);
@@ -372,17 +402,21 @@ function buildFoundry(kit: Kit): BuildingModel {
 function buildHabitat(kit: Kit): BuildingModel {
   const { cache, team } = kit;
   const group = new THREE.Group();
-  group.add(kit.drum('habitat-plinth', 1.6, 1.7, 0.3, cache.frame(team), [0, 0.15, 0], 6));
-  group.add(kit.drum('habitat-shell', 1.3, 1.5, 1.3, cache.hull(team), [0, 0.95, 0], 6));
-  group.add(kit.ringStrips('habitat-strip', 1.4, 1.2, 0.9, 0.07, 6, 1.8));
-  group.add(kit.drum('habitat-roof', 1.0, 1.35, 0.4, cache.plate(team), [0, 1.8, 0], 6));
-  group.add(kit.drum('habitat-dome', 0.5, 0.7, 0.35, cache.hull(team), [0, 2.15, 0], 6));
-  group.add(kit.strip('habitat-door', [0.6, 0.7, 0.08], [0, 0.7, -1.47], 0, 1.3));
-  for (const angle of [Math.PI / 3, -Math.PI / 3, Math.PI]) {
-    group.add(kit.strip('habitat-window', [0.5, 0.18, 0.06], [Math.sin(angle) * 1.44, 1.15, -Math.cos(angle) * 1.44], angle, 1.5));
+  group.add(kit.box('habitat-plinth', [3.1, 0.28, 3.0], cache.frame(team), [0, 0.14, 0], 0.1));
+  group.add(kit.skirt('habitat-shell', 2.6, 2.5, 1.65, cache.hull(team), [0, 1.05, 0]));
+  group.add(kit.box('habitat-roof', [2.35, 0.25, 2.25], cache.hull(team), [0, 1.98, 0], 0.12));
+  group.add(kit.box('habitat-recess', [1.55, 0.15, 1.7], cache.frame(team), [0, 2.12, 0], 0.06));
+  for (const side of [-1, 1]) {
+    group.add(kit.box('habitat-rail', [0.28, 0.55, 2.35], cache.hull(team), [side * 1.0, 2.05, 0], 0.07));
+    group.add(kit.box('habitat-foot', [0.5, 0.75, 0.8], cache.frame(team), [side * 1.25, 0.5, 1.1], 0.08));
+    group.add(kit.strip('habitat-foot-light', [0.06, 0.3, 0.05], [side * 1.26, 0.6, 1.52], 0, 1.2));
   }
-  group.add(kit.lamp('habitat-lamp', [0.8, 2.02, -0.5]));
-  group.add(kit.antenna('habitat-antenna', [-0.5, 2.0, 0.4], 0.8));
+  group.add(kit.drum('habitat-extractor', 0.29, 0.4, 1.12, cache.plate(team), [-0.5, 2.68, -0.45], 8));
+  group.add(kit.drum('habitat-extractor-cap', 0.4, 0.4, 0.14, cache.hull(team), [-0.5, 3.27, -0.45], 8));
+  group.add(kit.box('habitat-front-door', [1.8, 1.12, 0.18], cache.frame(team), [0, 0.9, 1.31], 0.06));
+  group.add(kit.box('habitat-front-hazard', [1.0, 0.1, 0.06], cache.hazard(), [0, 1.38, 1.43], 0.01));
+  for (let slot = 0; slot < 3; slot++) group.add(kit.box('habitat-door-slat', [1.35, 0.1, 0.06], cache.plate(team), [0, 0.55 + slot * 0.22, 1.43], 0.02));
+  group.add(kit.lamp('habitat-lamp', [0.3, 2.28, 0.2]));
   return { group, spinners: [], column: null, arm: null, pickable: kit.pickable, generationParts: [] };
 }
 
@@ -744,7 +778,24 @@ export function buildBuildingModel(cache: ResourceCache, kind: BuildingTypeId, t
                       : kind === 'datalab' ? buildDatalab(kit)
                         : buildFoundry(kit);
   const upgrades = generationUpgrades(kit, kind);
+  if (['fabricator', 'foundry', 'depot', 'reclaimer', 'datalab'].includes(kind)) {
+    const [width, depth] = BUILDINGS[kind].footprint;
+    for (const side of [-1, 1]) {
+      const brace = kit.box(`${kind}-front-brace`, [0.38, 1.6, 0.5], cache.frame(team), [side * (width / 2 - 0.3), 1.0, depth / 2 - 0.1], 0.08);
+      model.group.add(brace);
+      model.group.add(kit.box(`${kind}-brace-plate`, [0.42, 0.6, 0.2], cache.hull(team), [side * (width / 2 - 0.3), 1.55, depth / 2 + 0.16], 0.06));
+      model.group.add(kit.strip(`${kind}-brace-optic`, [0.06, 0.62, 0.04], [side * (width / 2 - 0.3), 0.95, depth / 2 + 0.18], 0, 1.2));
+    }
+    model.group.add(kit.box(`${kind}-service-panel`, [width * 0.55, 0.96, 0.16], cache.frame(team), [0, 0.86, depth / 2 + 0.02], 0.08));
+    for (let slot = 0; slot < 4; slot++) model.group.add(kit.box(`${kind}-vent-slat`, [width * 0.44, 0.08, 0.06], cache.plate(team), [0, 0.55 + slot * 0.19, depth / 2 + 0.12], 0.01));
+    model.group.add(kit.box(`${kind}-service-warning`, [width * 0.35, 0.09, 0.06], cache.hazard(), [0, 1.43, depth / 2 + 0.13], 0.01));
+  }
+  detailBuilding(model.group, kind, cache, team, id);
+  model.group.traverse((object) => {
+    if (object instanceof THREE.Mesh && object.userData.entityId === id && !kit.pickable.includes(object)) kit.pickable.push(object);
+  });
   for (const entry of upgrades) model.group.add(entry.part);
+  applyMachineryMaterials(model.group, cache, team);
   return mergeStatic({ ...model, generationParts: [...model.generationParts, ...upgrades] }, cache, kind, team, id);
 }
 

@@ -54,7 +54,7 @@ export function GameHud() {
   return (
     <div className="hud" aria-live="polite">
       <header className="hud-top">
-        <div className="brand"><span className="brand-mark">A</span><div><strong>AGE OF AGENTS</strong><small>GENERATION {generation} · {GENERATIONS[generation].label.toUpperCase()}</small></div></div>
+        <div className="brand"><span className="brand-mark"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 4 44 39H4Z M24 15 35 34H13Z M24 4V0 M4 39 0 46 M44 39 48 46"/><circle cx="24" cy="26" r="5"/></svg></span><div><strong>AGE OF AGENTS</strong><small>GENERATION {generation} · {GENERATIONS[generation].label.toUpperCase()}</small></div></div>
         <div className="resource-bar" aria-label="Player economy">
           <Resource kind="matter" glyph="◆" label="MATTER" amount={matter} rate={income.matter} />
           <Resource kind="energy" glyph="ϟ" label="ENERGY" amount={energy} rate={income.energy} />
@@ -65,9 +65,11 @@ export function GameHud() {
       </header>
 
       <aside className="objective-panel">
-        <span className="eyebrow">COLONY DIRECTIVE</span>
-        <strong>{mode === 'freestyle' ? 'Grow the colony, evolve the technology' : 'Destroy the enemy Core'}</strong>
-        <div className="cost-row"><span>WORKER</span><b>◆ {UNITS.worker.cost.matter}</b></div>
+        <details>
+        <summary><span className="eyebrow">COLONY DIRECTIVE</span><strong>{mode === 'freestyle' ? 'Grow the colony, evolve the technology' : 'Destroy the enemy Core'}</strong></summary>
+        <p>{mode === 'freestyle' ? 'Gather resources, expand your settlement, and unlock the next generation.' : 'A rival intelligence is building its own colony. Expand, mass Strikers, and strike first.'}</p>
+        <div className="cost-row"><span>WORKER COST</span><b>◆ {UNITS.worker.cost.matter} MATTER</b></div>
+        </details>
       </aside>
 
       {alert && <div key={alert.nonce} className="combat-alert" role="alert">
@@ -87,9 +89,15 @@ export function GameHud() {
         <div className="deck-actions">
           {selection.synthesis && <SynthesisActions plant={selection.synthesis} />}
           {selection.canRelocate && <RelocateAction />}
-          {selection.constructionSite ? <ConstructionActions /> : selection.producer ? <ProductionActions unitTypes={selection.producer} isCore={selection.isPlayerCore} /> : selection.canBuild ? <WorkerActions /> : selection.canRelocate ? null : <div className="controls"><span><kbd>RMB</kbd> MOVE · GATHER · ATTACK</span><span><kbd>ZQSD</kbd> PAN</span><span><kbd>PINCH</kbd> ZOOM</span></div>}
+          {selection.constructionSite ? <ConstructionActions /> : selection.producer ? <ProductionActions unitTypes={selection.producer} isCore={selection.isPlayerCore} /> : selection.canRelocate ? null : <div className="controls"><span><kbd>RMB</kbd> MOVE · GATHER · ATTACK</span><span><kbd>ZQSD</kbd> PAN</span><span><kbd>PINCH</kbd> ZOOM</span></div>}
         </div>
       </footer>
+      <aside className="construction-deck" aria-label="Construction catalog">
+        <details className="construction-drawer">
+          <summary>Construction <span>{selection.canBuild ? 'Worker ready' : 'Select a Worker to build'}</span></summary>
+          <WorkerActions enabled={selection.canBuild} />
+        </details>
+      </aside>
       <SelectionBox />
       <DebugPanel />
       <EndScreen />

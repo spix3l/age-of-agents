@@ -137,7 +137,7 @@ export class Renderer {
     if (this.aoEnabled) composer.addPass(gtao);
     // Strength and threshold tuned so only the emissive strips bloom: the reference glows at
     // the seams, it does not wash the whole frame.
-    const bloom = new UnrealBloomPass(new THREE.Vector2(width, height), 0.32, 0.5, 0.95);
+    const bloom = new UnrealBloomPass(new THREE.Vector2(width, height), 0.18, 0.35, 1.15);
     bloom.enabled = this.quality !== 'low';
     composer.addPass(bloom);
     composer.addPass(new OutputPass());

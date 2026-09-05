@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { MAP_BOUNDS, MAP_SIZE } from '../../game/world/map';
+import { MAP_BOUNDS, MAP_SIZE, WORLD_OBSTACLES } from '../../game/world/map';
 import { useUiStore } from '../store';
 
 const SIZE = 190;
@@ -44,6 +44,20 @@ export function Minimap() {
 
     context.fillStyle = '#0d1a1f';
     context.fillRect(0, 0, SIZE, SIZE);
+    // Terrain is public geography; unit intelligence below still uses the vision snapshot.
+    for (let row = 0; row < SIZE; row += 3) {
+      for (let col = 0; col < SIZE; col += 3) {
+        const shade = Math.sin(col * 0.13 + Math.cos(row * 0.08)) * Math.cos(row * 0.11);
+        context.fillStyle = shade > 0.2 ? '#1c2a24' : shade < -0.3 ? '#142321' : '#182723';
+        context.fillRect(col, row, 3, 3);
+      }
+    }
+    for (const obstacle of WORLD_OBSTACLES) {
+      context.fillStyle = '#34403a';
+      context.beginPath();
+      context.ellipse(toCanvasX(obstacle.center.x), toCanvasY(obstacle.center.z), obstacle.size.x / MAP_SIZE.width * SIZE / 2, obstacle.size.z / MAP_SIZE.depth * SIZE / 2, obstacle.rotation ?? 0, 0, Math.PI * 2);
+      context.fill();
+    }
 
     // Fog first, as the ground itself: unknown stays near-black, explored is dim, visible is lit.
     const { fog, fogWidth, fogHeight } = minimap;

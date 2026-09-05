@@ -1,5 +1,7 @@
 import * as THREE from 'three';
-import { MAP_BOUNDS, MAP_MARGIN, MAP_SIZE, WORLD_OBSTACLES, type WorldObstacle } from './map';
+import { surfaceTexture } from '../rendering/models/surface';
+import { MAP_BOUNDS, MAP_MARGIN, MAP_SIZE, START_POSITIONS, WORLD_OBSTACLES, type WorldObstacle } from './map';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 /**
  * Everything on the battlefield that is scenery rather than an entity: the rolling ground,
@@ -158,15 +160,22 @@ export class Environment {
       const speckle = hash2(Math.round(x * 2), Math.round(z * 2));
 
       // Grass: deep and saturated in the drifts, paler and yellower on the high, dry ground.
-      const hue = 0.238 + drift * 0.042 - mid * 0.012;
-      const saturation = 0.34 + drift * 0.24;
-      const lightness = 0.19 + drift * 0.1 + mid * 0.05 + speckle * 0.028;
+      const hue = 0.22 + drift * 0.045 - mid * 0.015;
+      const saturation = 0.42 + drift * 0.22;
+      const lightness = 0.12 + drift * 0.075 + mid * 0.04 + speckle * 0.028;
       color.setHSL(hue, saturation, lightness);
 
       // Bare earth shows through wherever the grass thins out, which is what stops a large field
       // from reading as one printed colour.
-      const bare = smoothstep(0.56, 0.78, mid * 0.65 + (1 - drift) * 0.35);
+      const bare = smoothstep(0.51, 0.72, mid * 0.65 + (1 - drift) * 0.35);
       if (bare > 0) color.lerp(EARTH, bare * 0.72);
+      for (const origin of Object.values(START_POSITIONS)) {
+        const dx = x - origin.x; const dz = z - origin.z;
+        const clearing = 1 - smoothstep(16, 28, Math.hypot(dx, dz));
+        const trail = Math.min(Math.abs(dz - 1.8 - Math.sin(dx * 0.28) * 1.1), Math.abs(dx + 5.5 - Math.sin(dz * 0.3)));
+        const wear = (1 - smoothstep(0.35, 1.9, trail + (speckle - 0.5) * 0.8)) * clearing;
+        color.lerp(EARTH, wear * 0.48);
+      }
       // Slopes are scoured: the steeper the ground, the more rock and the less grass.
       const slope = Math.min(1, Math.abs(terrainHeight(x + 1.5, z) - terrainHeight(x - 1.5, z))
         + Math.abs(terrainHeight(x, z + 1.5) - terrainHeight(x, z - 1.5)));
@@ -185,7 +194,10 @@ export class Environment {
     }
     geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     geometry.computeVertexNormals();
-    const material = this.track(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0, flatShading: true }));
+    const texture = this.track(surfaceTexture(256, true));
+    texture.repeat.set(width / 12, depth / 12);
+    texture.anisotropy = 8;
+    const material = this.track(new THREE.MeshStandardMaterial({ vertexColors: true, map: texture, bumpMap: texture, bumpScale: 0.045, roughness: 1, metalness: 0 }));
     const mesh = new THREE.Mesh(geometry, material);
     mesh.receiveShadow = true;
     mesh.name = 'terrain';
@@ -322,7 +334,25 @@ export class Environment {
     const pines = trees.filter((tree) => tree.pine);
     const trunkGeometry = this.geometry('tree-trunk', () => new THREE.CylinderGeometry(0.14, 0.24, 1, 5));
     const roundGeometry = this.geometry('tree-round', () => new THREE.IcosahedronGeometry(1, 0));
-    const pineGeometry = this.geometry('tree-pine', () => new THREE.ConeGeometry(0.85, 2.1, 6));
+    const pineGeometry = this.geometry('tree-pine', () => {
+      const layers: THREE.BufferGeometry[] = [];
+      for (let tier = 0; tier < 4; tier++) {
+        const cone = new THREE.ConeGeometry(0.85 - tier * 0.15, 1.05, 9);
+        const vertices = cone.getAttribute('position');
+        for (let vertex = 0; vertex < vertices.count; vertex++) {
+          const angle = Math.atan2(vertices.getZ(vertex), vertices.getX(vertex));
+          const wobble = 1 + Math.sin(angle * 5 + tier * 2) * 0.15;
+          vertices.setX(vertex, vertices.getX(vertex) * wobble);
+          vertices.setZ(vertex, vertices.getZ(vertex) * wobble);
+        }
+        cone.translate(0, tier * 0.42 - 0.54, 0);
+        cone.computeVertexNormals();
+        layers.push(cone);
+      }
+      const merged = mergeGeometries(layers)!;
+      for (const layer of layers) layer.dispose();
+      return merged;
+    });
     const trunkMaterial = this.material('tree-trunk', 0x4a3524, 1, 0);
     const leafMaterial = this.material('tree-leaf', 0xffffff, 0.95, 0);
 

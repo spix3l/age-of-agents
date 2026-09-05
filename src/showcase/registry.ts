@@ -101,7 +101,8 @@ function inGameBuilder(name: string): ((cache: ResourceCache) => THREE.Group) | 
 }
 
 function entryFor(item: ManifestEntry): ModelEntry {
-  const generated = GENERATED_MODELS[item.name];
+  const generated = new URLSearchParams(globalThis.location?.search ?? '').get('source') === 'game' && inGameBuilder(item.name)
+    ? undefined : GENERATED_MODELS[item.name];
   const inGame = generated ? null : inGameBuilder(item.name);
   const build = generated ? () => generated() : inGame;
   return {

@@ -15,7 +15,7 @@ import { MAP_BOUNDS, START_POSITIONS } from '../world/map';
  */
 const PITCH = THREE.MathUtils.degToRad(45);
 const FIELD_OF_VIEW = 34;
-const DEFAULT_DISTANCE = 78;
+const DEFAULT_DISTANCE = 56;
 const MIN_DISTANCE = 28;
 const MAX_DISTANCE = 180;
 
@@ -33,7 +33,7 @@ export function panDirectionForKey(key: string): PanDirection | null {
 
 export class RTSCameraController {
   readonly camera: THREE.PerspectiveCamera;
-  private readonly focus = new THREE.Vector3(START_POSITIONS.player.x + 6, 0, START_POSITIONS.player.z - 6);
+  private readonly focus = new THREE.Vector3(START_POSITIONS.player.x + 3, 0, START_POSITIONS.player.z + 1);
   private readonly pressed = new Set<string>();
   private distance = DEFAULT_DISTANCE;
 

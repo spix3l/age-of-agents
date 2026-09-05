@@ -44,7 +44,9 @@ describe('procedural models', () => {
     const titan = buildUnitModel(cache, 'titan', 'player', 't-1');
     expect(ranger.barrel).not.toBeNull();
     expect(scout.hover).not.toBeNull();
-    expect(titan.legs).toHaveLength(4);
+    expect(titan.legs).toHaveLength(2);
+    expect(titan.arms).toHaveLength(2);
+    expect(scout.legs).toHaveLength(4);
     expect(titan.barrel).not.toBeNull();
     cache.dispose();
   });

@@ -23,6 +23,9 @@ interface UnitVisual {
   readonly orderBeacon: THREE.Group;
   readonly health: HealthBar;
   readonly model: UnitModel;
+  readonly harvest: THREE.Group | null;
+  harvestContact: THREE.Vector3 | null;
+  harvestNode: EntityId | null;
   /** Walk-cycle phase, facing angle, and weapon recoil are per-unit animation state. */
   phase: number;
   yaw: number;
@@ -188,13 +191,20 @@ export class WorldScene {
   }
 
   showShot(from: Vec2, to: Vec2, team: Team, targetHeight = 0.9, attacker?: EntityId): void {
-    this.effects.spawnShot(from, to, team, 1.05, targetHeight);
-    this.effects.spawnImpact(to, team, targetHeight);
     const visual = attacker ? this.units.get(attacker) : undefined;
-    if (!visual) return;
-    // Kick the barrel and point the shooter at what it just hit.
-    visual.recoil = 1;
-    visual.aimYaw = Math.atan2(to.x - from.x, to.z - from.z) + Math.PI;
+    if (visual) {
+      visual.recoil = 1;
+      visual.aimYaw = Math.atan2(to.x - from.x, to.z - from.z) + Math.PI;
+      visual.yaw = visual.aimYaw;
+      visual.group.rotation.y = visual.yaw;
+      visual.group.updateMatrixWorld(true);
+    }
+    const muzzles = visual?.model.muzzles ?? [];
+    if (muzzles.length) for (const muzzle of muzzles) {
+      const start = muzzle.getWorldPosition(new THREE.Vector3());
+      this.effects.spawnShot(start, to, team, start.y, targetHeight);
+    } else this.effects.spawnShot(from, to, team, 1.05, targetHeight);
+    this.effects.spawnImpact(to, team, targetHeight);
   }
 
   showDestruction(at: Vec2, team: Team, scale = 1): void {
@@ -268,6 +278,7 @@ export class WorldScene {
   addUnit(unit: UnitEntity): void {
     const model = buildUnitModel(this.cache, unit.kind, unit.team, unit.id);
     const group = model.group;
+    group.name = `unit-${unit.id}`;
     group.position.set(unit.position.x, 0, unit.position.z);
 
     const ring = new THREE.Mesh(
@@ -280,10 +291,18 @@ export class WorldScene {
     const orderBeacon = this.createOrderBeacon();
     const health = this.createHealthBar(1.15, 1.75);
     group.add(ring, orderBeacon, health.group);
+    const harvest = unit.kind === 'worker' ? new THREE.Group() : null;
+    if (harvest) {
+      harvest.name = 'harvest-effect'; harvest.visible = false;
+      const material = this.cache.basic('harvest-light', { color: 0x78e6ff, toneMapped: false });
+      harvest.add(new THREE.Mesh(this.cache.geometry('harvest-beam', () => new THREE.CylinderGeometry(0.018, 0.018, 1, 5)), material));
+      harvest.add(new THREE.Mesh(this.cache.geometry('harvest-contact', () => new THREE.IcosahedronGeometry(0.08, 0)), material));
+      group.add(harvest);
+    }
 
     this.scene.add(group);
     this.selectableMeshes.push(...model.pickable);
-    this.units.set(unit.id, { group, ring, orderBeacon, health, model, phase: 0, yaw: unit.team === 'player' ? 0 : Math.PI, aimYaw: null, recoil: 0 });
+    this.units.set(unit.id, { group, ring, orderBeacon, health, model, harvest, harvestContact: null, harvestNode: null, phase: 0, yaw: unit.team === 'player' ? 0 : Math.PI, aimYaw: null, recoil: 0 });
   }
 
   addBuilding(building: BuildingEntity): void {
@@ -370,8 +389,8 @@ export class WorldScene {
     this.resources.set(node.id, { group, ring, resource });
   }
 
-  syncUnits(units: readonly UnitEntity[], alpha: number): void {
-    const frame = 1 / 60;
+  syncUnits(units: readonly UnitEntity[], alpha: number, delta = 1 / 60): void {
+    const frame = Math.max(0, Math.min(delta, 0.1));
     this.animationTime += frame;
     for (const unit of units) {
       const visual = this.units.get(unit.id);
@@ -408,12 +427,19 @@ export class WorldScene {
   private animateUnit(visual: UnitVisual, unit: UnitEntity, frame: number): void {
     const dx = unit.position.x - unit.previousPosition.x;
     const dz = unit.position.z - unit.previousPosition.z;
-    const speed = Math.hypot(dx, dz) / Math.max(frame, 1e-4);
-    const moving = speed > 0.05;
+    const moving = Math.hypot(dx, dz) > 0.001;
+    const speed = moving ? unit.movementSpeed : 0;
+    const attacking = unit.activity === 'Attacking' || visual.recoil > 0.05;
+    const node = unit.gatherOrder ? this.resources.get(unit.gatherOrder.resourceId) : undefined;
+    const mining = !moving && !attacking && unit.gatherOrder?.state === 'extracting' && node?.group.visible === true;
+    const blend = 1 - Math.exp(-frame * 16);
+    const target = unit.combat.targetId ? this.units.get(unit.combat.targetId) ?? this.buildings.get(unit.combat.targetId) : undefined;
+    if (target) visual.aimYaw = Math.atan2(target.group.position.x - unit.position.x, target.group.position.z - unit.position.z) + Math.PI;
 
     // Face the direction of travel, or the current target when standing and shooting.
     let desiredYaw = visual.yaw;
     if (moving) desiredYaw = Math.atan2(dx, dz) + Math.PI;
+    else if (mining) desiredYaw = Math.atan2(node.group.position.x - unit.position.x, node.group.position.z - unit.position.z) + Math.PI;
     else if (visual.aimYaw !== null) desiredYaw = visual.aimYaw;
     visual.yaw = approachAngle(visual.yaw, desiredYaw, 7 * frame);
     visual.group.rotation.y = visual.yaw;
@@ -423,15 +449,17 @@ export class WorldScene {
     const walker = unit.kind !== 'scout';
     visual.model.legs.forEach((leg, index) => {
       const swing = moving ? Math.sin(visual.phase + index * Math.PI) : 0;
-      if (!walker) { leg.rotation.z += frame * 2.2; return; }
+      if (!walker) { leg.rotation.y += frame * 22; return; }
       const stride = unit.kind === 'titan' ? 0.2 : unit.kind === 'ranger' ? 0.45 : 0.6;
-      leg.rotation.x = swing * stride;
+      leg.rotation.x = THREE.MathUtils.lerp(leg.rotation.x, swing * stride, blend);
       const rest = typeof leg.userData.restY === 'number' ? leg.userData.restY : leg.position.y;
       leg.position.y = rest + Math.max(0, swing) * 0.05;
     });
     visual.model.arms.forEach((arm, index) => {
       const swing = moving ? Math.sin(visual.phase + index * Math.PI + Math.PI) : 0;
-      arm.rotation.x = unit.kind === 'worker' ? swing * 0.5 : swing * 0.12;
+      const work = mining ? (index === 1 ? 0.75 + Math.sin(this.animationTime * 18) * 0.065 : 0.2) : 0;
+      const aim = attacking ? 0.06 + visual.recoil * 0.06 : 0;
+      arm.rotation.x = THREE.MathUtils.lerp(arm.rotation.x, work || aim || (unit.kind === 'worker' ? swing * 0.5 : swing * 0.12), blend);
     });
     if (walker) visual.group.position.y = moving ? Math.abs(Math.sin(visual.phase)) * (unit.kind === 'titan' ? 0.03 : 0.05) : 0;
     if (visual.model.hover) visual.model.hover.position.y = 1.15 + Math.sin(this.animationTime * 3 + unit.position.x) * 0.12;
@@ -442,19 +470,35 @@ export class WorldScene {
       const ratio = Math.max(0, Math.min(1, unit.cargo.amount / 10));
       cargo.visible = ratio > 0;
       cargo.scale.set(0.4 + ratio * 0.6, 0.4 + ratio * 0.6, 0.4 + ratio * 0.6);
-      if (unit.cargo.type) {
-        const material = (cargo as THREE.Mesh).material as THREE.MeshStandardMaterial;
-        // Cargo material is shared per team, so tint a clone-free way: swap emissive intensity only.
-        material.emissiveIntensity = 0.6 + ratio * 1.4;
-      }
     }
 
-    // Weapon recoil decays back to rest after each shot.
-    visual.recoil = Math.max(0, visual.recoil - frame * 4);
-    if (visual.model.barrel) visual.model.barrel.position.z = -0.3 + visual.recoil * 0.28;
-    if (visual.model.optic) {
-      const optic = (visual.model.optic as THREE.Mesh).material as THREE.MeshStandardMaterial;
-      optic.emissiveIntensity = 1.6 + visual.recoil * 2.4;
+    // Short kick, damped recovery. Eyes stay steady; both Titan weapons recoil together.
+    visual.recoil *= Math.exp(-frame * 18);
+    for (const weapon of visual.model.weapons) weapon.position.z = -0.3 + visual.recoil * 0.065;
+    if (visual.model.tool && mining) visual.model.tool.rotateY(frame * 42);
+    if (visual.harvest) {
+      visual.harvest.visible = mining;
+      if (!mining) { visual.harvestContact = null; visual.harvestNode = null; }
+      if (mining && visual.model.tool) {
+        visual.group.updateMatrixWorld(true);
+        const start = visual.group.worldToLocal(visual.model.tool.localToWorld(new THREE.Vector3(0, 0.115, 0)));
+        if (!visual.harvestContact || visual.harvestNode !== unit.gatherOrder!.resourceId) {
+          const contact = node.group.position.clone(); contact.y = 0.75;
+          const origin = visual.group.position.clone(); origin.y = 0.75;
+          node.group.updateMatrixWorld(true);
+          // Raycast once on entering extraction, rather than every frame for every Worker.
+          const ray = new THREE.Raycaster(origin, contact.clone().sub(origin).normalize());
+          const hit = ray.intersectObject(node.resource?.group ?? node.group, true)[0];
+          visual.harvestContact = hit ? hit.point.clone().lerp(origin, 0.025) : contact;
+          visual.harvestNode = unit.gatherOrder!.resourceId;
+        }
+        const end = visual.group.worldToLocal(visual.harvestContact.clone());
+        const beam = visual.harvest.children[0]!; const spark = visual.harvest.children[1]!;
+        beam.position.copy(start).lerp(end, 0.5);
+        beam.scale.y = start.distanceTo(end);
+        beam.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), end.clone().sub(start).normalize());
+        spark.position.copy(end); spark.scale.setScalar(0.8 + Math.sin(this.animationTime * 31) * 0.25);
+      }
     }
   }
 
@@ -486,8 +530,7 @@ export class WorldScene {
         });
       }
       if (visual.parts.column) {
-        const material = (visual.parts.column as THREE.Mesh).material as THREE.MeshStandardMaterial;
-        material.emissiveIntensity = 1.8 + Math.sin(this.animationTime * 2.2 + building.position.x) * 0.5;
+        visual.parts.column.scale.y = 1 + Math.sin(this.animationTime * 2.2 + building.position.x) * 0.025;
       }
       if (visual.parts.arm) {
         const working = building.productionQueue.length > 0 || running;

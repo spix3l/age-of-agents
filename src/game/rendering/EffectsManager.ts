@@ -20,8 +20,8 @@ const TEAM_COLORS: Readonly<Record<Team, number>> = { player: 0x7ef2ff, enemy: 0
 export class EffectsManager {
   private readonly pools: Record<EffectKind, THREE.Object3D[]> = { shot: [], impact: [], death: [] };
   private readonly active: ActiveEffect[] = [];
-  private readonly shotGeometry = new THREE.CylinderGeometry(0.06, 0.06, 1, 5, 1, true);
-  private readonly impactGeometry = new THREE.IcosahedronGeometry(0.42, 0);
+  private readonly shotGeometry = new THREE.CylinderGeometry(0.03, 0.03, 1, 5, 1, true);
+  private readonly impactGeometry = new THREE.IcosahedronGeometry(0.2, 0);
   private readonly deathGeometry = new THREE.IcosahedronGeometry(0.75, 0);
   private readonly created: Record<EffectKind, number> = { shot: 0, impact: 0, death: 0 };
   private dropped = 0;

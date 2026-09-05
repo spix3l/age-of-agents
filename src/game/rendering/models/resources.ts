@@ -34,6 +34,24 @@ export function buildResourceModel(cache: ResourceCache, type: HarvestableResour
   bed.userData.entityId = id;
   pickable.push(bed);
   group.add(bed);
+  // Broken rubble gives the deposit an irregular ground contact instead of a polygon pedestal.
+  const rubble = new THREE.InstancedMesh(
+    cache.geometry('deposit-rubble', () => new THREE.DodecahedronGeometry(1, 0)),
+    cache.standard(`${type}-rubble-material`, { color: isMatter ? 0x555a5b : isEnergy ? 0x293b48 : 0x39303f, roughness: 0.96, flatShading: true }),
+    24,
+  );
+  const dummy = new THREE.Object3D();
+  for (let index = 0; index < 24; index++) {
+    const angle = index * 2.399963;
+    const radius = 1.15 + (index % 5) * 0.25;
+    const size = 0.13 + (index % 4) * 0.075;
+    dummy.position.set(Math.cos(angle) * radius, size * 0.52, Math.sin(angle) * radius);
+    dummy.rotation.set(index * 0.7, angle, index * 0.4);
+    dummy.scale.set(size * 1.2, size * 0.8, size);
+    dummy.updateMatrix(); rubble.setMatrixAt(index, dummy.matrix);
+  }
+  rubble.castShadow = rubble.receiveShadow = true;
+  rubble.userData.entityId = id; pickable.push(rubble); group.add(rubble);
 
   if (isMatter) {
     const stone = cache.standard('matter-stone', { color: 0x9b9489, roughness: 0.92, metalness: 0.05 });
@@ -58,19 +76,31 @@ export function buildResourceModel(cache: ResourceCache, type: HarvestableResour
   }
 
   const bodyMaterial = cache.standard(`${type}-body`, isEnergy
-    ? { color: 0x5fe3d0, emissive: 0x1fb3a2, emissiveIntensity: 1.1, roughness: 0.22, metalness: 0.1 }
-    : { color: 0xc3a4ff, emissive: 0x7d5ae0, emissiveIntensity: 1.2, roughness: 0.25, metalness: 0.16 });
-  const count = isEnergy ? 7 : 5;
+    ? { color: 0x169ddf, emissive: 0x07578b, emissiveIntensity: 0.25, roughness: 0.32, metalness: 0.12, flatShading: true }
+    : { color: 0x9652bd, emissive: 0x4f197b, emissiveIntensity: 0.2, roughness: 0.4, metalness: 0.08, flatShading: true });
+  const count = 11;
   for (let index = 0; index < count; index += 1) {
     const mesh = new THREE.Mesh(
-      cache.geometry(`${type}-shard-${index % 3}`, () => (isEnergy
-        ? new THREE.ConeGeometry(0.3 + (index % 3) * 0.1, 1.6 + (index % 3) * 0.7, 5)
-        : new THREE.CylinderGeometry(0.18, 0.3, 1.5 + (index % 2) * 0.5, 4))),
+      cache.geometry(`${type}-shard-${index % 3}`, () => {
+        const geometry = new THREE.CylinderGeometry(0.36, 0.44, 1.6 + (index % 3) * 0.5, 5, 2);
+        const vertices = geometry.getAttribute('position');
+        for (let v = 0; v < vertices.count; v++) {
+          if (vertices.getY(v) > 0.6) {
+            vertices.setX(v, vertices.getX(v) * 0.12);
+            vertices.setZ(v, vertices.getZ(v) * 0.12);
+          }
+        }
+        geometry.computeVertexNormals();
+        return geometry;
+      }),
       bodyMaterial,
     );
     const angle = (index / count) * Math.PI * 2;
-    const radius = isEnergy ? (index === 0 ? 0 : 0.85) : 1.1;
+    const radius = index === 0 ? 0 : index < 5 ? 0.65 : 1.2;
     mesh.position.set(Math.cos(angle) * radius, isEnergy ? 0.9 : 0.95 + (index % 2) * 0.25, Math.sin(angle) * radius);
+    const scale = index === 0 ? 1.35 : index < 5 ? 0.95 : 0.45 + (index % 3) * 0.12;
+    mesh.scale.setScalar(scale);
+    mesh.position.y = (isEnergy ? 0.9 : 0.95) * scale;
     mesh.rotation.set(isEnergy ? (index === 0 ? 0 : 0.22) : 0, angle + (isEnergy ? 0 : Math.PI / 4), isEnergy && index > 0 ? 0.14 : 0);
     if (isEnergy && index > 0) mesh.rotation.z = Math.cos(angle) * 0.28;
     mesh.castShadow = true;
@@ -88,6 +118,7 @@ export function buildResourceModel(cache: ResourceCache, type: HarvestableResour
   );
   halo.rotation.x = Math.PI / 2;
   halo.position.y = 0.35;
+  halo.visible = false;
   group.add(halo);
   shards.push(halo);
 

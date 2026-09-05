@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import type { Team } from '../../types/simulation';
+import { surfaceTexture } from './surface';
 
 export interface TeamPalette {
   /** Faction-tinted accent plating: shoulder pads, roof caps, banners. */
@@ -26,7 +27,7 @@ export interface TeamPalette {
  * the two also differ strongly in brightness.
  */
 export const TEAM_PALETTE: Readonly<Record<Team, TeamPalette>> = Object.freeze({
-  player: { plate: 0x46586a, plateDark: 0x2c3a49, hull: 0x8d99a6, frame: 0x1e2732, glow: 0x29d5f5 },
+  player: { plate: 0x515a60, plateDark: 0x2c353b, hull: 0x9b9b96, frame: 0x242b30, glow: 0x29d5f5 },
   enemy: { plate: 0x6a5044, plateDark: 0x44322a, hull: 0x9a8f88, frame: 0x2a2220, glow: 0xf5a623 },
   neutral: { plate: 0x51585f, plateDark: 0x353b41, hull: 0x8b9299, frame: 0x232830, glow: 0x9fd0d8 },
 });
@@ -53,8 +54,19 @@ export function paletteFor(team: Team): TeamPalette {
  * hundred-unit battle costs a handful of GPU resources instead of hundreds.
  */
 export class ResourceCache {
+  private readonly surface = surfaceTexture(64);
   private readonly geometries = new Map<string, THREE.BufferGeometry>();
   private readonly materials = new Map<string, THREE.Material>();
+  private readonly textures = new Map<string, THREE.Texture>();
+
+  /** Lazily owned maps: material disposal alone does not release GPU textures. */
+  texture<T extends THREE.Texture>(key: string, build: () => T): T {
+    const existing = this.textures.get(key);
+    if (existing) return existing as T;
+    const created = build();
+    this.textures.set(key, created);
+    return created;
+  }
 
   geometry<T extends THREE.BufferGeometry>(key: string, build: () => T): T {
     const existing = this.geometries.get(key);
@@ -98,12 +110,12 @@ export class ResourceCache {
 
   /** The main armour plate: light gunmetal, the largest surface on any structure. */
   hull(team: Team): THREE.MeshStandardMaterial {
-    return this.standard(`hull-${team}`, { color: paletteFor(team).hull, roughness: 0.42, metalness: 0.5 });
+    return this.standard(`hull-${team}`, { color: paletteFor(team).hull, map: this.surface, bumpMap: this.surface, bumpScale: 0.025, roughness: 0.62, metalness: 0.25 });
   }
 
   /** Light armour plating for Agents; the same white as structures. */
   armour(team: Team): THREE.MeshStandardMaterial {
-    return this.standard(`armour-${team}`, { color: UNIT_ARMOUR[team] ?? UNIT_ARMOUR.neutral, roughness: 0.4, metalness: 0.45 });
+    return this.standard(`armour-${team}`, { color: UNIT_ARMOUR[team] ?? UNIT_ARMOUR.neutral, map: this.surface, bumpMap: this.surface, bumpScale: 0.008, roughness: 0.6, metalness: 0.28 });
   }
 
   /** The dark navy chassis everything is bolted onto. Glossy, so it catches a rim highlight. */
@@ -134,7 +146,7 @@ export class ResourceCache {
     // difference -- it is just a few hundred draw calls in a built-up colony.
     const step = Math.max(0.5, Math.round(intensity * 2) / 2);
     return this.standard(`glow-${team}-${step}`, {
-      color, emissive: color, emissiveIntensity: step * 0.8, roughness: 0.22, metalness: 0,
+      color, emissive: color, emissiveIntensity: step * 0.38, roughness: 0.3, metalness: 0,
     });
   }
 
@@ -155,6 +167,9 @@ export class ResourceCache {
   }
 
   dispose(): void {
+    this.surface.dispose();
+    for (const texture of this.textures.values()) texture.dispose();
+    this.textures.clear();
     for (const geometry of this.geometries.values()) geometry.dispose();
     for (const material of this.materials.values()) material.dispose();
     this.geometries.clear();
