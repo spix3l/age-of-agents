@@ -56,7 +56,6 @@ Press **HOW TO PLAY** on the main menu for the in-game version. In short:
 | `?scenario=showcase` | Every building and Agent laid out for art review |
 | `?army=N` | Strikers per side in the battle scenario (1–100) |
 | `?post=off` | Disables post-processing |
-| `/model-lab.html` | Standalone art-review page: a generated model beside its source crop |
 
 ## Architecture
 

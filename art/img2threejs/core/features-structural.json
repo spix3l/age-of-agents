@@ -1,6 +1,0 @@
-[
- {"id":"tier-profile","score":0.8,"tier":"critical","threshold":0.8,
-  "notes":"Unchanged from blockout and still holding: thin wide plinth, widest pod ring, inset drum, narrowed crown, hexagonal footprint, axial beam."},
- {"id":"radial-repetition","score":0.84,"tier":"critical","threshold":0.8,
-  "notes":"Every ring is now a real parented component with an explicit attachment contract rather than an instancing hint: 6 feet and 6 fascia bands under the plinth, 6 pods (each with its own cap plate child) under the lower ring, 6 fins under the drum offset half a step from the pods, 8 plates under the collar. The hierarchy is three deep at the pods (ring -> pod -> cap), which is what the structural pass is for."}
-]

@@ -1,6 +1,0 @@
-[
- {"id":"tier-profile","score":0.8,"tier":"critical","threshold":0.8,
-  "notes":"The stepped three-tier profile now reads: a thin wide plinth, a lower pod ring at the widest span, an inset mid drum and a narrower crown, all on a hexagonal footprint, with the axial beam on the vertical axis. Radii and tier heights were taken from a row-by-row measurement of the reference silhouette (body 118 px against a 145 px widest span, ratio 0.814), not estimated. Residual: the crown reads as a flat cap rather than the reference's dome shoulder of leaning plates -- that lean is form-refinement work and is targeted there, not here."},
- {"id":"radial-repetition","score":0.82,"tier":"critical","threshold":0.8,
-  "notes":"All four rings are present and correctly ordered: 6 buttress feet, 6 fascia bands, 6 pods, 6 fins offset half a step from the pods, and 8 collar plates. Verified from four azimuths; the ring reads the same from every side, as radial symmetry requires."}
-]

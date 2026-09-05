@@ -1,5 +1,4 @@
 import { defineConfig } from 'vitest/config';
-import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
@@ -7,16 +6,6 @@ export default defineConfig({
   // The game is a static bundle with no backend, so it deploys to a domain root by default.
   // Set BASE_PATH at build time to serve it from a sub-path instead (e.g. BASE_PATH=/game/).
   base: process.env.BASE_PATH ?? '/',
-  build: {
-    rollupOptions: {
-      // `model-lab.html` is a standalone art-review page: one model at a time, next to the crop
-      // it was reconstructed from. It ships separately from the game entry.
-      input: {
-        game: fileURLToPath(new URL('index.html', import.meta.url)),
-        'model-lab': fileURLToPath(new URL('model-lab.html', import.meta.url)),
-      },
-    },
-  },
   test: {
     environment: 'node',
     include: ['src/**/*.test.{ts,tsx}'],
